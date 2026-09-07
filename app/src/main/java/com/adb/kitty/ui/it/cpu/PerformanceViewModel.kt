@@ -57,10 +57,10 @@ data class PerformanceSample(
     val batteryTemp: Float = 0f,
     val batteryLevel: Int = 0,
     val batteryCurrentMa: Float = 0f,
-    val ramTotalGb: Float = 0f,     // RAM 总量 (GB)
-    val ramAvailGb: Float = 0f,     // RAM 可用量 (GB)
-    val zramTotalGb: Float = 0f,    // ZRAM 总量 (GB)
-    val zramAvailGb: Float = 0f,    // ZRAM 可用量 (GB)
+    val ramTotalGb: Float = 0f,
+    val ramAvailGb: Float = 0f,
+    val zramTotalGb: Float = 0f,
+    val zramAvailGb: Float = 0f,
     val gpuFreqGhz: Float = 0f,
     val gpuLoadPercent: Float = 0f,
     val gpuMinFreqGhz: Float = 0f,
@@ -78,8 +78,7 @@ data class PerformanceUiState(
     val batteryLevel: Int = 0,
     val batteryCurrentMa: Float = 0f,
     val batteryCurrentHistory: List<Float> = emptyList(),
-    
-    // RAM & ZRAM 状态
+
     val ramTotalGb: Float = 0f,
     val ramAvailGb: Float = 0f,
     val ramAvailHistory: List<Float> = emptyList(),
@@ -117,7 +116,6 @@ class PerformanceViewModel : ViewModel() {
     private val recordingBuffer = mutableListOf<PerformanceSample>()
     private var recordingStartTimeMs: Long = 0L
 
-    // 屏幕测速 API
     private var displayManager: DisplayManager? = null
     private var frameCount = 0
     private var lastFpsCalculateTime = System.currentTimeMillis()

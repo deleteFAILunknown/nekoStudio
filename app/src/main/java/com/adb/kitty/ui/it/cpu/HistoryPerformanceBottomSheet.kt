@@ -276,7 +276,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
             maxVal = tempDeltaMax,
             lineColor = Color(0xFFFF5722),
             unit = "°C",
-            valueFormat = "%.2f",
+            valueFormat = "%.1f",
             displayValue = tempTypeList.lastOrNull() ?: 0f
         )
 
