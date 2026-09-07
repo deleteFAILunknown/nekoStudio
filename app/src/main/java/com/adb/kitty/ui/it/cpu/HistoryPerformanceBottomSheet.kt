@@ -207,23 +207,47 @@ private fun HistoryGraphView(history: HistoryRecording) {
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("时长", fontSize = 9.sp, color = Color.Gray)
-                    Text("${history.durationSeconds} 秒", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Text(
+                        text = "${history.durationSeconds} 秒",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("平均帧率", fontSize = 9.sp, color = Color.Gray)
-                    Text(String.format(Locale.US, "%.2f FPS", avgFps), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF4CAF50))
+                    Text(
+                        text = String.format(Locale.US, "%.2f FPS", avgFps),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        color = Color(0xFF4CAF50)
+                    )
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("电量/最高温度", fontSize = 9.sp, color = Color.Gray)
-                    Text("$lastBatteryLevel% / ${String.format(Locale.US, "%.1f", maxTemp)}°C", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFFFF5722))
+                    Text(
+                        text = "$lastBatteryLevel% / ${String.format(Locale.US, "%.1f", maxTemp)}°C",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        color = Color(0xFFFF5722)
+                    )
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("平均放电电流", fontSize = 9.sp, color = Color.Gray)
-                    Text(String.format(Locale.US, "%.0f mA", avgCurrent), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFFFF9800))
+                    Text(
+                        text = String.format(Locale.US, "%.0f mA", avgCurrent),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        color = Color(0xFFFF9800)
+                    )
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("WLAN/蜂窝流量", fontSize = 9.sp, color = Color.Gray)
-                    Text(String.format(Locale.US, "%.1f / %.1f MB", lastWlanTotal, lastCellTotal), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF00BCD4))
+                    Text(
+                        text = "${formatMb(lastWlanTotal)} / ${formatMb(lastCellTotal)}",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        color = Color(0xFF00BCD4)
+                    )
                 }
             }
         }
@@ -237,9 +261,21 @@ private fun HistoryGraphView(history: HistoryRecording) {
             unit = "FPS"
         )
 
+        val wlanTotalStr = formatMb(lastWlanTotal)
+        val cellTotalStr = formatMb(lastCellTotal)
+
+        HistoryChartCard(
+            title = "WLAN 上传网速 (KB/s)",
+            limitText = String.format(Locale.US, "录制总流量: %s | 丢包率: %.2f%%", wlanTotalStr, samples.lastOrNull()?.wlanLossRate ?: 0f),
+            data = samples.map { it.wlanTxSpeedKbps },
+            maxVal = (samples.maxOfOrNull { it.wlanTxSpeedKbps } ?: 100f).coerceAtLeast(50f),
+            lineColor = Color(0xFF0288D1),
+            unit = "KB/s"
+        )
+
         HistoryChartCard(
             title = "WLAN 下载网速 (KB/s)",
-            limitText = String.format(Locale.US, "录制总流量: %.2f MB | 丢包率: %.2f%%", lastWlanTotal, samples.lastOrNull()?.wlanLossRate ?: 0f),
+            limitText = String.format(Locale.US, "录制总流量: %s | 丢包率: %.2f%%", wlanTotalStr, samples.lastOrNull()?.wlanLossRate ?: 0f),
             data = samples.map { it.wlanRxSpeedKbps },
             maxVal = (samples.maxOfOrNull { it.wlanRxSpeedKbps } ?: 100f).coerceAtLeast(50f),
             lineColor = Color(0xFF00BCD4),
@@ -247,8 +283,17 @@ private fun HistoryGraphView(history: HistoryRecording) {
         )
 
         HistoryChartCard(
+            title = "蜂窝网络上传网速 (KB/s)",
+            limitText = String.format(Locale.US, "录制总流量: %s | 丢包率: %.2f%%", cellTotalStr, samples.lastOrNull()?.cellLossRate ?: 0f),
+            data = samples.map { it.cellTxSpeedKbps },
+            maxVal = (samples.maxOfOrNull { it.cellTxSpeedKbps } ?: 100f).coerceAtLeast(50f),
+            lineColor = Color(0xFFC2185B),
+            unit = "KB/s"
+        )
+
+        HistoryChartCard(
             title = "蜂窝网络下载网速 (KB/s)",
-            limitText = String.format(Locale.US, "录制总流量: %.2f MB | 丢包率: %.2f%%", lastCellTotal, samples.lastOrNull()?.cellLossRate ?: 0f),
+            limitText = String.format(Locale.US, "录制总流量: %s | 丢包率: %.2f%%", cellTotalStr, samples.lastOrNull()?.cellLossRate ?: 0f),
             data = samples.map { it.cellRxSpeedKbps },
             maxVal = (samples.maxOfOrNull { it.cellRxSpeedKbps } ?: 100f).coerceAtLeast(50f),
             lineColor = Color(0xFFE91E63),

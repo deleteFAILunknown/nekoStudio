@@ -236,6 +236,14 @@ fun NetworkStatusCard(
     }
 }
 
+fun formatMb(mb: Float): String {
+    return if (mb >= 1024f) {
+        String.format(Locale.US, "%.2f GB", mb / 1024f)
+    } else {
+        String.format(Locale.US, "%.2f MB", mb)
+    }
+}
+
 @Composable
 private fun NetworkSectionItem(
     title: String,
@@ -250,7 +258,7 @@ private fun NetworkSectionItem(
         ) {
             Text(title, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             Text(
-                text = String.format(Locale.US, "↓ %.1f KB/s  ↑ %.1f KB/s", metric.rxSpeedKbps, metric.txSpeedKbps),
+                text = String.format(Locale.US, "↓ %.2f KB/s  ↑ %.2f KB/s", metric.rxSpeedKbps, metric.txSpeedKbps),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 color = lineColor
@@ -262,8 +270,12 @@ private fun NetworkSectionItem(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            val totalStr = formatMb(metric.totalMb)
+            val rxStr = formatMb(metric.rxTotalMb)
+            val txStr = formatMb(metric.txTotalMb)
+
             Text(
-                text = String.format(Locale.US, "总量: %.2f MB (↓%.1f/↑%.1f)", metric.totalMb, metric.rxTotalMb, metric.txTotalMb),
+                text = "总量: $totalStr (↓$rxStr/↑$txStr)",
                 fontSize = 10.sp,
                 color = Color.Gray
             )
