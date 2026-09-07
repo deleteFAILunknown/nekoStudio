@@ -193,12 +193,12 @@ fun MemoryStatusCard(
     val minRam = ramHistory.minOrNull() ?: 0f
     val maxRam = ramHistory.maxOrNull() ?: 0f
     val relativeRamHistory = ramHistory.map { it - minRam }
-    val ramDeltaMax = (maxRam - minRam).coerceAtLeast(0.05f)
+    val ramDeltaMax = (maxRam - minRam).coerceAtLeast(0.3f)
 
     val minZram = zramHistory.minOrNull() ?: 0f
     val maxZram = zramHistory.maxOrNull() ?: 0f
     val relativeZramHistory = zramHistory.map { it - minZram }
-    val zramDeltaMax = (maxZram - minZram).coerceAtLeast(0.05f)
+    val zramDeltaMax = (maxZram - minZram).coerceAtLeast(0.3f)
 
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
