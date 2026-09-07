@@ -189,10 +189,16 @@ fun MemoryStatusCard(
     val zramUsedGb = (zramTotalGb - zramAvailGb).coerceAtLeast(0f)
     val ramUsedPercent = if (ramTotalGb > 0) (ramUsedGb / ramTotalGb) * 100f else 0f
     val zramUsedPercent = if (zramTotalGb > 0) (zramUsedGb / zramTotalGb) * 100f else 0f
-    val minRam = (ramHistory.minOrNull() ?: 0f) * 0.95f
-    val maxRam = (ramHistory.maxOrNull() ?: 1f) * 1.05f
-    val minZram = (zramHistory.minOrNull() ?: 0f) * 0.95f
-    val maxZram = (zramHistory.maxOrNull() ?: 1f) * 1.05f
+
+    val minRam = ramHistory.minOrNull() ?: 0f
+    val maxRam = ramHistory.maxOrNull() ?: 0f
+    val relativeRamHistory = ramHistory.map { it - minRam }
+    val ramDeltaMax = (maxRam - minRam).coerceAtLeast(0.05f)
+
+    val minZram = zramHistory.minOrNull() ?: 0f
+    val maxZram = zramHistory.maxOrNull() ?: 0f
+    val relativeZramHistory = zramHistory.map { it - minZram }
+    val zramDeltaMax = (maxZram - minZram).coerceAtLeast(0.05f)
 
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
@@ -225,9 +231,8 @@ fun MemoryStatusCard(
                 )
             }
             MetricLineChart(
-                data = ramHistory,
-                minVal = minRam,
-                maxVal = maxRam,
+                data = relativeRamHistory,
+                maxVal = ramDeltaMax,
                 lineColor = Color(0xFF2196F3),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -256,9 +261,8 @@ fun MemoryStatusCard(
                 )
             }
             MetricLineChart(
-                data = zramHistory,
-                minVal = minZram,
-                maxVal = maxZram,
+                data = relativeZramHistory,
+                maxVal = zramDeltaMax,
                 lineColor = Color(0xFF00BCD4),
                 modifier = Modifier
                     .fillMaxWidth()
