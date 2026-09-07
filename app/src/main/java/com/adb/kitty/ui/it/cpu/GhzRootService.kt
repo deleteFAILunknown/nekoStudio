@@ -86,6 +86,69 @@ class GhzRootService : RootService() {
                     0f
                 }
             }
+            
+            override fun getNetworkStats(): LongArray {
+                var cellRxB = 0L
+                var cellTxB = 0L
+                var cellRxP = 0L
+                var cellTxP = 0L
+                var cellErrDropRx = 0L
+                var cellErrDropTx = 0L
+                var wlanRxB = 0L
+                var wlanTxB = 0L
+                var wlanRxP = 0L
+                var wlanTxP = 0L
+                var wlanErrDropRx = 0L
+                var wlanErrDropTx = 0L
+
+                try {
+                    File("/proc/net/dev").forEachLine { line ->
+                        val trimmed = line.trim()
+                        if (!trimmed.contains(":")) return@forEachLine
+
+                        val parts = trimmed.split(":", limit = 2)
+                        if (parts.size != 2) return@forEachLine
+
+                        val iface = parts[0].trim().lowercase()
+
+                        if (iface == "lo" || iface.startsWith("rmnet_ipa")) return@forEachLine
+
+                        val stats = parts[1].trim().split("\\s+".toRegex())
+                        if (stats.size >= 12) {
+                            val rxB = stats[0].toLongOrNull() ?: 0L
+                            val rxP = stats[1].toLongOrNull() ?: 0L
+                            val rxE = stats[2].toLongOrNull() ?: 0L
+                            val rxD = stats[3].toLongOrNull() ?: 0L
+                            val txB = stats[8].toLongOrNull() ?: 0L
+                            val txP = stats[9].toLongOrNull() ?: 0L
+                            val txE = stats[10].toLongOrNull() ?: 0L
+                            val txD = stats[11].toLongOrNull() ?: 0L
+
+                            if (iface.startsWith("wlan") || iface.startsWith("ap") || 
+                            iface.startsWith("p2p") || iface.startsWith("swlan")) {
+                                wlanRxB += rxB; wlanTxB += txB; wlanRxP += rxP; wlanTxP += txP
+                                wlanErrDropRx += (rxE + rxD); wlanErrDropTx += (txE + txD)
+                            }
+
+                            else if (iface.startsWith("rmnet") || iface.startsWith("ccmni") ||
+                                iface.startsWith("pdp") || iface.startsWith("wwan") ||
+                                iface.startsWith("v4-") || iface.startsWith("seth") || 
+                                iface.startsWith("pnd") || iface.startsWith("clat") ||
+                                iface.startsWith("usb")) {
+                                cellRxB += rxB; cellTxB += txB; cellRxP += rxP; cellTxP += txP
+                                cellErrDropRx += (rxE + rxD); cellErrDropTx += (txE + txD)
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+
+                return longArrayOf(
+                    cellRxB, cellTxB, cellRxP, cellTxP, cellErrDropRx, cellErrDropTx,
+                    wlanRxB, wlanTxB, wlanRxP, wlanTxP, wlanErrDropRx, wlanErrDropTx
+                )
+            }
         }
     }
 }

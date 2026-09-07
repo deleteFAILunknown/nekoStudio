@@ -5,4 +5,5 @@ interface ICpuBinder {
     float[] getCpuCoreLimits(int core);
     float[] getGpuMetrics();
     float[] getSystemMetrics();
+    long[] getNetworkStats();
 }

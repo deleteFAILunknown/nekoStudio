@@ -237,48 +237,35 @@ class PerformanceViewModel : ViewModel() {
     }
 
     private fun readProcNetDev(): Pair<RawNetStats, RawNetStats> {
-        var cellRxB = 0L; var cellTxB = 0L; var cellRxP = 0L; var cellTxP = 0L; var cellErrDropRx = 0L; var cellErrDropTx = 0L
-        var wlanRxB = 0L; var wlanTxB = 0L; var wlanRxP = 0L; var wlanTxP = 0L; var wlanErrDropRx = 0L; var wlanErrDropTx = 0L
-
-        try {
-            File("/proc/net/dev").forEachLine { line ->
-                val trimmed = line.trim()
-                if (trimmed.contains(":")) {
-                    val parts = trimmed.split(":", limit = 2)
-                    if (parts.size == 2) {
-                        val iface = parts[0].trim().lowercase()
-                        val stats = parts[1].trim().split("\\s+".toRegex())
-                        if (stats.size >= 12) {
-                            val rxB = stats[0].toLongOrNull() ?: 0L
-                            val rxP = stats[1].toLongOrNull() ?: 0L
-                            val rxE = stats[2].toLongOrNull() ?: 0L
-                            val rxD = stats[3].toLongOrNull() ?: 0L
-                            val txB = stats[8].toLongOrNull() ?: 0L
-                            val txP = stats[9].toLongOrNull() ?: 0L
-                            val txE = stats[10].toLongOrNull() ?: 0L
-                            val txD = stats[11].toLongOrNull() ?: 0L
-
-                            if (iface.startsWith("wlan") || iface.startsWith("ap") || iface.startsWith("p2p")) {
-                                wlanRxB += rxB; wlanTxB += txB; wlanRxP += rxP; wlanTxP += txP
-                                wlanErrDropRx += (rxE + rxD); wlanErrDropTx += (txE + txD)
-                            } else if (iface.startsWith("rmnet") || iface.startsWith("ccmni") ||
-                                iface.startsWith("pdp") || iface.startsWith("wwan") ||
-                                iface.startsWith("v4-") || iface.startsWith("seth")) {
-                                cellRxB += rxB; cellTxB += txB; cellRxP += rxP; cellTxP += txP
-                                cellErrDropRx += (rxE + rxD); cellErrDropTx += (txE + txD)
-                            }
-                        }
-                    }
-                }
+        val binder = rootBinder ?: return Pair(RawNetStats(), RawNetStats())
+        return try {
+            val stats = binder.networkStats
+            if (stats != null && stats.size >= 12) {
+                Pair(
+                    RawNetStats(
+                        rxBytes = stats[0],
+                        txBytes = stats[1],
+                        rxPackets = stats[2],
+                        txPackets = stats[3],
+                        rxErrorsDrops = stats[4],
+                        txErrorsDrops = stats[5]
+                    ),
+                    RawNetStats(
+                        rxBytes = stats[6],
+                        txBytes = stats[7],
+                        rxPackets = stats[8],
+                        txPackets = stats[9],
+                        rxErrorsDrops = stats[10],
+                        txErrorsDrops = stats[11]
+                    )
+                )
+            } else {
+                Pair(RawNetStats(), RawNetStats())
             }
         } catch (e: Exception) {
             e.printStackTrace()
+            Pair(RawNetStats(), RawNetStats())
         }
-
-        return Pair(
-            RawNetStats(cellRxB, cellTxB, cellRxP, cellTxP, cellErrDropRx, cellErrDropTx),
-            RawNetStats(wlanRxB, wlanTxB, wlanRxP, wlanTxP, wlanErrDropRx, wlanErrDropTx)
-        )
     }
 
     private fun getBatteryStats(): Pair<Int, Float> {
