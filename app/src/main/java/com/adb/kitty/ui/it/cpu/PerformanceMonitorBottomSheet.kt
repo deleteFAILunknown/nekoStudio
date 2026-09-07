@@ -129,6 +129,12 @@ fun CompletePerformanceMonitorBottomSheet(
             // 1. 全局系统指标卡片 (FPS / 刷新率 / 电池温度)
             SystemSummaryCard(state = uiState)
 
+            NetworkStatusCard(
+                cell = uiState.cellMetric,
+                wlan = uiState.wlanMetric,
+                isRecording = uiState.isRecording
+            )
+
             MemoryStatusCard(
                 ramTotalGb = uiState.ramTotalGb,
                 ramAvailGb = uiState.ramAvailGb,
@@ -173,6 +179,111 @@ fun CompletePerformanceMonitorBottomSheet(
                 }
             }
         }
+    }
+}
+
+@Composable
+fun NetworkStatusCard(
+    cell: NetworkMetric,
+    wlan: NetworkMetric,
+    isRecording: Boolean
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "🌐 网络状态监控 (/proc/net/dev)",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                if (isRecording) {
+                    Text(
+                        text = "● 录制期间增量统计中",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Red
+                    )
+                }
+            }
+
+            // WLAN 状态区
+            NetworkSectionItem(
+                title = "📶 WLAN 网络",
+                metric = wlan,
+                lineColor = Color(0xFF00BCD4)
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+
+            // 蜂窝网络状态区
+            NetworkSectionItem(
+                title = "📱 蜂窝移动网络",
+                metric = cell,
+                lineColor = Color(0xFFE91E63)
+            )
+        }
+    }
+}
+
+@Composable
+private fun NetworkSectionItem(
+    title: String,
+    metric: NetworkMetric,
+    lineColor: Color
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(title, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Text(
+                text = String.format(Locale.US, "↓ %.1f KB/s  ↑ %.1f KB/s", metric.rxSpeedKbps, metric.txSpeedKbps),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = lineColor
+            )
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = String.format(Locale.US, "总量: %.2f MB (↓%.1f/↑%.1f)", metric.totalMb, metric.rxTotalMb, metric.txTotalMb),
+                fontSize = 10.sp,
+                color = Color.Gray
+            )
+            Text(
+                text = String.format(Locale.US, "丢包率: %.2f%%", metric.lossRatePercent),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium,
+                color = if (metric.lossRatePercent > 1f) Color.Red else Color.Gray
+            )
+        }
+
+        Spacer(modifier = Modifier.height(2.dp))
+        MetricLineChart(
+            data = metric.rxSpeedHistory,
+            maxVal = (metric.rxSpeedHistory.maxOrNull() ?: 100f).coerceAtLeast(50f),
+            lineColor = lineColor,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(30.dp)
+        )
     }
 }
 

@@ -43,12 +43,53 @@ data class GpuMetric(
     val history: List<Float> = emptyList()
 )
 
+@Immutable
+data class NetworkMetric(
+    val rxSpeedKbps: Float = 0f,
+    val txSpeedKbps: Float = 0f,
+    val rxTotalMb: Float = 0f,
+    val txTotalMb: Float = 0f,
+    val lossRatePercent: Float = 0f,
+    val rxSpeedHistory: List<Float> = emptyList()
+) {
+    val totalMb: Float get() = rxTotalMb + txTotalMb
+}
+
 data class HistoryRecording(
     val file: File,
     val formattedDate: String,
     val durationSeconds: Int,
     val samples: List<PerformanceSample> = emptyList()
 )
+
+data class RawNetStats(
+    val rxBytes: Long = 0L,
+    val txBytes: Long = 0L,
+    val rxPackets: Long = 0L,
+    val txPackets: Long = 0L,
+    val rxErrorsDrops: Long = 0L,
+    val txErrorsDrops: Long = 0L
+) {
+    val totalBytes: Long get() = rxBytes + txBytes
+    val totalPackets: Long get() = rxPackets + txPackets
+    val totalErrorsDrops: Long get() = rxErrorsDrops + txErrorsDrops
+
+    fun calcPacketLossRate(): Float {
+        val denom = totalPackets + totalErrorsDrops
+        return if (denom > 0) (totalErrorsDrops.toFloat() / denom.toFloat()) * 100f else 0f
+    }
+
+    operator fun minus(other: RawNetStats): RawNetStats {
+        return RawNetStats(
+            rxBytes = (rxBytes - other.rxBytes).coerceAtLeast(0L),
+            txBytes = (txBytes - other.txBytes).coerceAtLeast(0L),
+            rxPackets = (rxPackets - other.rxPackets).coerceAtLeast(0L),
+            txPackets = (txPackets - other.txPackets).coerceAtLeast(0L),
+            rxErrorsDrops = (rxErrorsDrops - other.rxErrorsDrops).coerceAtLeast(0L),
+            txErrorsDrops = (txErrorsDrops - other.txErrorsDrops).coerceAtLeast(0L)
+        )
+    }
+}
 
 data class PerformanceSample(
     val timestampMs: Long,
@@ -66,7 +107,15 @@ data class PerformanceSample(
     val gpuMinFreqGhz: Float = 0f,
     val gpuMaxFreqGhz: Float = 0f,
     val cpuFreqsGhz: List<Float> = emptyList(),
-    val cpuHwLimitsGhz: List<Pair<Float, Float>> = emptyList()
+    val cpuHwLimitsGhz: List<Pair<Float, Float>> = emptyList(),
+    val cellRxSpeedKbps: Float = 0f,
+    val cellTxSpeedKbps: Float = 0f,
+    val cellTotalMb: Float = 0f,
+    val cellLossRate: Float = 0f,
+    val wlanRxSpeedKbps: Float = 0f,
+    val wlanTxSpeedKbps: Float = 0f,
+    val wlanTotalMb: Float = 0f,
+    val wlanLossRate: Float = 0f
 )
 
 @Immutable
@@ -89,6 +138,9 @@ data class PerformanceUiState(
     val fpsHistory: List<Float> = emptyList(),
     val gpuMetric: GpuMetric = GpuMetric(),
     val cpuCores: List<CpuCoreMetric> = emptyList(),
+
+    val cellMetric: NetworkMetric = NetworkMetric(),
+    val wlanMetric: NetworkMetric = NetworkMetric(),
     
     val currentResolution: String = "",
     val supportedDisplayModes: List<String> = emptyList(),
@@ -111,6 +163,18 @@ class PerformanceViewModel : ViewModel() {
     private val fpsHistory = ArrayDeque<Float>()
     private val gpuHistory = ArrayDeque<Float>()
     private val cpuHistories = HashMap<Int, ArrayDeque<Float>>()
+
+    // 网络统计中间变量
+    private var lastNetTimeMs: Long = 0L
+    private var lastCellRaw = RawNetStats()
+    private var lastWlanRaw = RawNetStats()
+    
+    private val cellRxSpeedHistory = ArrayDeque<Float>()
+    private val wlanRxSpeedHistory = ArrayDeque<Float>()
+
+    // 录制会话基准（Base Reference）
+    private var recBaseCellRaw: RawNetStats? = null
+    private var recBaseWlanRaw: RawNetStats? = null
 
     // 录制相关私有变量
     private val recordingBuffer = mutableListOf<PerformanceSample>()
@@ -170,6 +234,51 @@ class PerformanceViewModel : ViewModel() {
             val intent = Intent(context, GhzRootService::class.java)
             RootService.bind(intent, serviceConnection)
         }
+    }
+
+    private fun readProcNetDev(): Pair<RawNetStats, RawNetStats> {
+        var cellRxB = 0L; var cellTxB = 0L; var cellRxP = 0L; var cellTxP = 0L; var cellErrDropRx = 0L; var cellErrDropTx = 0L
+        var wlanRxB = 0L; var wlanTxB = 0L; var wlanRxP = 0L; var wlanTxP = 0L; var wlanErrDropRx = 0L; var wlanErrDropTx = 0L
+
+        try {
+            File("/proc/net/dev").forEachLine { line ->
+                val trimmed = line.trim()
+                if (trimmed.contains(":")) {
+                    val parts = trimmed.split(":", limit = 2)
+                    if (parts.size == 2) {
+                        val iface = parts[0].trim().lowercase()
+                        val stats = parts[1].trim().split("\\s+".toRegex())
+                        if (stats.size >= 12) {
+                            val rxB = stats[0].toLongOrNull() ?: 0L
+                            val rxP = stats[1].toLongOrNull() ?: 0L
+                            val rxE = stats[2].toLongOrNull() ?: 0L
+                            val rxD = stats[3].toLongOrNull() ?: 0L
+                            val txB = stats[8].toLongOrNull() ?: 0L
+                            val txP = stats[9].toLongOrNull() ?: 0L
+                            val txE = stats[10].toLongOrNull() ?: 0L
+                            val txD = stats[11].toLongOrNull() ?: 0L
+
+                            if (iface.startsWith("wlan") || iface.startsWith("ap") || iface.startsWith("p2p")) {
+                                wlanRxB += rxB; wlanTxB += txB; wlanRxP += rxP; wlanTxP += txP
+                                wlanErrDropRx += (rxE + rxD); wlanErrDropTx += (txE + txD)
+                            } else if (iface.startsWith("rmnet") || iface.startsWith("ccmni") ||
+                                iface.startsWith("pdp") || iface.startsWith("wwan") ||
+                                iface.startsWith("v4-") || iface.startsWith("seth")) {
+                                cellRxB += rxB; cellTxB += txB; cellRxP += rxP; cellTxP += txP
+                                cellErrDropRx += (rxE + rxD); cellErrDropTx += (txE + txD)
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        return Pair(
+            RawNetStats(cellRxB, cellTxB, cellRxP, cellTxP, cellErrDropRx, cellErrDropTx),
+            RawNetStats(wlanRxB, wlanTxB, wlanRxP, wlanTxP, wlanErrDropRx, wlanErrDropTx)
+        )
     }
 
     private fun getBatteryStats(): Pair<Int, Float> {
@@ -262,6 +371,10 @@ class PerformanceViewModel : ViewModel() {
     // 手动点击：开始录制
     fun startRecording() {
         recordingStartTimeMs = System.currentTimeMillis()
+        val (curCell, curWlan) = readProcNetDev()
+        recBaseCellRaw = curCell
+        recBaseWlanRaw = curWlan
+
         synchronized(recordingBuffer) {
             recordingBuffer.clear()
         }
@@ -274,9 +387,11 @@ class PerformanceViewModel : ViewModel() {
         }
     }
 
-    // 手动点击：停止录制
+    // 点击停止录制
     fun stopRecording() {
         val csv = generateCsvData()
+        recBaseCellRaw = null
+        recBaseWlanRaw = null
         _uiState.update {
             it.copy(
                 isRecording = false,
@@ -295,6 +410,7 @@ class PerformanceViewModel : ViewModel() {
             while (rootBinder != null) {
                 try {
                     val binder = rootBinder ?: break
+                    val nowMs = System.currentTimeMillis()
 
                     // 1. CPU
                     val cpuFreqs = binder.cpuCurrentFreqs
@@ -323,7 +439,7 @@ class PerformanceViewModel : ViewModel() {
                         history = gpuHistory.toList()
                     )
 
-                    // 3. System
+                    // 3. System & Memory
                     val sysData = binder.systemMetrics
                     val temp = sysData[0]
                     val (batLevel, batCurrentMa) = getBatteryStats()
@@ -339,13 +455,52 @@ class PerformanceViewModel : ViewModel() {
                     pushHistory(ramAvailHistory, memStats.ramAvailGb)
                     pushHistory(zramAvailHistory, memStats.zramAvailGb)
 
+                    // 5. Network (/proc/net/dev)
+                    val (curCellRaw, curWlanRaw) = readProcNetDev()
+                    val timeDeltaSec = if (lastNetTimeMs > 0) ((nowMs - lastNetTimeMs) / 1000f).coerceAtLeast(0.1f) else 1.0f
+
+                    val cellDelta = curCellRaw - lastCellRaw
+                    val wlanDelta = curWlanRaw - lastWlanRaw
+
+                    val cellRxSpeedKbps = (cellDelta.rxBytes / 1024f) / timeDeltaSec
+                    val cellTxSpeedKbps = (cellDelta.txBytes / 1024f) / timeDeltaSec
+                    val wlanRxSpeedKbps = (wlanDelta.rxBytes / 1024f) / timeDeltaSec
+                    val wlanTxSpeedKbps = (wlanDelta.txBytes / 1024f) / timeDeltaSec
+
+                    pushHistory(cellRxSpeedHistory, cellRxSpeedKbps)
+                    pushHistory(wlanRxSpeedHistory, wlanRxSpeedKbps)
+
+                    lastNetTimeMs = nowMs
+                    lastCellRaw = curCellRaw
+                    lastWlanRaw = curWlanRaw
+
+                    // 判定是否处在录制状态：如果是在录制状态，流量总量与丢包率仅计入录制阶段的 Delta 数据
                     val isRecordingActive = _uiState.value.isRecording
+                    
+                    val activeCellStats = if (isRecordingActive && recBaseCellRaw != null) curCellRaw - recBaseCellRaw!! else curCellRaw
+                    val activeWlanStats = if (isRecordingActive && recBaseWlanRaw != null) curWlanRaw - recBaseWlanRaw!! else curWlanRaw
+
+                    val cellMetric = NetworkMetric(
+                        rxSpeedKbps = cellRxSpeedKbps,
+                        txSpeedKbps = cellTxSpeedKbps,
+                        rxTotalMb = activeCellStats.rxBytes / (1024f * 1024f),
+                        txTotalMb = activeCellStats.txBytes / (1024f * 1024f),
+                        lossRatePercent = activeCellStats.calcPacketLossRate(),
+                        rxSpeedHistory = cellRxSpeedHistory.toList()
+                    )
+
+                    val wlanMetric = NetworkMetric(
+                        rxSpeedKbps = wlanRxSpeedKbps,
+                        txSpeedKbps = wlanTxSpeedKbps,
+                        rxTotalMb = activeWlanStats.rxBytes / (1024f * 1024f),
+                        txTotalMb = activeWlanStats.txBytes / (1024f * 1024f),
+                        lossRatePercent = activeWlanStats.calcPacketLossRate(),
+                        rxSpeedHistory = wlanRxSpeedHistory.toList()
+                    )
+
                     var durationSec = 0
-
                     if (isRecordingActive) {
-                        val nowMs = System.currentTimeMillis()
                         durationSec = ((nowMs - recordingStartTimeMs) / 1000).toInt()
-
                         val cpuHwLimits = cpuMetrics.map { Pair(it.minFreqGhz, it.maxFreqGhz) }
 
                         synchronized(recordingBuffer) {
@@ -366,7 +521,15 @@ class PerformanceViewModel : ViewModel() {
                                     gpuMinFreqGhz = gpuData[1],
                                     gpuMaxFreqGhz = gpuData[2],
                                     cpuFreqsGhz = cpuFreqs.toList(),
-                                    cpuHwLimitsGhz = cpuHwLimits
+                                    cpuHwLimitsGhz = cpuHwLimits,
+                                    cellRxSpeedKbps = cellRxSpeedKbps,
+                                    cellTxSpeedKbps = cellTxSpeedKbps,
+                                    cellTotalMb = cellMetric.totalMb,
+                                    cellLossRate = cellMetric.lossRatePercent,
+                                    wlanRxSpeedKbps = wlanRxSpeedKbps,
+                                    wlanTxSpeedKbps = wlanTxSpeedKbps,
+                                    wlanTotalMb = wlanMetric.totalMb,
+                                    wlanLossRate = wlanMetric.lossRatePercent
                                 )
                             )
                         }
@@ -390,6 +553,8 @@ class PerformanceViewModel : ViewModel() {
                             zramTotalGb = memStats.zramTotalGb,
                             zramAvailGb = memStats.zramAvailGb,
                             zramAvailHistory = zramAvailHistory.toList(),
+                            cellMetric = cellMetric,
+                            wlanMetric = wlanMetric,
                             recordedDurationSeconds = if (isRecordingActive) durationSec else 0
                         )
                     }
@@ -409,7 +574,7 @@ class PerformanceViewModel : ViewModel() {
         val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
         val sb = StringBuilder()
 
-        sb.append("Time,Timestamp(ms),FPS,RefreshRate(Hz),BatteryTemp(°C),BatteryLevel(%),BatteryCurrent(mA),RAM_Avail(GB),RAM_Total(GB),ZRAM_Avail(GB),ZRAM_Total(GB),GPU_Freq(GHz),GPU_Load(%),GPU_Min(GHz),GPU_Max(GHz)")
+        sb.append("Time,Timestamp(ms),FPS,RefreshRate(Hz),BatteryTemp(°C),BatteryLevel(%),BatteryCurrent(mA),RAM_Avail(GB),RAM_Total(GB),ZRAM_Avail(GB),ZRAM_Total(GB),GPU_Freq(GHz),GPU_Load(%),GPU_Min(GHz),GPU_Max(GHz),Cell_RxSpeed(KB/s),Cell_TxSpeed(KB/s),Cell_Total(MB),Cell_Loss(%),Wlan_RxSpeed(KB/s),Wlan_TxSpeed(KB/s),Wlan_Total(MB),Wlan_Loss(%)")
     
         val maxCpuCount = samples.maxOfOrNull { it.cpuFreqsGhz.size } ?: 0
         for (i in 0 until maxCpuCount) {
@@ -419,12 +584,13 @@ class PerformanceViewModel : ViewModel() {
 
         for (sample in samples) {
             val timeStr = dateFormat.format(Date(sample.timestampMs))
-            sb.append(String.format(Locale.US, "%s,%d,%.2f,%.2f,%.1f,%d,%.1f,%.2f,%.2f,%.2f,%.2f,%.3f,%.1f,%.3f,%.3f",
+            sb.append(String.format(Locale.US, "%s,%d,%.2f,%.2f,%.1f,%d,%.1f,%.2f,%.2f,%.2f,%.2f,%.3f,%.1f,%.3f,%.3f,%.1f,%.1f,%.2f,%.2f,%.1f,%.1f,%.2f,%.2f",
                 timeStr, sample.timestampMs, sample.fps, sample.refreshRate,
                 sample.batteryTemp, sample.batteryLevel, sample.batteryCurrentMa,
                 sample.ramAvailGb, sample.ramTotalGb, sample.zramAvailGb, sample.zramTotalGb,
-                sample.gpuFreqGhz, sample.gpuLoadPercent,
-                sample.gpuMinFreqGhz, sample.gpuMaxFreqGhz
+                sample.gpuFreqGhz, sample.gpuLoadPercent, sample.gpuMinFreqGhz, sample.gpuMaxFreqGhz,
+                sample.cellRxSpeedKbps, sample.cellTxSpeedKbps, sample.cellTotalMb, sample.cellLossRate,
+                sample.wlanRxSpeedKbps, sample.wlanTxSpeedKbps, sample.wlanTotalMb, sample.wlanLossRate
             ))
 
             for (i in 0 until maxCpuCount) {
@@ -546,7 +712,7 @@ class PerformanceViewModel : ViewModel() {
                 if (line.isEmpty()) continue
                 val tokens = line.split(",")
 
-                if (tokens.size >= 15) {
+                if (tokens.size >= 23) {
                     val timestampMs = tokens[1].toLongOrNull() ?: 0L
                     val fps = tokens[2].toFloatOrNull() ?: 0f
                     val refreshRate = tokens[3].toFloatOrNull() ?: 60f
@@ -562,10 +728,19 @@ class PerformanceViewModel : ViewModel() {
                     val gpuMinFreqGhz = tokens[13].toFloatOrNull() ?: 0f
                     val gpuMaxFreqGhz = tokens[14].toFloatOrNull() ?: 0f
 
+                    val cellRxSpeed = tokens[15].toFloatOrNull() ?: 0f
+                    val cellTxSpeed = tokens[16].toFloatOrNull() ?: 0f
+                    val cellTotalMb = tokens[17].toFloatOrNull() ?: 0f
+                    val cellLoss = tokens[18].toFloatOrNull() ?: 0f
+                    val wlanRxSpeed = tokens[19].toFloatOrNull() ?: 0f
+                    val wlanTxSpeed = tokens[20].toFloatOrNull() ?: 0f
+                    val wlanTotalMb = tokens[21].toFloatOrNull() ?: 0f
+                    val wlanLoss = tokens[22].toFloatOrNull() ?: 0f
+
                     val cpuFreqs = mutableListOf<Float>()
                     val cpuHwLimits = mutableListOf<Pair<Float, Float>>()
 
-                    var idx = 15
+                    var idx = 23
                     while (idx + 2 < tokens.size) {
                         val cur = tokens[idx].toFloatOrNull() ?: 0f
                         val min = tokens[idx + 1].toFloatOrNull() ?: 0f
@@ -593,7 +768,15 @@ class PerformanceViewModel : ViewModel() {
                             gpuMinFreqGhz = gpuMinFreqGhz,
                             gpuMaxFreqGhz = gpuMaxFreqGhz,
                             cpuFreqsGhz = cpuFreqs,
-                            cpuHwLimitsGhz = cpuHwLimits
+                            cpuHwLimitsGhz = cpuHwLimits,
+                            cellRxSpeedKbps = cellRxSpeed,
+                            cellTxSpeedKbps = cellTxSpeed,
+                            cellTotalMb = cellTotalMb,
+                            cellLossRate = cellLoss,
+                            wlanRxSpeedKbps = wlanRxSpeed,
+                            wlanTxSpeedKbps = wlanTxSpeed,
+                            wlanTotalMb = wlanTotalMb,
+                            wlanLossRate = wlanLoss
                         )
                     )
                 }

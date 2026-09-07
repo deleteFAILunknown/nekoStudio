@@ -183,6 +183,9 @@ private fun HistoryGraphView(history: HistoryRecording) {
     val maxGpuLoad = samples.maxOfOrNull { it.gpuLoadPercent } ?: 0f
     val maxCpuCount = samples.maxOfOrNull { it.cpuFreqsGhz.size } ?: 0
 
+    val lastCellTotal = samples.lastOrNull()?.cellTotalMb ?: 0f
+    val lastWlanTotal = samples.lastOrNull()?.wlanTotalMb ?: 0f
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -218,6 +221,10 @@ private fun HistoryGraphView(history: HistoryRecording) {
                     Text("平均放电电流", fontSize = 9.sp, color = Color.Gray)
                     Text(String.format(Locale.US, "%.0f mA", avgCurrent), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFFFF9800))
                 }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("WLAN/蜂窝流量", fontSize = 9.sp, color = Color.Gray)
+                    Text(String.format(Locale.US, "%.1f / %.1f MB", lastWlanTotal, lastCellTotal), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF00BCD4))
+                }
             }
         }
 
@@ -228,6 +235,24 @@ private fun HistoryGraphView(history: HistoryRecording) {
             maxVal = samples.maxOfOrNull { it.refreshRate }?.coerceAtLeast(60f) ?: 60f,
             lineColor = Color(0xFF4CAF50),
             unit = "FPS"
+        )
+
+        HistoryChartCard(
+            title = "WLAN 下载网速 (KB/s)",
+            limitText = String.format(Locale.US, "录制总流量: %.2f MB | 丢包率: %.2f%%", lastWlanTotal, samples.lastOrNull()?.wlanLossRate ?: 0f),
+            data = samples.map { it.wlanRxSpeedKbps },
+            maxVal = (samples.maxOfOrNull { it.wlanRxSpeedKbps } ?: 100f).coerceAtLeast(50f),
+            lineColor = Color(0xFF00BCD4),
+            unit = "KB/s"
+        )
+
+        HistoryChartCard(
+            title = "蜂窝网络下载网速 (KB/s)",
+            limitText = String.format(Locale.US, "录制总流量: %.2f MB | 丢包率: %.2f%%", lastCellTotal, samples.lastOrNull()?.cellLossRate ?: 0f),
+            data = samples.map { it.cellRxSpeedKbps },
+            maxVal = (samples.maxOfOrNull { it.cellRxSpeedKbps } ?: 100f).coerceAtLeast(50f),
+            lineColor = Color(0xFFE91E63),
+            unit = "KB/s"
         )
 
         val ramAvailList = samples.map { it.ramAvailGb }
