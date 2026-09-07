@@ -230,37 +230,54 @@ private fun HistoryGraphView(history: HistoryRecording) {
             unit = "FPS"
         )
 
-        // RAM 趋势图
+        val ramAvailList = samples.map { it.ramAvailGb }
+        val ramMin = ramAvailList.minOrNull() ?: 0f
+        val ramMax = ramAvailList.maxOrNull() ?: 0f
         val ramTotal = samples.lastOrNull()?.ramTotalGb ?: 1f
+        val ramDeltaMax = (ramMax - ramMin).coerceAtLeast(0.3f)
+
         HistoryChartCard(
             title = "RAM 可用内存 (GB)",
             limitText = String.format(Locale.US, "RAM 总量: %.3f GB", ramTotal),
-            data = samples.map { it.ramAvailGb },
-            maxVal = ramTotal,
+            data = ramAvailList.map { it - ramMin },
+            maxVal = ramDeltaMax,
             lineColor = Color(0xFF2196F3),
             unit = "GB",
-            valueFormat = "%.3f"
+            valueFormat = "%.3f",
+            displayValue = ramAvailList.lastOrNull() ?: 0f
         )
 
-        // ZRAM 趋势图
+        val zramAvailList = samples.map { it.zramAvailGb }
+        val zramMin = zramAvailList.minOrNull() ?: 0f
+        val zramMax = zramAvailList.maxOrNull() ?: 0f
         val zramTotal = samples.lastOrNull()?.zramTotalGb ?: 1f
+        val zramDeltaMax = (zramMax - zramMin).coerceAtLeast(0.3f)
+
         HistoryChartCard(
             title = "ZRAM 可用内存 (GB)",
             limitText = String.format(Locale.US, "ZRAM 总量: %.3f GB", zramTotal),
-            data = samples.map { it.zramAvailGb },
-            maxVal = zramTotal,
+            data = zramAvailList.map { it - zramMin },
+            maxVal = zramDeltaMax,
             lineColor = Color(0xFF00BCD4),
             unit = "GB",
-            valueFormat = "%.3f"
+            valueFormat = "%.3f",
+            displayValue = zramAvailList.lastOrNull() ?: 0f
         )
 
-        // 3. 电池温度趋势图
+        // 3. 电池温度 (差值拉伸，1.0°C 极差保底)
+        val tempTypeList = samples.map { it.batteryTemp }
+        val tempMin = tempTypeList.minOrNull() ?: 0f
+        val tempMax = tempTypeList.maxOrNull() ?: 0f
+        val tempDeltaMax = (tempMax - tempMin).coerceAtLeast(1.0f)
+
         HistoryChartCard(
             title = "电池温度 (°C)",
-            data = samples.map { it.batteryTemp },
-            maxVal = 60f,
+            data = tempTypeList.map { it - tempMin },
+            maxVal = tempDeltaMax,
             lineColor = Color(0xFFFF5722),
-            unit = "°C"
+            unit = "°C",
+            valueFormat = "%.2f",
+            displayValue = tempTypeList.lastOrNull() ?: 0f
         )
 
         // 4. 新增：电池放电电流趋势图 (mA)
@@ -322,9 +339,10 @@ private fun HistoryChartCard(
     maxVal: Float,
     lineColor: Color,
     unit: String,
-    valueFormat: String = "%.2f"
+    valueFormat: String = "%.2f",
+    displayValue: Float? = null
 ) {
-    val curVal = data.lastOrNull() ?: 0f
+    val curVal = displayValue ?: (data.lastOrNull() ?: 0f)
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
         shape = RoundedCornerShape(10.dp),

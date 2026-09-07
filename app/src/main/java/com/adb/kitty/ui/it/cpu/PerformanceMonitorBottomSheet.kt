@@ -292,7 +292,7 @@ fun BatteryStatusCard(
             ) {
                 Column {
                     Text("电池功耗状态", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    Text("剩余电量: $batteryLevel% | 温度: ${String.format(Locale.US, "%.1f", batteryTemp)}°C", fontSize = 10.sp, color = Color.Gray)
+                    Text("剩余电量: $batteryLevel% | 温度: ${String.format(Locale.US, "%.2f", batteryTemp)}°C", fontSize = 10.sp, color = Color.Gray)
                 }
                 Text(
                     text = String.format(Locale.US, "%.0f mA", batteryCurrentMa),
@@ -348,7 +348,7 @@ fun SystemSummaryCard(state: PerformanceUiState) {
                 Column(horizontalAlignment = Alignment.End) {
                     Text("电池温度", fontSize = 10.sp, color = Color.Gray)
                     Text(
-                        text = String.format(Locale.US, "%.1f °C", state.batteryTemp),
+                        text = String.format(Locale.US, "%.2f °C", state.batteryTemp),
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (state.batteryTemp > 45f) Color.Red else Color(0xFFFF5722)
