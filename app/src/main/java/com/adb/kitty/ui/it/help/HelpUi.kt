@@ -344,7 +344,7 @@ private fun SupportAndDependencySection() {
             InfoRow(label = "implementation", value = "Jetpack Compose, androidx, kotlinx, Material3, OpenSSL, Kadb, HiddenApiBypass, libsu")
             InfoRow(label = "备案情况", value = "GitHub个人开发项目, 开发者拒绝备案, 如介意, 可随时卸载, 开发者不会剥夺用户的使用权")
             InfoRow(label = "云端接入情况", value = "APP不接入任何云端以及任何会泄露隐私的远程API, 如果您安装的APP接入了云端以及远程API, 那么您使用的APP极有可能是来自三方编译或来自GitHub的其他叉子编译构建的版本")
-            InfoRow(label = "GitHub", value = "https://github.com/deleteFAILunknown/usbFlash")
+            InfoRow(label = "GitHub", value = "https://github.com/deleteFAILunknown/nekoStudio")
             InfoRow(label = "正在使用的外部存储目录", value = "/storage/emulated/0/Android/data/com.adb.kitty/files/flash/")
         }
     }

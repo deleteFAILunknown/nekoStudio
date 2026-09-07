@@ -1,6 +1,6 @@
 # Version
-- [android-release-version-app](https://github.com/deleteFAILunknown/usbFlash/releases)
-- [android-beta-version-app](https://github.com/deleteFAILunknown/usbFlash/actions)
+- [android-release-version-app](https://github.com/deleteFAILunknown/nekoStudio/releases)
+- [android-beta-version-app](https://github.com/deleteFAILunknown/nekoStudio/actions)
 
 # apk support range
 - Android 17 - Android 7.0

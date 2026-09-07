@@ -24,6 +24,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "usbFlash"
+rootProject.name = "nekoStudio"
 
 include(":app")
