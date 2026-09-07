@@ -447,18 +447,18 @@ private fun HistoryChartCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text(title, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text(title, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     if (!limitText.isNullOrEmpty()) {
                         Text(
                             text = limitText,
-                            fontSize = 9.5.sp,
+                            fontSize = 10.sp,
                             color = Color.Gray
                         )
                     }
                 }
                 Text(
                     text = String.format(Locale.US, "均值: $valueFormat %s", curVal, unit),
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = lineColor
                 )
