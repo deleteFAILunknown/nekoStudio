@@ -87,12 +87,10 @@ class FastbootManager(
     private val _logFlow = MutableSharedFlow<String>()
     val logFlow = _logFlow.asSharedFlow()
 
-    @Throws(java.io.IOException::class, android.os.RemoteException::class, InterruptedException::class)
     private suspend fun log(msg: String) {
         _logFlow.emit(msg)
     }
 
-    @Throws(java.io.IOException::class, android.os.RemoteException::class, InterruptedException::class)
     fun startFastbootReader() {
         readerJob?.cancel()
         readerJob = scope.launch(Dispatchers.IO) {
@@ -108,7 +106,6 @@ class FastbootManager(
         }
     }
 
-    @Throws(java.io.IOException::class, android.os.RemoteException::class, InterruptedException::class)
     private suspend fun waitForTerminalResponse(
         timeout: Long = 10000, 
         onInfoReceived: suspend (String) -> Unit
@@ -137,13 +134,11 @@ class FastbootManager(
         return FastbootResponse("TIMEOUT", "无响应", lines)
     }
 
-    @Throws(java.io.IOException::class, android.os.RemoteException::class, InterruptedException::class)
     private fun sendFastbootCommandDirect(command: String) {
         val data = command.toByteArray()
         usbConn.bulkTransfer(epOut, data, data.size, 1000)
     }
 
-    @Throws(java.io.IOException::class, android.os.RemoteException::class, InterruptedException::class)
     suspend fun executeCommandSync(command: String) = withContext(Dispatchers.IO) {
         val cleanCmd = command.removePrefix("fastboot ").trim()
         if (cleanCmd.isEmpty()) return@withContext
@@ -212,7 +207,6 @@ class FastbootManager(
         }
     }
 
-    @Throws(java.io.IOException::class, android.os.RemoteException::class, InterruptedException::class)
     suspend fun performFlash(partition: String, inputPath: String) = withContext(Dispatchers.IO) {
         val startTime = System.currentTimeMillis()
         val cleanFileName = inputPath.removePrefix("/")
@@ -307,7 +301,6 @@ class FastbootManager(
         }
     }
 
-    @Throws(java.io.IOException::class, android.os.RemoteException::class, InterruptedException::class)
     suspend fun performBoot(fileName: String) = withContext(Dispatchers.IO) {
         val startTime = System.currentTimeMillis()
         val file = File(flashFolder, fileName)
@@ -383,7 +376,6 @@ class FastbootManager(
         }
     }
 
-    @Throws(java.io.IOException::class, android.os.RemoteException::class, InterruptedException::class)
     private suspend fun getActiveSlot(): String {
         sendFastbootCommandDirect("getvar:current-slot")
         val response = waitForTerminalResponse(5000) { /* 可以在这里打印日志调试 */ }
@@ -404,7 +396,6 @@ class FastbootManager(
         }
     }
 
-    @Throws(java.io.IOException::class, android.os.RemoteException::class, InterruptedException::class)
     private fun getTargetPartition(partition: String, activeSlot: String): String {
         return if (config.abPartitions.contains(partition) && activeSlot.isNotEmpty()) {
             "${partition}_$activeSlot"
@@ -413,7 +404,6 @@ class FastbootManager(
         }
     }
 
-    @Throws(java.io.IOException::class, android.os.RemoteException::class, InterruptedException::class)
     private fun isSparseImage(file: File): Boolean {
         if (!file.exists() || file.length() < 4) return false
         val SPARSE_HEADER_MAGIC = 0xED26FF3A.toInt() // 小端序 Magic
