@@ -183,7 +183,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
     val maxCpuCount = samples.maxOfOrNull { it.cpuFreqsGhz.size } ?: 0
 
     val lastCellTotal = samples.lastOrNull()?.cellTotalMb ?: 0f
-    val lastWlanTotal = samples.lastOrNull()?.lastWlanTotalMb ?: 0f
+    val lastWlanTotal = samples.lastOrNull()?.wlanTotalMb ?: 0f
 
     Column(
         modifier = Modifier
