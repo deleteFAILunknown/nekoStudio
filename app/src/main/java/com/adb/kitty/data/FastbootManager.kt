@@ -50,9 +50,10 @@ import java.time.format.*
 import javax.crypto.*
 import javax.net.ssl.*
 import okio.*
-import com.flyfishxu.kadb.Kadb
 import org.json.*
 import androidx.annotation.Keep
+
+// 深度适配小米设备
 
 @Keep
 data class FastbootConfig(
@@ -86,10 +87,12 @@ class FastbootManager(
     private val _logFlow = MutableSharedFlow<String>()
     val logFlow = _logFlow.asSharedFlow()
 
+    @Throws(java.io.IOException::class, android.os.RemoteException::class, InterruptedException::class)
     private suspend fun log(msg: String) {
         _logFlow.emit(msg)
     }
-    
+
+    @Throws(java.io.IOException::class, android.os.RemoteException::class, InterruptedException::class)
     fun startFastbootReader() {
         readerJob?.cancel()
         readerJob = scope.launch(Dispatchers.IO) {
@@ -105,6 +108,7 @@ class FastbootManager(
         }
     }
 
+    @Throws(java.io.IOException::class, android.os.RemoteException::class, InterruptedException::class)
     private suspend fun waitForTerminalResponse(
         timeout: Long = 10000, 
         onInfoReceived: suspend (String) -> Unit
@@ -130,14 +134,16 @@ class FastbootManager(
                 onInfoReceived(resp)
             }
         }
-        return FastbootResponse("TIMEOUT", "等待设备响应超时", lines)
+        return FastbootResponse("TIMEOUT", "无响应", lines)
     }
 
+    @Throws(java.io.IOException::class, android.os.RemoteException::class, InterruptedException::class)
     private fun sendFastbootCommandDirect(command: String) {
         val data = command.toByteArray()
         usbConn.bulkTransfer(epOut, data, data.size, 1000)
     }
-    
+
+    @Throws(java.io.IOException::class, android.os.RemoteException::class, InterruptedException::class)
     suspend fun executeCommandSync(command: String) = withContext(Dispatchers.IO) {
         val cleanCmd = command.removePrefix("fastboot ").trim()
         if (cleanCmd.isEmpty()) return@withContext
@@ -188,7 +194,7 @@ class FastbootManager(
         }
 
         withContext(Dispatchers.Main) {
-            log("🚀 [USB直连] 发送: $protocolCmd")
+            log("🚀 发送: $protocolCmd")
         }
 
         sendFastbootCommandDirect(protocolCmd)
@@ -199,20 +205,21 @@ class FastbootManager(
 
         withContext(Dispatchers.Main) {
             when (result.status) {
-                "OKAY" -> log("FB << OKAY [执行成功] ${result.payload}")
-                "FAIL" -> log("❌ [错误] 手机拒绝了该指令: ${result.payload}")
-                "TIMEOUT" -> log("⚠️ [超时] ${result.payload}")
+                "OKAY" -> log("FB << OKAY: ${result.payload}")
+                "FAIL" -> log("❌ 指令被拒绝: ${result.payload}")
+                "TIMEOUT" -> log("⚠️ 无响应: ${result.payload}")
             }
         }
     }
-    
+
+    @Throws(java.io.IOException::class, android.os.RemoteException::class, InterruptedException::class)
     suspend fun performFlash(partition: String, inputPath: String) = withContext(Dispatchers.IO) {
         val startTime = System.currentTimeMillis()
         val cleanFileName = inputPath.removePrefix("/")
         val file = File(flashFolder, cleanFileName)
         if (!file.exists()) {
             withContext(Dispatchers.Main) { 
-                log("❌ 错误: 找不到镜像文件 -> $file.absolutePath") 
+                log("❌ 找不到镜像文件 -> $file.absolutePath") 
             }
             return@withContext
         }
@@ -228,25 +235,25 @@ class FastbootManager(
         }
         
         withContext(Dispatchers.Main) { 
-            log("📂 即将刷入: ${file.name} -> 目标: $targetPartition")
+            log("📂 准备刷入: ${file.name} -> 目标: $targetPartition")
             log("📱 计算目标: $partition -> $targetPartition (Active Slot: ${activeSlot.ifEmpty { "N/A" }})")
         }
         
         val isSparse = isSparseImage(file)
-        withContext(Dispatchers.Main) { log("ℹ️ 格式识别: ${if (isSparse) "Sparse Image" else "Raw Image"}") }
+        withContext(Dispatchers.Main) { log("镜像格式识别: ${if (isSparse) "Sparse Image" else "Raw Image"}") }
 
         val sizeHex = String.format("%08x", file.length())
-        withContext(Dispatchers.Main) { log("🚀 开始下载: $partition (大小: ${file.length()} bytes)") }
+        withContext(Dispatchers.Main) { log("🚀 发送下载请求: $partition (大小: ${file.length()} bytes)") }
     
         sendFastbootCommandDirect("download:$sizeHex")
     
         val handshake = waitForTerminalResponse(10000) { }
         if (handshake.status != "DATA") {
-            withContext(Dispatchers.Main) { log("❌ 拒绝下载: ${handshake.payload}, 状态: ${handshake.status}") }
+            withContext(Dispatchers.Main) { log("❌ 下载请求被拒绝: ${handshake.payload}, 状态: ${handshake.status}") }
             return@withContext
         }
 
-        withContext(Dispatchers.Main) { log("⏳ 正在传输数据，请勿断开连接...") }
+        withContext(Dispatchers.Main) { log("⏳ 正在传输数据，请勿断开物理连接!") }
         val buffer = ByteArray(65536)
         try {
             FileInputStream(file).use { fis ->
@@ -254,12 +261,12 @@ class FastbootManager(
                 while (fis.read(buffer).also { bytesRead = it } != -1) {
                     val written = usbConn.bulkTransfer(epOut, buffer, bytesRead, 5000)
                     if (written != bytesRead) {
-                        throw Exception("USB 传输中断 (发送字节数不匹配)")
+                        throw Exception("数据传输被中断 (发送字节数不匹配)")
                     }
                 }
             }
         } catch (e: Exception) {
-            withContext(Dispatchers.Main) { log("❌ 传输数据失败: ${e.message}") }
+            withContext(Dispatchers.Main) { log("❌ 传输失败: ${e.message}") }
             return@withContext
         }
 
@@ -283,7 +290,7 @@ class FastbootManager(
         withContext(Dispatchers.Main) {
             if (flashResult.status == "OKAY") {
                 val logMessage = StringBuilder()
-                logMessage.append("✅ [成功] 分区 $targetPartition 刷写完成\n")
+                logMessage.append("✅ 分区 $targetPartition 刷写完成\n")
                 logMessage.append("⏱️ 耗时: ${"%.2f".format(durationSeconds)}秒")
             
                 if (file.length() >= thresholdBytes && durationSeconds > 0) {
@@ -295,11 +302,12 @@ class FastbootManager(
                 }
                 log(logMessage.toString())
             } else {
-                log("❌ [失败] 分区 $partition 刷写失败: ${flashResult.payload} (已耗时: ${"%.2f".format(durationSeconds)}秒)")
+                log("❌ 分区 $partition 刷写失败: ${flashResult.payload} (已耗时: ${"%.2f".format(durationSeconds)}秒)")
             }
         }
     }
-    
+
+    @Throws(java.io.IOException::class, android.os.RemoteException::class, InterruptedException::class)
     suspend fun performBoot(fileName: String) = withContext(Dispatchers.IO) {
         val startTime = System.currentTimeMillis()
         val file = File(flashFolder, fileName)
@@ -307,37 +315,37 @@ class FastbootManager(
 
         if (fileName.endsWith(".xml", true) || fileName.endsWith(".txt", true) || fileName.endsWith(".py", true)) {
             withContext(Dispatchers.Main) { 
-                log("❌ 错误: 该文件类型无法引导 (XML/TXT/PY)") 
+                log("❌ 文件类型无法引导 (XML/TXT/PY)") 
             }
             return@withContext
         }
         
         if (!config.bootPartitions.contains(extension)) {
             withContext(Dispatchers.Main) { 
-                log("⚠️ 警告: 文件后缀 $extension 可能无法被设备引导，将尝试发送...") 
+                log("⚠️ 文件后缀 $extension 可能无法被设备引导，将尝试发送") 
             }
         }
         
         if (!file.exists()) {
             withContext(Dispatchers.Main) { 
-                log("❌ 错误: 找不到文件 -> ${file.absolutePath}") 
+                log("❌ 找不到文件 -> ${file.absolutePath}") 
             }
             return@withContext
         }
 
         withContext(Dispatchers.Main) { 
-            log("🚀 准备启动 (RAM Boot): ${file.name}") 
+            log("🚀 准备临时引导 (RAM Boot): ${file.name}") 
         }
 
         try {
             val sizeHex = String.format("%08x", file.length())
-            withContext(Dispatchers.Main) { log("🚀 开始下载 (大小: ${file.length()} bytes)") }
+            withContext(Dispatchers.Main) { log("🚀 触发下载请求 (大小: ${file.length()} bytes)") }
             sendFastbootCommandDirect("download:$sizeHex")
         
             val handshake = waitForTerminalResponse(10000) { }
             if (handshake.status != "DATA") {
                 withContext(Dispatchers.Main) {
-                    log("❌ 拒绝下载: ${handshake.payload}, 状态: ${handshake.status}")
+                    log("❌ 下载被拒绝: ${handshake.payload}, 状态: ${handshake.status}")
                 }
                 return@withContext
             }
@@ -347,7 +355,7 @@ class FastbootManager(
                 var bytesRead: Int
                 while (fis.read(buffer).also { bytesRead = it } != -1) {
                     val written = usbConn.bulkTransfer(epOut, buffer, bytesRead, 5000)
-                    if (written != bytesRead) throw Exception("USB 传输中断")
+                    if (written != bytesRead) throw Exception("数据传输被中断")
                 }
             }
 
@@ -357,7 +365,7 @@ class FastbootManager(
                 return@withContext
             }
 
-            withContext(Dispatchers.Main) { log("⚡ 发送 boot 指令…") }
+            withContext(Dispatchers.Main) { log("⚡ 触发 boot 发送请求") }
             sendFastbootCommandDirect("boot")
 
             val bootResult = waitForTerminalResponse(30000) { }
@@ -365,16 +373,17 @@ class FastbootManager(
 
             withContext(Dispatchers.Main) {
                 if (bootResult.status == "OKAY") {
-                    log("✅ [成功] 已发送 boot 指令 (耗时: ${"%.2f".format(duration)}秒)")
+                    log("✅ 已成功发送 boot 指令 (耗时: ${"%.2f".format(duration)}秒)")
                 } else {
-                    log("❌ [失败] Boot 指令被拒绝: ${bootResult.payload}")
+                    log("❌ 指令被拒绝: ${bootResult.payload}")
                 }
             }
         } catch (e: Exception) {
             withContext(Dispatchers.Main) { log("❌ 异常: ${e.message}") }
         }
     }
-    
+
+    @Throws(java.io.IOException::class, android.os.RemoteException::class, InterruptedException::class)
     private suspend fun getActiveSlot(): String {
         sendFastbootCommandDirect("getvar:current-slot")
         val response = waitForTerminalResponse(5000) { /* 可以在这里打印日志调试 */ }
@@ -394,7 +403,8 @@ class FastbootManager(
             else -> ""
         }
     }
-    
+
+    @Throws(java.io.IOException::class, android.os.RemoteException::class, InterruptedException::class)
     private fun getTargetPartition(partition: String, activeSlot: String): String {
         return if (config.abPartitions.contains(partition) && activeSlot.isNotEmpty()) {
             "${partition}_$activeSlot"
@@ -402,7 +412,8 @@ class FastbootManager(
             partition
         }
     }
-    
+
+    @Throws(java.io.IOException::class, android.os.RemoteException::class, InterruptedException::class)
     private fun isSparseImage(file: File): Boolean {
         if (!file.exists() || file.length() < 4) return false
         val SPARSE_HEADER_MAGIC = 0xED26FF3A.toInt() // 小端序 Magic
