@@ -149,6 +149,34 @@ class GhzRootService : RootService() {
                     wlanRxB, wlanTxB, wlanRxP, wlanTxP, wlanErrDropRx, wlanErrDropTx
                 )
             }
+            
+            override fun getMeasuredFps(): Float {
+                return readHardwareFps()
+            }
         }
+    }
+    
+    private fun readHardwareFps(): Float {
+        val nodePaths = arrayOf(
+            "/sys/devices/platform/soc/ae00000.qcom,mdss_mdp/drm/card0/sde-crtc-0/measured_fps",
+            "/sys/class/drm/card0/sde-crtc-0/measured_fps"
+        )
+
+        for (path in nodePaths) {
+            val file = File(path)
+            if (file.exists() && file.canRead()) {
+                try {
+                    val content = file.readText().trim()
+                    // 解析格式如 "fps: 51.4 duration:500000 frame_count:26"
+                    val matchResult = Regex("""fps:\s*([0-9.]+)""").find(content)
+                    if (matchResult != null) {
+                        return matchResult.groupValues[1].toFloatOrNull() ?: 0f
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+        return 0f
     }
 }

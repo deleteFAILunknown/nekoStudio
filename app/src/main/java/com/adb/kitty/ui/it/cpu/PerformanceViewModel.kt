@@ -181,29 +181,12 @@ class PerformanceViewModel : ViewModel() {
     private var recordingStartTimeMs: Long = 0L
 
     private var displayManager: DisplayManager? = null
-    private var frameCount = 0
-    private var lastFpsCalculateTime = System.currentTimeMillis()
-    private var currentCalculatedFps = 60f
     
     private var batteryManager: android.os.BatteryManager? = null
     private val batteryCurrentHistory = ArrayDeque<Float>()
     
     private val ramAvailHistory = ArrayDeque<Float>()
     private val zramAvailHistory = ArrayDeque<Float>()
-
-    private val frameCallback = object : Choreographer.FrameCallback {
-        override fun doFrame(frameTimeNanos: Long) {
-            frameCount++
-            val now = System.currentTimeMillis()
-            val delta = now - lastFpsCalculateTime
-            if (delta >= 1000) {
-                currentCalculatedFps = (frameCount * 1000f) / delta
-                frameCount = 0
-                lastFpsCalculateTime = now
-            }
-            Choreographer.getInstance().postFrameCallback(this)
-        }
-    }
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -225,7 +208,6 @@ class PerformanceViewModel : ViewModel() {
 
         if (displayManager == null) {
             displayManager = context.getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager
-            Choreographer.getInstance().postFrameCallback(frameCallback)
         }
 
         updateDisplayCapabilities()
@@ -436,7 +418,8 @@ class PerformanceViewModel : ViewModel() {
 
                     // 4. Display & FPS
                     val activeHz = getActiveRefreshRate()
-                    val realFps = currentCalculatedFps.coerceAtMost(activeHz)
+                    val hwFps = try { binder.measuredFps } catch (e: Exception) { 0f }
+                    val realFps = if (hwFps > 0f) hwFps else 0f
 
                     pushHistory(fpsHistory, realFps)
                     pushHistory(ramAvailHistory, memStats.ramAvailGb)
@@ -597,7 +580,6 @@ class PerformanceViewModel : ViewModel() {
     }
 
     override fun onCleared() {
-        Choreographer.getInstance().removeFrameCallback(frameCallback)
         try {
             RootService.unbind(serviceConnection)
         } catch (e: Exception) { }
