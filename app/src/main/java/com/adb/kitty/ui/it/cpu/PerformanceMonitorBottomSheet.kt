@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.Locale
+import kotlin.math.abs
 
 val CoreColors = listOf(
     Color(0xFF2196F3), Color(0xFF03A9F4), Color(0xFF00BCD4), Color(0xFF009688),
@@ -476,11 +477,12 @@ fun BatteryStatusCard(
 ) {
     val isCharging = batteryStatus.contains("Charging", ignoreCase = true)
     val isFull = batteryStatus.contains("Full", ignoreCase = true)
+    val isDischarging = batteryStatus.contains("Discharging", ignoreCase = true)
 
     val statusText = when {
         isFull -> "已充满"
         isCharging -> "充电中"
-        batteryStatus.contains("Discharging", ignoreCase = true) -> "放电中"
+        isDischarging -> "放电中"
         else -> batteryStatus.ifEmpty { "未充电" }
     }
 
@@ -492,7 +494,8 @@ fun BatteryStatusCard(
     }
 
     // 计算实时功率 W = V * A
-    val powerWatts = (batteryVoltageMv / 1000f) * (batteryCurrentMa / 1000f)
+    val displayCurrentMa = abs(batteryCurrentMa)
+    val powerWatts = (batteryVoltageMv / 1000f) * (displayCurrentMa / 1000f)
 
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
@@ -570,7 +573,7 @@ fun BatteryStatusCard(
                 )
                 BatteryMetricItem(
                     label = "电流", 
-                    value = String.format(Locale.US, "%.0f mA", batteryCurrentMa), 
+                    value = String.format(Locale.US, "%.0f mA", displayCurrentMa), 
                     valueColor = statusColor
                 )
                 BatteryMetricItem(
@@ -591,13 +594,14 @@ fun BatteryStatusCard(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text("实时电流趋势", fontSize = 10.sp, color = Color.Gray)
-                    val maxCurrent = historyData.maxOrNull() ?: 0f
+                    val absHistory = historyData.map { abs(it) }
+                    val maxCurrent = absHistory.maxOrNull() ?: 0f
                     Text("峰值: ${maxCurrent.toInt()} mA", fontSize = 10.sp, color = Color.Gray)
                 }
 
                 MetricLineChart(
-                    data = historyData,
-                    maxVal = (historyData.maxOrNull() ?: 1000f).coerceAtLeast(500f),
+                    data = historyData.map { abs(it) },
+                    maxVal = (historyData.map { abs(it) }.maxOrNull() ?: 1000f).coerceAtLeast(500f),
                     lineColor = statusColor,
                     modifier = Modifier
                         .fillMaxWidth()

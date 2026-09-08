@@ -8,7 +8,6 @@ import android.os.StatFs
 import androidx.annotation.Keep
 import com.topjohnwu.superuser.ipc.RootService
 import java.io.File
-import kotlin.math.abs
 
 @Keep
 class GhzRootService : RootService() {
@@ -270,19 +269,17 @@ object BatterySysfsReader {
         val capacity = readFirstAvailableFloat(CAPACITY_PATHS).toInt()
         bundle.putInt("battery_level", capacity)
 
-        // 3. 读取电流 (mA)
+        // 3. 读取电流 (mA) - 保持原始正负号输出（负数代表放电，正数代表充电）
         var rawCurrent = readFirstAvailableFloat(CURRENT_PATHS)
-        // Linux sysfs current_now 通常单位为微安 (µA)；少数内核可能直接输出 mA
         val currentMa = if (abs(rawCurrent) > 10000f) {
-            abs(rawCurrent) / 1000f
+            rawCurrent / 1000f
         } else {
-            abs(rawCurrent)
+            rawCurrent
         }
         bundle.putFloat("battery_current_ma", currentMa)
 
         // 4. 读取电压 (mV)
         var rawVoltage = readFirstAvailableFloat(VOLTAGE_PATHS)
-        // voltage_now 通常为微伏 (µV)；部分驱动为 mV
         val voltageMv = if (rawVoltage > 1000000f) {
             rawVoltage / 1000f
         } else {
@@ -290,7 +287,7 @@ object BatterySysfsReader {
         }
         bundle.putFloat("battery_voltage_mv", voltageMv)
 
-        // 5. 读取充电状态 (Charging, Discharging, Full 等)
+        // 5. 读取充电状态（直接信任节点返回的 "Discharging", "Charging", "Full" 等字符串）
         val status = readFirstAvailableString(STATUS_PATHS)
         bundle.putString("battery_status", status)
 

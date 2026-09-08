@@ -177,6 +177,8 @@ private fun HistoryGraphView(history: HistoryRecording) {
     }
 
     val avgFps = samples.map { it.fps }.average().toFloat()
+    val avgRefreshRate = samples.map { it.refreshRate }.average().toFloat()
+
     val maxTemp = samples.maxOfOrNull { it.batteryTemp } ?: 0f
     val avgCurrent = samples.map { it.batteryCurrentMa }.average().toFloat()
     val lastBatteryLevel = samples.lastOrNull()?.batteryLevel ?: 0
@@ -216,6 +218,15 @@ private fun HistoryGraphView(history: HistoryRecording) {
                     Text("平均帧率", fontSize = 9.sp, color = Color.Gray)
                     Text(
                         text = String.format(Locale.US, "%.2f FPS", avgFps),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 10.sp,
+                        color = Color(0xFF4CAF50)
+                    )
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("平均刷新率", fontSize = 9.sp, color = Color.Gray)
+                    Text(
+                        text = String.format(Locale.US, "%.2f Hz", avgRefreshRate),
                         fontWeight = FontWeight.Bold,
                         fontSize = 10.sp,
                         color = Color(0xFF4CAF50)
@@ -269,6 +280,21 @@ private fun HistoryGraphView(history: HistoryRecording) {
             lineColor = Color(0xFF4CAF50),
             unit = "FPS",
             displayValue = avgFps
+        )
+
+        // 2.1 新增：屏幕刷新率历史趋势图
+        val refreshRateList = samples.map { it.refreshRate }
+        val maxRefreshRate = (refreshRateList.maxOrNull() ?: 120f).coerceAtLeast(60f)
+
+        HistoryChartCard(
+            title = "屏幕刷新率 (Hz)",
+            limitText = String.format(Locale.US, "档位区间: %.0f Hz - %.0f Hz", refreshRateList.minOrNull() ?: 0f, maxRefreshRate),
+            data = refreshRateList,
+            maxVal = maxRefreshRate,
+            lineColor = Color(0xFF00BCD4),
+            unit = "Hz",
+            valueFormat = "%.0f",
+            displayValue = avgRefreshRate
         )
 
         val wlanTotalStr = formatMb(lastWlanTotal)
