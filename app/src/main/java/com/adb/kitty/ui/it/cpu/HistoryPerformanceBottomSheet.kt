@@ -212,7 +212,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
             ) {
                 SummaryItem(
                     label = "时长",
-                    value = "${history.durationSeconds}/s"
+                    value = "${history.durationSeconds} s"
                 )
                 SummaryItem(
                     label = "平均帧率",
