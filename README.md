@@ -2,20 +2,20 @@
 - [android-release-version-app](https://github.com/deleteFAILunknown/nekoStudio/releases)
 - [android-beta-version-app](https://github.com/deleteFAILunknown/nekoStudio/actions)
 
-# apk support range
-- This feature is implemented in V4.1
+# System Support
+- Starting from version V4.1
 - Android 17 - Android 7.0
 - Android TV、Android
 
-# Root-free flash scheme
+# flash scheme
 - This project allows you to perform Fastboot flashing in a root-free environment and connect to adbd
 
-# Local Shell solution
+# Shell solution
 - For the Shell executor, we may need to migrate to the foreground service to fully use all the instructions that come with Android 14+. The background process daemon service solution may no longer be a recommended solution for Android 14+ systems.
 - For the existing local shell service, I would refactor it in V4.2
 
-# Shell actuator
-- This feature is implemented in V4.2
+# Shell
+- Starting from version V4.2
 - How to use shell script to call internal instructions of the application
 - For example, calling the root-free fastboot command implemented inside the application
 ```shell
@@ -31,8 +31,9 @@ fastboot getvar unlocked
 fastboot oem device-info
 ```
 
-# Use su to flash partition
-- This feature is implemented in V4.2
+# su
+- Support KernelSU、SukiSU、Magisk
+- Starting from version V4.2
 ```shell
 # Flashing non-vab devices
 $su -c cat /sdcard/boot.img > /dev/block/by-name/boot
@@ -56,13 +57,13 @@ $su -c cat /sdcard/init_boot.img > /dev/block/by-name/init_boot_b
 
 # DocumentsProvider
 - You don't need to use MT Manager to inject a file provider for your APK to create the corresponding local storage directory
-- This feature is implemented in V4.2
+- Starting from version V4.2
 
-# Signature scheme sample script
+# Signature
 - Now there are not only sample scripts in the project, but also built APKs, which use signature schemes v2, v3, v3.1, and v3.2 respectively.
 - Hope this sample script can help you
 
-# Verify signature scheme
+# Verify signature
 - Verify v3.2 signature scheme using JDK 25
 ```shell
 $ java --version
@@ -97,7 +98,7 @@ Verified for SourceStamp: false
 Number of signers: 1
 ```
 
-## Commercial license
+## Commercial
 - commercialization allowed
 - Allow transactional
 - Allow templating
