@@ -182,6 +182,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
 
     val maxTemp = samples.maxOfOrNull { it.batteryTemp } ?: 0f
     val avgCurrent = samples.map { it.batteryCurrentMa }.average().toFloat()
+    val avgVolt = samples.map { it.batteryVoltageMv / 1000f }.average().toFloat()
     val lastBatteryLevel = samples.lastOrNull()?.batteryLevel ?: 0
     val maxCpuCount = samples.maxOfOrNull { it.cpuFreqsGhz.size } ?: 0
 
