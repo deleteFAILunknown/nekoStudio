@@ -10,6 +10,7 @@ import android.view.Display
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.topjohnwu.superuser.Shell
 import com.topjohnwu.superuser.ipc.RootService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -265,6 +266,13 @@ class PerformanceViewModel : ViewModel() {
         updateDisplayCapabilities()
 
         if (rootBinder == null) {
+            // 在首次 bind 之前，显式配置 MainShell 使用 Mount Master 模式
+            Shell.setDefaultBuilder(
+                Shell.Builder.create()
+                    .setFlags(Shell.FLAG_MOUNT_MASTER)
+                    .setTimeout(10)
+            )
+
             val intent = Intent(context, GhzRootService::class.java)
             RootService.bind(intent, serviceConnection)
         }
