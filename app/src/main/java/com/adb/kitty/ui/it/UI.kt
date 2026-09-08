@@ -374,18 +374,6 @@ fun CenterAlignedTopAppBarExample(
                             DropdownMenuItem(
                                 text = {
                                     Text(
-                                        stringResource(R.string.action_menu_process_manager)
-                                    )
-                                },
-                                leadingIcon = { Icon(Icons.Outlined.Memory, null) },
-                                onClick = {
-                                    showMenu = false
-                                    
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
                                         stringResource(R.string.action_menu_cpu_view)
                                     )
                                 },

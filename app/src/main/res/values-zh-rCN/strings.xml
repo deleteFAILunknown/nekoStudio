@@ -15,7 +15,6 @@
     <string name="action_menu_neko_shell_stop">终止当前 Shell 进程</string>
     <string name="action_menu_turbo">玄学内核提频</string>
     <string name="action_menu_turbo_stop">还原内核频率</string>
-    <string name="action_menu_process_manager">进程管理器</string>
     <string name="action_menu_cpu_view">CPU根视图</string>
     <string name="action_menu_cpu_view_cat">查看记录的CPU数据</string>
     <string name="action_menu_sospl">输入 adb 命令 / fastboot 命令</string>

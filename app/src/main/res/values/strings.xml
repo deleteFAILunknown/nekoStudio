@@ -17,7 +17,6 @@
     <string name="action_menu_neko_shell_stop">Terminate current shell process</string>
     <string name="action_menu_turbo">Metaphysical kernel frequency promote</string>
     <string name="action_menu_turbo_stop">Restore kernel frequency</string>
-    <string name="action_menu_process_manager">Process manager</string>
     <string name="action_menu_cpu_view">CPU root view</string>
     <string name="action_menu_cpu_view_cat">View recorded CPU data</string>
     <string name="action_menu_sospl">enter adb cmd / fastboot cmd</string>
