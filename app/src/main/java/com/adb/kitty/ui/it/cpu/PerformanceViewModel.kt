@@ -16,6 +16,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -25,6 +27,13 @@ import java.util.ArrayDeque
 import java.util.Date
 import java.util.Locale
 import java.io.File
+
+enum class SampleInterval(val label: String, val millis: Long) {
+    FAST("200ms", 200L),
+    MEDIUM("500ms", 500L),
+    NORMAL("1000ms", 1000L),
+    SLOW("2000ms", 2000L)
+}
 
 @Immutable
 data class CpuCoreMetric(
@@ -173,13 +182,17 @@ data class PerformanceUiState(
     val exportCsvContent: String? = null,
     
     val historyFiles: List<File> = emptyList(),
-    val selectedHistory: HistoryRecording? = null
+    val selectedHistory: HistoryRecording? = null,
+    
+    val sampleInterval: SampleInterval = SampleInterval.NORMAL
 )
 
 class PerformanceViewModel : ViewModel() {
 
     private val _uiState = MutableStateFlow(PerformanceUiState())
     val uiState: StateFlow<PerformanceUiState> = _uiState.asStateFlow()
+
+    val sampleIntervalMs = MutableStateFlow(SampleInterval.NORMAL)
 
     private var rootJob: Job? = null
 
@@ -232,6 +245,11 @@ class PerformanceViewModel : ViewModel() {
             rootBinder = null
             _uiState.update { it.copy(isRootConnected = false) }
         }
+    }
+
+    fun setSampleInterval(interval: SampleInterval) {
+        sampleIntervalMs.value = interval
+        _uiState.update { it.copy(sampleInterval = interval) }
     }
 
     fun initAndBind(context: Context) {
@@ -397,214 +415,222 @@ class PerformanceViewModel : ViewModel() {
     private fun startPollingHardware() {
         rootJob?.cancel()
         rootJob = viewModelScope.launch(Dispatchers.IO) {
-            while (rootBinder != null && isActive) {
-                try {
-                    val binder = rootBinder ?: break
-                    val nowMs = System.currentTimeMillis()
-
-                    // 1. CPU
-                    val cpuFreqs = binder.cpuCurrentFreqs
-                    val cpuMetrics = cpuFreqs.mapIndexed { index, curGhz ->
-                        val limits = binder.getCpuCoreLimits(index)
-                        val deque = cpuHistories.getOrPut(index) { ArrayDeque() }
-                        pushHistory(deque, curGhz)
-
-                        CpuCoreMetric(
-                            coreIndex = index,
-                            curFreqGhz = curGhz,
-                            minFreqGhz = limits[0],
-                            maxFreqGhz = limits[1],
-                            history = deque.toList()
-                        )
-                    }
-
-                    // 2. GPU
-                    val gpuData = binder.gpuMetrics
-                    pushHistory(gpuHistory, gpuData[0])
-                    val gpuMetric = GpuMetric(
-                        curFreqGhz = gpuData[0],
-                        minFreqGhz = gpuData[1],
-                        maxFreqGhz = gpuData[2],
-                        utilizationPercent = gpuData[3],
-                        history = gpuHistory.toList()
-                    )
-
-                    // 3. Battery & Memory
-                    val batBundle = try { binder.batteryMetrics } catch (e: Exception) { null }
-                    val temp = batBundle?.getFloat("battery_temp") ?: 0f
-                    val batLevel = batBundle?.getInt("battery_level") ?: 0
-                    val batCurrentMa = batBundle?.getFloat("battery_current_ma") ?: 0f
-                    val batVoltageMv = batBundle?.getFloat("battery_voltage_mv") ?: 0f
-                    val batStatus = batBundle?.getString("battery_status") ?: "Unknown"
-
-                    val memStats = getMemoryStats()
-
-                    pushHistory(batteryCurrentHistory, batCurrentMa)
-
-                    // 4. Display & FPS
-                    val activeHz = getActiveRefreshRate()
-                    val hwFps = try { binder.measuredFps } catch (e: Exception) { 0f }
-                    val realFps = if (hwFps > 0f) hwFps else 0f
-
-                    pushHistory(fpsHistory, realFps)
-                    pushHistory(ramAvailHistory, memStats.ramAvailGb)
-                    pushHistory(zramAvailHistory, memStats.zramAvailGb)
-
-                    // 5. Network (/proc/net/dev)
-                    val (curCellRaw, curWlanRaw) = readProcNetDev()
-                    val timeDeltaSec = if (lastNetTimeMs > 0) ((nowMs - lastNetTimeMs) / 1000f).coerceAtLeast(0.1f) else 1.0f
-
-                    val cellDelta = curCellRaw - lastCellRaw
-                    val wlanDelta = curWlanRaw - lastWlanRaw
-
-                    val cellRxSpeedKbps = (cellDelta.rxBytes / 1024f) / timeDeltaSec
-                    val cellTxSpeedKbps = (cellDelta.txBytes / 1024f) / timeDeltaSec
-                    val wlanRxSpeedKbps = (wlanDelta.rxBytes / 1024f) / timeDeltaSec
-                    val wlanTxSpeedKbps = (wlanDelta.txBytes / 1024f) / timeDeltaSec
-
-                    pushHistory(cellRxSpeedHistory, cellRxSpeedKbps)
-                    pushHistory(wlanRxSpeedHistory, wlanRxSpeedKbps)
-
-                    lastNetTimeMs = nowMs
-                    lastCellRaw = curCellRaw
-                    lastWlanRaw = curWlanRaw
-
-                    // 判定是否处在录制状态：如果是在录制状态，流量总量与丢包率仅计入录制阶段的 Delta 数据
-                    val isRecordingActive = _uiState.value.isRecording
-                    
-                    val activeCellStats = if (isRecordingActive && recBaseCellRaw != null) curCellRaw - recBaseCellRaw!! else curCellRaw
-                    val activeWlanStats = if (isRecordingActive && recBaseWlanRaw != null) curWlanRaw - recBaseWlanRaw!! else curWlanRaw
-
-                    val cellMetric = NetworkMetric(
-                        rxSpeedKbps = cellRxSpeedKbps,
-                        txSpeedKbps = cellTxSpeedKbps,
-                        rxTotalMb = activeCellStats.rxBytes / (1024f * 1024f),
-                        txTotalMb = activeCellStats.txBytes / (1024f * 1024f),
-                        lossRatePercent = activeCellStats.calcPacketLossRate(),
-                        rxSpeedHistory = cellRxSpeedHistory.toList()
-                    )
-
-                    val wlanMetric = NetworkMetric(
-                        rxSpeedKbps = wlanRxSpeedKbps,
-                        txSpeedKbps = wlanTxSpeedKbps,
-                        rxTotalMb = activeWlanStats.rxBytes / (1024f * 1024f),
-                        txTotalMb = activeWlanStats.txBytes / (1024f * 1024f),
-                        lossRatePercent = activeWlanStats.calcPacketLossRate(),
-                        rxSpeedHistory = wlanRxSpeedHistory.toList()
-                    )
-
-                    val rawDiskStats = binder.diskStats // 返回 [readSectors, writeSectors, totalBytes, availBytes]
-                    
-                    var romMetric = RomMetric()
-                    if (rawDiskStats != null && rawDiskStats.size >= 4) {
-                        val curReadSectors = rawDiskStats[0]
-                        val curWriteSectors = rawDiskStats[1]
-                        val totalBytes = rawDiskStats[2]
-                        val availBytes = rawDiskStats[3]
-
-                        val romTotalGb = totalBytes / (1024f * 1024f * 1024f)
-                        val romAvailGb = availBytes / (1024f * 1024f * 1024f)
-
-                        val timeDeltaSec = if (lastDiskTimeMs > 0) {
-                            ((nowMs - lastDiskTimeMs) / 1000f).coerceAtLeast(0.1f)
-                        } else 1.0f
-
-                        val deltaReadSectors = (curReadSectors - lastDiskReadSectors).coerceAtLeast(0L)
-                        val deltaWriteSectors = (curWriteSectors - lastDiskWriteSectors).coerceAtLeast(0L)
-
-                        // Linux 内核规范中，/proc/diskstats 1 个扇区固定按 512 字节 (0.5 KB) 计算
-                        val readSpeedMb = if (lastDiskTimeMs > 0) ((deltaReadSectors * 512f) / (1024f * 1024f)) / timeDeltaSec else 0f
-                        val writeSpeedMb = if (lastDiskTimeMs > 0) ((deltaWriteSectors * 512f) / (1024f * 1024f)) / timeDeltaSec else 0f
-
-                        pushHistory(romReadHistory, readSpeedMb)
-                        pushHistory(romWriteHistory, writeSpeedMb)
-
-                        lastDiskTimeMs = nowMs
-                        lastDiskReadSectors = curReadSectors
-                        lastDiskWriteSectors = curWriteSectors
-
-                        romMetric = RomMetric(
-                            totalGb = romTotalGb,
-                            availGb = romAvailGb,
-                            readSpeedMb = readSpeedMb,
-                            writeSpeedMb = writeSpeedMb,
-                            readHistory = romReadHistory.toList(),
-                            writeHistory = romWriteHistory.toList()
-                        )
-                    }
-
-                    var durationSec = 0
-                    if (isRecordingActive) {
-                        durationSec = ((nowMs - recordingStartTimeMs) / 1000).toInt()
-                        val cpuHwLimits = cpuMetrics.map { Pair(it.minFreqGhz, it.maxFreqGhz) }
-
-                        synchronized(recordingBuffer) {
-                            recordingBuffer.add(
-                                PerformanceSample(
-                                    timestampMs = nowMs,
-                                    fps = realFps,
-                                    refreshRate = activeHz,
-                                    batteryTemp = temp,
-                                    batteryLevel = batLevel,
-                                    batteryCurrentMa = batCurrentMa,
-                                    batteryVoltageMv = batVoltageMv,
-                                    batteryStatus = batStatus,
-                                    ramTotalGb = memStats.ramTotalGb,
-                                    ramAvailGb = memStats.ramAvailGb,
-                                    zramTotalGb = memStats.zramTotalGb,
-                                    zramAvailGb = memStats.zramAvailGb,
-                                    romReadSpeedMb = romMetric.readSpeedMb,
-                                    romWriteSpeedMb = romMetric.writeSpeedMb,
-                                    gpuFreqGhz = gpuData[0],
-                                    gpuLoadPercent = gpuData[3],
-                                    gpuMinFreqGhz = gpuData[1],
-                                    gpuMaxFreqGhz = gpuData[2],
-                                    cpuFreqsGhz = cpuFreqs.toList(),
-                                    cpuHwLimitsGhz = cpuHwLimits,
-                                    cellRxSpeedKbps = cellRxSpeedKbps,
-                                    cellTxSpeedKbps = cellTxSpeedKbps,
-                                    cellTotalMb = cellMetric.totalMb,
-                                    cellLossRate = cellMetric.lossRatePercent,
-                                    wlanRxSpeedKbps = wlanRxSpeedKbps,
-                                    wlanTxSpeedKbps = wlanTxSpeedKbps,
-                                    wlanTotalMb = wlanMetric.totalMb,
-                                    wlanLossRate = wlanMetric.lossRatePercent
-                                )
-                            )
+            sampleIntervalMs
+                .flatMapLatest { interval ->
+                    flow {
+                        while (rootBinder != null && isActive) {
+                            emit(Unit)
+                            delay(interval.millis)
                         }
                     }
+                }
+                .collect {
+                    val binder = rootBinder ?: return@collect
 
-                    _uiState.update { state ->
-                        state.copy(
-                            isRootConnected = true,
-                            batteryTemp = temp,
-                            batteryLevel = batLevel,
-                            batteryCurrentMa = batCurrentMa,
-                            batteryVoltageMv = batVoltageMv,
-                            batteryStatus = batStatus,
-                            batteryCurrentHistory = batteryCurrentHistory.toList(),
-                            renderFps = realFps,
-                            refreshRateHz = activeHz,
-                            fpsHistory = fpsHistory.toList(),
-                            gpuMetric = gpuMetric,
-                            cpuCores = cpuMetrics,
-                            romMetric = romMetric,
-                            ramTotalGb = memStats.ramTotalGb,
-                            ramAvailGb = memStats.ramAvailGb,
-                            ramAvailHistory = ramAvailHistory.toList(),
-                            zramTotalGb = memStats.zramTotalGb,
-                            zramAvailGb = memStats.zramAvailGb,
-                            zramAvailHistory = zramAvailHistory.toList(),
-                            cellMetric = cellMetric,
-                            wlanMetric = wlanMetric,
-                            recordedDurationSeconds = if (isRecordingActive) durationSec else 0
+                    try {
+                        val nowMs = System.currentTimeMillis()
+
+                        // 1. CPU
+                        val cpuFreqs = binder.cpuCurrentFreqs
+                        val cpuMetrics = cpuFreqs.mapIndexed { index, curGhz ->
+                            val limits = binder.getCpuCoreLimits(index)
+                            val deque = cpuHistories.getOrPut(index) { ArrayDeque() }
+                            pushHistory(deque, curGhz)
+
+                            CpuCoreMetric(
+                                coreIndex = index,
+                                curFreqGhz = curGhz,
+                                minFreqGhz = limits[0],
+                                maxFreqGhz = limits[1],
+                                history = deque.toList()
+                            )
+                        }
+
+                        // 2. GPU
+                        val gpuData = binder.gpuMetrics
+                        pushHistory(gpuHistory, gpuData[0])
+                        val gpuMetric = GpuMetric(
+                            curFreqGhz = gpuData[0],
+                            minFreqGhz = gpuData[1],
+                            maxFreqGhz = gpuData[2],
+                            utilizationPercent = gpuData[3],
+                            history = gpuHistory.toList()
                         )
-                    }
-                } catch (e: Exception) {
+
+                        // 3. Battery & Memory
+                        val batBundle = try { binder.batteryMetrics } catch (e: Exception) { null }
+                        val temp = batBundle?.getFloat("battery_temp") ?: 0f
+                        val batLevel = batBundle?.getInt("battery_level") ?: 0
+                        val batCurrentMa = batBundle?.getFloat("battery_current_ma") ?: 0f
+                        val batVoltageMv = batBundle?.getFloat("battery_voltage_mv") ?: 0f
+                        val batStatus = batBundle?.getString("battery_status") ?: "Unknown"
+
+                        val memStats = getMemoryStats()
+
+                        pushHistory(batteryCurrentHistory, batCurrentMa)
+
+                        // 4. Display & FPS
+                        val activeHz = getActiveRefreshRate()
+                        val hwFps = try { binder.measuredFps } catch (e: Exception) { 0f }
+                        val realFps = if (hwFps > 0f) hwFps else 0f
+
+                        pushHistory(fpsHistory, realFps)
+                        pushHistory(ramAvailHistory, memStats.ramAvailGb)
+                        pushHistory(zramAvailHistory, memStats.zramAvailGb)
+
+                        // 5. Network (/proc/net/dev)
+                        val (curCellRaw, curWlanRaw) = readProcNetDev()
+                        val timeDeltaSec = if (lastNetTimeMs > 0) ((nowMs - lastNetTimeMs) / 1000f).coerceAtLeast(0.1f) else 1.0f
+
+                        val cellDelta = curCellRaw - lastCellRaw
+                        val wlanDelta = curWlanRaw - lastWlanRaw
+
+                        val cellRxSpeedKbps = (cellDelta.rxBytes / 1024f) / timeDeltaSec
+                        val cellTxSpeedKbps = (cellDelta.txBytes / 1024f) / timeDeltaSec
+                        val wlanRxSpeedKbps = (wlanDelta.rxBytes / 1024f) / timeDeltaSec
+                        val wlanTxSpeedKbps = (wlanDelta.txBytes / 1024f) / timeDeltaSec
+
+                        pushHistory(cellRxSpeedHistory, cellRxSpeedKbps)
+                        pushHistory(wlanRxSpeedHistory, wlanRxSpeedKbps)
+
+                        lastNetTimeMs = nowMs
+                        lastCellRaw = curCellRaw
+                        lastWlanRaw = curWlanRaw
+
+                        // 判定是否处在录制状态：如果是在录制状态，流量总量与丢包率仅计入录制阶段的 Delta 数据
+                        val isRecordingActive = _uiState.value.isRecording
+                    
+                        val activeCellStats = if (isRecordingActive && recBaseCellRaw != null) curCellRaw - recBaseCellRaw!! else curCellRaw
+                        val activeWlanStats = if (isRecordingActive && recBaseWlanRaw != null) curWlanRaw - recBaseWlanRaw!! else curWlanRaw
+
+                        val cellMetric = NetworkMetric(
+                            rxSpeedKbps = cellRxSpeedKbps,
+                            txSpeedKbps = cellTxSpeedKbps,
+                            rxTotalMb = activeCellStats.rxBytes / (1024f * 1024f),
+                            txTotalMb = activeCellStats.txBytes / (1024f * 1024f),
+                            lossRatePercent = activeCellStats.calcPacketLossRate(),
+                            rxSpeedHistory = cellRxSpeedHistory.toList()
+                        )
+
+                        val wlanMetric = NetworkMetric(
+                            rxSpeedKbps = wlanRxSpeedKbps,
+                            txSpeedKbps = wlanTxSpeedKbps,
+                            rxTotalMb = activeWlanStats.rxBytes / (1024f * 1024f),
+                            txTotalMb = activeWlanStats.txBytes / (1024f * 1024f),
+                            lossRatePercent = activeWlanStats.calcPacketLossRate(),
+                            rxSpeedHistory = wlanRxSpeedHistory.toList()
+                        )
+
+                        val rawDiskStats = binder.diskStats // 返回 [readSectors, writeSectors, totalBytes, availBytes]
+                    
+                        var romMetric = RomMetric()
+                        if (rawDiskStats != null && rawDiskStats.size >= 4) {
+                            val curReadSectors = rawDiskStats[0]
+                            val curWriteSectors = rawDiskStats[1]
+                            val totalBytes = rawDiskStats[2]
+                            val availBytes = rawDiskStats[3]
+
+                            val romTotalGb = totalBytes / (1024f * 1024f * 1024f)
+                            val romAvailGb = availBytes / (1024f * 1024f * 1024f)
+
+                            val timeDeltaSec = if (lastDiskTimeMs > 0) {
+                                ((nowMs - lastDiskTimeMs) / 1000f).coerceAtLeast(0.1f)
+                            } else 1.0f
+
+                            val deltaReadSectors = (curReadSectors - lastDiskReadSectors).coerceAtLeast(0L)
+                            val deltaWriteSectors = (curWriteSectors - lastDiskWriteSectors).coerceAtLeast(0L)
+
+                            // Linux 内核规范中，/proc/diskstats 1 个扇区固定按 512 字节 (0.5 KB) 计算
+                            val readSpeedMb = if (lastDiskTimeMs > 0) ((deltaReadSectors * 512f) / (1024f * 1024f)) / timeDeltaSec else 0f
+                            val writeSpeedMb = if (lastDiskTimeMs > 0) ((deltaWriteSectors * 512f) / (1024f * 1024f)) / timeDeltaSec else 0f
+
+                            pushHistory(romReadHistory, readSpeedMb)
+                            pushHistory(romWriteHistory, writeSpeedMb)
+
+                            lastDiskTimeMs = nowMs
+                            lastDiskReadSectors = curReadSectors
+                            lastDiskWriteSectors = curWriteSectors
+
+                            romMetric = RomMetric(
+                                totalGb = romTotalGb,
+                                availGb = romAvailGb,
+                                readSpeedMb = readSpeedMb,
+                                writeSpeedMb = writeSpeedMb,
+                                readHistory = romReadHistory.toList(),
+                                writeHistory = romWriteHistory.toList()
+                            )
+                        }
+
+                        var durationSec = 0
+                        if (isRecordingActive) {
+                            durationSec = ((nowMs - recordingStartTimeMs) / 1000).toInt()
+                            val cpuHwLimits = cpuMetrics.map { Pair(it.minFreqGhz, it.maxFreqGhz) }
+
+                            synchronized(recordingBuffer) {
+                                recordingBuffer.add(
+                                    PerformanceSample(
+                                        timestampMs = nowMs,
+                                        fps = realFps,
+                                        refreshRate = activeHz,
+                                        batteryTemp = temp,
+                                        batteryLevel = batLevel,
+                                        batteryCurrentMa = batCurrentMa,
+                                        batteryVoltageMv = batVoltageMv,
+                                        batteryStatus = batStatus,
+                                        ramTotalGb = memStats.ramTotalGb,
+                                        ramAvailGb = memStats.ramAvailGb,
+                                        zramTotalGb = memStats.zramTotalGb,
+                                        zramAvailGb = memStats.zramAvailGb,
+                                        romReadSpeedMb = romMetric.readSpeedMb,
+                                        romWriteSpeedMb = romMetric.writeSpeedMb,
+                                        gpuFreqGhz = gpuData[0],
+                                        gpuLoadPercent = gpuData[3],
+                                        gpuMinFreqGhz = gpuData[1],
+                                        gpuMaxFreqGhz = gpuData[2],
+                                        cpuFreqsGhz = cpuFreqs.toList(),
+                                        cpuHwLimitsGhz = cpuHwLimits,
+                                        cellRxSpeedKbps = cellRxSpeedKbps,
+                                        cellTxSpeedKbps = cellTxSpeedKbps,
+                                        cellTotalMb = cellMetric.totalMb,
+                                        cellLossRate = cellMetric.lossRatePercent,
+                                        wlanRxSpeedKbps = wlanRxSpeedKbps,
+                                        wlanTxSpeedKbps = wlanTxSpeedKbps,
+                                        wlanTotalMb = wlanMetric.totalMb,
+                                        wlanLossRate = wlanMetric.lossRatePercent
+                                    )
+                                )
+                            }
+                        }
+
+                        _uiState.update { state ->
+                            state.copy(
+                                isRootConnected = true,
+                                batteryTemp = temp,
+                                batteryLevel = batLevel,
+                                batteryCurrentMa = batCurrentMa,
+                                batteryVoltageMv = batVoltageMv,
+                                batteryStatus = batStatus,
+                                batteryCurrentHistory = batteryCurrentHistory.toList(),
+                                renderFps = realFps,
+                                refreshRateHz = activeHz,
+                                fpsHistory = fpsHistory.toList(),
+                                gpuMetric = gpuMetric,
+                                cpuCores = cpuMetrics,
+                                romMetric = romMetric,
+                                ramTotalGb = memStats.ramTotalGb,
+                                ramAvailGb = memStats.ramAvailGb,
+                                ramAvailHistory = ramAvailHistory.toList(),
+                                zramTotalGb = memStats.zramTotalGb,
+                                zramAvailGb = memStats.zramAvailGb,
+                                zramAvailHistory = zramAvailHistory.toList(),
+                                cellMetric = cellMetric,
+                                wlanMetric = wlanMetric,
+                                recordedDurationSeconds = if (isRecordingActive) durationSec else 0
+                            )
+                        }
+                    } catch (e: Exception) {
                     e.printStackTrace()
                 }
-
-                delay(1000)
             }
         }
     }

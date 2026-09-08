@@ -1,9 +1,12 @@
 package com.adb.kitty.ui.it.cpu
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -14,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -30,6 +34,7 @@ val CoreColors = listOf(
 @Composable
 fun CompletePerformanceMonitorBottomSheet(
     uiState: PerformanceUiState,
+    onIntervalSelected: (SampleInterval) -> Unit = {},
     onStartRecording: () -> Unit,
     onStopRecording: () -> Unit,
     onExportCsv: (csvContent: String) -> Unit,
@@ -94,6 +99,24 @@ fun CompletePerformanceMonitorBottomSheet(
                             )
                             .padding(horizontal = 6.dp, vertical = 4.dp)
                     )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("协程刷新频率:", fontSize = 11.sp, color = Color.Gray)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    items(SampleInterval.values()) { interval ->
+                        FilterChip(
+                            selected = (uiState.sampleInterval == interval),
+                            onClick = { onIntervalSelected(interval) },
+                            label = { Text(interval.label, fontSize = 10.sp) },
+                            modifier = Modifier.height(26.dp)
+                        )
+                    }
                 }
             }
 
