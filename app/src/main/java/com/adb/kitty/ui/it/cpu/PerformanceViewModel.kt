@@ -62,6 +62,19 @@ data class HistoryRecording(
     val samples: List<PerformanceSample> = emptyList()
 )
 
+@Immutable
+data class RomMetric(
+    val totalGb: Float = 0f,
+    val availGb: Float = 0f,
+    val readSpeedMb: Float = 0f,
+    val writeSpeedMb: Float = 0f,
+    val readHistory: List<Float> = emptyList(),
+    val writeHistory: List<Float> = emptyList()
+) {
+    val usedGb: Float get() = (totalGb - availGb).coerceAtLeast(0f)
+    val usedPercent: Float get() = if (totalGb > 0) (usedGb / totalGb) * 100f else 0f
+}
+
 data class RawNetStats(
     val rxBytes: Long = 0L,
     val txBytes: Long = 0L,
@@ -128,6 +141,8 @@ data class PerformanceUiState(
     val batteryCurrentMa: Float = 0f,
     val batteryCurrentHistory: List<Float> = emptyList(),
 
+    val romMetric: RomMetric = RomMetric(),
+
     val ramTotalGb: Float = 0f,
     val ramAvailGb: Float = 0f,
     val ramAvailHistory: List<Float> = emptyList(),
@@ -171,6 +186,12 @@ class PerformanceViewModel : ViewModel() {
     
     private val cellRxSpeedHistory = ArrayDeque<Float>()
     private val wlanRxSpeedHistory = ArrayDeque<Float>()
+
+    private var lastDiskTimeMs: Long = 0L
+    private var lastDiskReadSectors: Long = 0L
+    private var lastDiskWriteSectors: Long = 0L
+    private val romReadHistory = ArrayDeque<Float>()
+    private val romWriteHistory = ArrayDeque<Float>()
 
     // 录制会话基准（Base Reference）
     private var recBaseCellRaw: RawNetStats? = null
@@ -216,6 +237,40 @@ class PerformanceViewModel : ViewModel() {
             val intent = Intent(context, GhzRootService::class.java)
             RootService.bind(intent, serviceConnection)
         }
+    }
+
+    // 获取 /data 分区存储空间 (GB)
+    private fun getRomStorageStats(): Pair<Float, Float> {
+        return try {
+            val stat = android.os.StatFs(android.os.Environment.getDataDirectory().path)
+            val totalBytes = stat.blockCountLong * stat.blockSizeLong
+            val availBytes = stat.availableBlocksLong * stat.blockSizeLong
+            Pair(totalBytes / (1024f * 1024f * 1024f), availBytes / (1024f * 1024f * 1024f))
+        } catch (e: Exception) {
+            Pair(0f, 0f)
+        }
+    }
+
+    // 从 /proc/diskstats 解析主存储芯片读写扇区数
+    private fun getDiskSectors(): Pair<Long, Long> {
+        var readSectors = 0L
+        var writeSectors = 0L
+        try {
+            File("/proc/diskstats").forEachLine { line ->
+                val parts = line.trim().split("\\s+".toRegex())
+                if (parts.size >= 14) {
+                    val devName = parts[2]
+                    // 匹配主块设备名称（如 sda, sdb, mmcblk0, nvme0n1），排除 loop, zram 和普通分区
+                    if (devName.matches(Regex("^(sd[a-z]|mmcblk[0-9]|nvme[0-9]n[0-9])$"))) {
+                        readSectors += parts[5].toLongOrNull() ?: 0L
+                        writeSectors += parts[9].toLongOrNull() ?: 0L
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return Pair(readSectors, writeSectors)
     }
 
     private fun readProcNetDev(): Pair<RawNetStats, RawNetStats> {
@@ -468,6 +523,46 @@ class PerformanceViewModel : ViewModel() {
                         rxSpeedHistory = wlanRxSpeedHistory.toList()
                     )
 
+                    val rawDiskStats = binder.diskStats // 返回 [readSectors, writeSectors, totalBytes, availBytes]
+                    
+                    var romMetric = RomMetric()
+                    if (rawDiskStats != null && rawDiskStats.size >= 4) {
+                        val curReadSectors = rawDiskStats[0]
+                        val curWriteSectors = rawDiskStats[1]
+                        val totalBytes = rawDiskStats[2]
+                        val availBytes = rawDiskStats[3]
+
+                        val romTotalGb = totalBytes / (1024f * 1024f * 1024f)
+                        val romAvailGb = availBytes / (1024f * 1024f * 1024f)
+
+                        val timeDeltaSec = if (lastDiskTimeMs > 0) {
+                            ((nowMs - lastDiskTimeMs) / 1000f).coerceAtLeast(0.1f)
+                        } else 1.0f
+
+                        val deltaReadSectors = (curReadSectors - lastDiskReadSectors).coerceAtLeast(0L)
+                        val deltaWriteSectors = (curWriteSectors - lastDiskWriteSectors).coerceAtLeast(0L)
+
+                        // Linux 内核规范中，/proc/diskstats 1 个扇区固定按 512 字节 (0.5 KB) 计算
+                        val readSpeedMb = if (lastDiskTimeMs > 0) ((deltaReadSectors * 512f) / (1024f * 1024f)) / timeDeltaSec else 0f
+                        val writeSpeedMb = if (lastDiskTimeMs > 0) ((deltaWriteSectors * 512f) / (1024f * 1024f)) / timeDeltaSec else 0f
+
+                        pushHistory(romReadHistory, readSpeedMb)
+                        pushHistory(romWriteHistory, writeSpeedMb)
+
+                        lastDiskTimeMs = nowMs
+                        lastDiskReadSectors = curReadSectors
+                        lastDiskWriteSectors = curWriteSectors
+
+                        romMetric = RomMetric(
+                            totalGb = romTotalGb,
+                            availGb = romAvailGb,
+                            readSpeedMb = readSpeedMb,
+                            writeSpeedMb = writeSpeedMb,
+                            readHistory = romReadHistory.toList(),
+                            writeHistory = romWriteHistory.toList()
+                        )
+                    }
+
                     var durationSec = 0
                     if (isRecordingActive) {
                         durationSec = ((nowMs - recordingStartTimeMs) / 1000).toInt()
@@ -517,6 +612,7 @@ class PerformanceViewModel : ViewModel() {
                             fpsHistory = fpsHistory.toList(),
                             gpuMetric = gpuMetric,
                             cpuCores = cpuMetrics,
+                            romMetric = romMetric,
                             ramTotalGb = memStats.ramTotalGb,
                             ramAvailGb = memStats.ramAvailGb,
                             ramAvailHistory = ramAvailHistory.toList(),

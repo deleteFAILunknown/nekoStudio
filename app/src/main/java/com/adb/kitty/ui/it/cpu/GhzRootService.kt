@@ -153,6 +153,44 @@ class GhzRootService : RootService() {
             override fun getMeasuredFps(): Float {
                 return readHardwareFps()
             }
+            
+            override fun getDiskStats(): LongArray {
+                var readSectors = 0L
+                var writeSectors = 0L
+
+                // 1. 读取 /proc/diskstats 累加主存储芯片扇区数
+                try {
+                    val diskstatsFile = File("/proc/diskstats")
+                    if (diskstatsFile.exists()) {
+                        diskstatsFile.forEachLine { line ->
+                            val parts = line.trim().split("\\s+".toRegex())
+                            if (parts.size >= 14) {
+                                val devName = parts[2]
+                                // 匹配 UFS(sda/sdb...), eMMC(mmcblk0), NVMe(nvme0n1) 等主块设备
+                                if (devName.matches(Regex("^(sd[a-z]|mmcblk[0-9]|nvme[0-9]n[0-9])$"))) {
+                                    readSectors += parts[5].toLongOrNull() ?: 0L
+                                    writeSectors += parts[9].toLongOrNull() ?: 0L
+                                }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+
+                // 2. 获取 /data 分区存储空间大小
+                var totalBytes = 0L
+                var availBytes = 0L
+                try {
+                    val stat = StatFs(Environment.getDataDirectory().path)
+                    totalBytes = stat.blockCountLong * stat.blockSizeLong
+                    availBytes = stat.availableBlocksLong * stat.blockSizeLong
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+
+                return longArrayOf(readSectors, writeSectors, totalBytes, availBytes)
+            }
         }
     }
     

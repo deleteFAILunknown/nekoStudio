@@ -144,6 +144,8 @@ fun CompletePerformanceMonitorBottomSheet(
                 zramHistory = uiState.zramAvailHistory
             )
 
+            RomStatusCard(rom = uiState.romMetric)
+
             BatteryStatusCard(
                 batteryLevel = uiState.batteryLevel,
                 batteryTemp = uiState.batteryTemp,
@@ -178,6 +180,72 @@ fun CompletePerformanceMonitorBottomSheet(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun RomStatusCard(rom: RomMetric) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // 1. ROM 存储空间部分
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("💾 ROM 内部存储", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = String.format(
+                            Locale.US,
+                            "已用: %.2f GB / 总量: %.2f GB (可用: %.2f GB)",
+                            rom.usedGb, rom.totalGb, rom.availGb
+                        ),
+                        fontSize = 10.sp,
+                        color = Color.Gray
+                    )
+                }
+                Text(
+                    text = String.format(Locale.US, "%.1f%%", rom.usedPercent),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF9C27B0)
+                )
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+
+            // 2. 磁盘读写速度部分
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("磁盘 I/O 实时速率", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    text = String.format(Locale.US, "📖 读: %.2f MB/s  ✍️ 写: %.2f MB/s", rom.readSpeedMb, rom.writeSpeedMb),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFFF9800)
+                )
+            }
+
+            MetricLineChart(
+                data = rom.readHistory,
+                maxVal = (rom.readHistory.maxOrNull() ?: 10f).coerceAtLeast(5f),
+                lineColor = Color(0xFFFF9800),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(32.dp)
+            )
         }
     }
 }

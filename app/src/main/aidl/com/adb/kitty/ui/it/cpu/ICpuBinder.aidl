@@ -7,4 +7,5 @@ interface ICpuBinder {
     float[] getSystemMetrics();
     long[] getNetworkStats();
     float getMeasuredFps();
+    long[] getDiskStats();
 }
