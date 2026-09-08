@@ -284,7 +284,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
 
         // 2.1 新增：屏幕刷新率历史趋势图
         val refreshRateList = samples.map { it.refreshRate }
-        val maxRefreshRate = (refreshRateList.maxOrNull() ?: 120f).coerceAtLeast(60f)
+        val maxRefreshRate = refreshRateList.maxOrNull() ?: 60f
 
         HistoryChartCard(
             title = "屏幕刷新率 (Hz)",
