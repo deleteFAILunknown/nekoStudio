@@ -109,7 +109,7 @@ fun CompletePerformanceMonitorBottomSheet(
             ) {
                 Text("协程刷新频率:", fontSize = 11.sp, color = Color.Gray)
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    items(SampleInterval.values()) { interval ->
+                    items(SampleInterval.entries) { interval ->
                         FilterChip(
                             selected = (uiState.sampleInterval == interval),
                             onClick = { onIntervalSelected(interval) },

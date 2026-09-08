@@ -30,10 +30,14 @@ import java.util.Locale
 import java.io.File
 
 enum class SampleInterval(val label: String, val millis: Long) {
-    FAST("200ms", 200L),
-    MEDIUM("500ms", 500L),
-    NORMAL("1000ms", 1000L),
-    SLOW("2000ms", 2000L)
+    ULTRA("100ms", 100L),    // 极速，短时间极速抓取
+    FAST("200ms", 200L),     // 高频，流畅观察帧率/CPU抖动
+    MEDIUM("500ms", 500L),   // 均衡，常规压测默认值
+    NORMAL("1000ms", 1000L), // 标准，日常性能监视
+    SLOW("2000ms", 2000L),   // 低耗，温度/功耗监控
+    LONG_3S("3000ms", 3000L),   // 轻量长测，低开销后台监视
+    BATTERY_5S("5000ms", 5000L), // 电池专项，长时续航/发热曲线
+    STANDBY_10S("10s", 10000L)  // 待机挂测，夜间待机/极低干扰测试
 }
 
 @Immutable
