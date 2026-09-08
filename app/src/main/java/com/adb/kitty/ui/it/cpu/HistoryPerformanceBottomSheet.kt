@@ -241,7 +241,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
                 )
                 SummaryItem(
                     label = "平均电压",
-                    value = String.format(Locale.US, "%.2fV", avgVolt)
+                    value = String.format(Locale.US, "%.2fV", avgVolt),
                     valueColor = Color(0xFFFFC107)
                 )
                 SummaryItem(
