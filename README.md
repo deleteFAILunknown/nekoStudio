@@ -1,20 +1,20 @@
-# Version
+# nekoStudio
 - [android-release-version-app](https://github.com/deleteFAILunknown/nekoStudio/releases)
 - [android-beta-version-app](https://github.com/deleteFAILunknown/nekoStudio/actions)
 
-# System Support
+## System Support
 - Starting from version V4.1
 - Android 17 - Android 7.0
 - Android TV、Android
 
-# flash scheme
+## flash scheme
 - This project allows you to perform Fastboot flashing in a root-free environment and connect to adbd
 
-# Shell solution
+## Shell solution
 - For the Shell executor, we may need to migrate to the foreground service to fully use all the instructions that come with Android 14+. The background process daemon service solution may no longer be a recommended solution for Android 14+ systems.
 - For the existing local shell service, I would refactor it in V4.2
 
-# Shell
+## Shell
 - Starting from version V4.2
 - How to use shell script to call internal instructions of the application
 - For example, calling the root-free fastboot command implemented inside the application
@@ -31,7 +31,7 @@ fastboot getvar unlocked
 fastboot oem device-info
 ```
 
-# su
+## su
 - Support KernelSU、SukiSU、Magisk
 - Starting from version V4.2
 ```shell
@@ -55,15 +55,15 @@ $su -c cat /sdcard/boot.img > /dev/block/by-name/boot_b
 $su -c cat /sdcard/init_boot.img > /dev/block/by-name/init_boot_b
 ```
 
-# DocumentsProvider
+## DocumentsProvider
 - You don't need to use MT Manager to inject a file provider for your APK to create the corresponding local storage directory
 - Starting from version V4.2
 
-# Signature
+## Signature
 - Now there are not only sample scripts in the project, but also built APKs, which use signature schemes v2, v3, v3.1, and v3.2 respectively.
 - Hope this sample script can help you
 
-# Verify signature
+## Verify signature
 - Verify v3.2 signature scheme using JDK 25
 ```shell
 $ java --version
