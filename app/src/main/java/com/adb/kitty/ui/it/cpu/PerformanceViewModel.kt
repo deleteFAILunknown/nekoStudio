@@ -112,6 +112,9 @@ data class PerformanceSample(
     val batteryTemp: Float = 0f,
     val batteryLevel: Int = 0,
     val batteryCurrentMa: Float = 0f,
+    val batteryVoltageMv: Float = 0f,
+    val batteryStatus: String = "Unknown",
+    val batteryCurrentHistory: List<Float> = emptyList(),
     val ramTotalGb: Float = 0f,
     val ramAvailGb: Float = 0f,
     val zramTotalGb: Float = 0f,
@@ -142,6 +145,8 @@ data class PerformanceUiState(
     val batteryTemp: Float = 0f,
     val batteryLevel: Int = 0,
     val batteryCurrentMa: Float = 0f,
+    val batteryVoltageMv: Float = 0f,
+    val batteryStatus: String = "Unknown",
     val batteryCurrentHistory: List<Float> = emptyList(),
 
     val romMetric: RomMetric = RomMetric(),
@@ -454,11 +459,13 @@ class PerformanceViewModel : ViewModel() {
                         history = gpuHistory.toList()
                     )
 
-                    // 3. System & Memory
+                    // 3. Battery & Memory
                     val batBundle = try { binder.batteryMetrics } catch (e: Exception) { null }
                     val temp = batBundle?.getFloat("battery_temp") ?: 0f
                     val batLevel = batBundle?.getInt("battery_level") ?: 0
                     val batCurrentMa = batBundle?.getFloat("battery_current_ma") ?: 0f
+                    val batVoltageMv = batBundle?.getFloat("battery_voltage_mv") ?: 0f
+                    val batStatus = batBundle?.getString("battery_status") ?: "Unknown"
 
                     val memStats = getMemoryStats()
 
@@ -570,6 +577,8 @@ class PerformanceViewModel : ViewModel() {
                                     batteryTemp = temp,
                                     batteryLevel = batLevel,
                                     batteryCurrentMa = batCurrentMa,
+                                    batteryVoltageMv = batVoltageMv,
+                                    batteryStatus = batStatus,
                                     ramTotalGb = memStats.ramTotalGb,
                                     ramAvailGb = memStats.ramAvailGb,
                                     zramTotalGb = memStats.zramTotalGb,
@@ -601,6 +610,8 @@ class PerformanceViewModel : ViewModel() {
                             batteryTemp = temp,
                             batteryLevel = batLevel,
                             batteryCurrentMa = batCurrentMa,
+                            batteryVoltageMv = batVoltageMv,
+                            batteryStatus = batStatus,
                             batteryCurrentHistory = batteryCurrentHistory.toList(),
                             renderFps = realFps,
                             refreshRateHz = activeHz,
@@ -635,7 +646,7 @@ class PerformanceViewModel : ViewModel() {
         val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
         val sb = StringBuilder()
 
-        sb.append("Time,Timestamp(ms),FPS,RefreshRate(Hz),BatteryTemp(°C),BatteryLevel(%),BatteryCurrent(mA),RAM_Avail(GB),RAM_Total(GB),ZRAM_Avail(GB),ZRAM_Total(GB),ROM_Read(MB/s),ROM_Write(MB/s),GPU_Freq(GHz),GPU_Load(%),GPU_Min(GHz),GPU_Max(GHz),Cell_RxSpeed(KB/s),Cell_TxSpeed(KB/s),Cell_Total(MB),Cell_Loss(%),Wlan_RxSpeed(KB/s),Wlan_TxSpeed(KB/s),Wlan_Total(MB),Wlan_Loss(%)")
+        sb.append("Time,Timestamp(ms),FPS,RefreshRate(Hz),BatteryTemp(°C),BatteryLevel(%),BatteryCurrent(mA),BatteryVoltage(mV),BatteryStatus,RAM_Avail(GB),RAM_Total(GB),ZRAM_Avail(GB),ZRAM_Total(GB),ROM_Read(MB/s),ROM_Write(MB/s),GPU_Freq(GHz),GPU_Load(%),GPU_Min(GHz),GPU_Max(GHz),Cell_RxSpeed(KB/s),Cell_TxSpeed(KB/s),Cell_Total(MB),Cell_Loss(%),Wlan_RxSpeed(KB/s),Wlan_TxSpeed(KB/s),Wlan_Total(MB),Wlan_Loss(%)")
 
         val maxCpuCount = samples.maxOfOrNull { it.cpuFreqsGhz.size } ?: 0
         for (i in 0 until maxCpuCount) {
@@ -645,9 +656,10 @@ class PerformanceViewModel : ViewModel() {
 
         for (sample in samples) {
             val timeStr = dateFormat.format(Date(sample.timestampMs))
-            sb.append(String.format(Locale.US, "%s,%d,%.2f,%.2f,%.1f,%d,%.1f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.3f,%.1f,%.3f,%.3f,%.1f,%.1f,%.2f,%.2f,%.1f,%.1f,%.2f,%.2f",
+            sb.append(String.format(Locale.US, "%s,%d,%.2f,%.2f,%.1f,%d,%.1f,%.1f,%s,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.3f,%.1f,%.3f,%.3f,%.1f,%.1f,%.2f,%.2f,%.1f,%.1f,%.2f,%.2f",
                 timeStr, sample.timestampMs, sample.fps, sample.refreshRate,
                 sample.batteryTemp, sample.batteryLevel, sample.batteryCurrentMa,
+                sample.batteryVoltageMv, sample.batteryStatus, // 新增对应参数
                 sample.ramAvailGb, sample.ramTotalGb, sample.zramAvailGb, sample.zramTotalGb,
                 sample.romReadSpeedMb, sample.romWriteSpeedMb,
                 sample.gpuFreqGhz, sample.gpuLoadPercent, sample.gpuMinFreqGhz, sample.gpuMaxFreqGhz,
@@ -774,42 +786,45 @@ class PerformanceViewModel : ViewModel() {
                 if (line.isEmpty()) continue
                 val tokens = line.split(",")
 
-                if (tokens.size >= 25) {
+                if (tokens.size >= 27) {
                     val timestampMs = tokens[1].toLongOrNull() ?: 0L
                     val fps = tokens[2].toFloatOrNull() ?: 0f
                     val refreshRate = tokens[3].toFloatOrNull() ?: 60f
                     val batteryTemp = tokens[4].toFloatOrNull() ?: 0f
                     val batteryLevel = tokens[5].toIntOrNull() ?: 0
                     val batteryCurrentMa = tokens[6].toFloatOrNull() ?: 0f
-                    val ramAvailGb = tokens[7].toFloatOrNull() ?: 0f
-                    val ramTotalGb = tokens[8].toFloatOrNull() ?: 0f
-                    val zramAvailGb = tokens[9].toFloatOrNull() ?: 0f
-                    val zramTotalGb = tokens[10].toFloatOrNull() ?: 0f
-                    val romReadSpeed = tokens[11].toFloatOrNull() ?: 0f
-                    val romWriteSpeed = tokens[12].toFloatOrNull() ?: 0f
-                    val gpuFreqGhz = tokens[13].toFloatOrNull() ?: 0f
-                    val gpuLoadPercent = tokens[14].toFloatOrNull() ?: 0f
-                    val gpuMinFreqGhz = tokens[15].toFloatOrNull() ?: 0f
-                    val gpuMaxFreqGhz = tokens[16].toFloatOrNull() ?: 0f
+                    val batteryVoltageMv = tokens[7].toFloatOrNull() ?: 0f
+                    val batteryStatus = tokens.getOrNull(8) ?: "Unknown"
 
-                    val cellRxSpeed = tokens[17].toFloatOrNull() ?: 0f
-                    val cellTxSpeed = tokens[18].toFloatOrNull() ?: 0f
-                    val cellTotalMb = tokens[19].toFloatOrNull() ?: 0f
-                    val cellLoss = tokens[20].toFloatOrNull() ?: 0f
-                    val wlanRxSpeed = tokens[21].toFloatOrNull() ?: 0f
-                    val wlanTxSpeed = tokens[22].toFloatOrNull() ?: 0f
-                    val wlanTotalMb = tokens[23].toFloatOrNull() ?: 0f
-                    val wlanLoss = tokens[24].toFloatOrNull() ?: 0f
+                    val ramAvailGb = tokens[9].toFloatOrNull() ?: 0f
+                    val ramTotalGb = tokens[10].toFloatOrNull() ?: 0f
+                    val zramAvailGb = tokens[11].toFloatOrNull() ?: 0f
+                    val zramTotalGb = tokens[12].toFloatOrNull() ?: 0f
+                    val romReadSpeed = tokens[13].toFloatOrNull() ?: 0f
+                    val romWriteSpeed = tokens[14].toFloatOrNull() ?: 0f
+                    val gpuFreqGhz = tokens[15].toFloatOrNull() ?: 0f
+                    val gpuLoadPercent = tokens[16].toFloatOrNull() ?: 0f
+                    val gpuMinFreqGhz = tokens[17].toFloatOrNull() ?: 0f
+                    val gpuMaxFreqGhz = tokens[18].toFloatOrNull() ?: 0f
+
+                    val cellRxSpeed = tokens[19].toFloatOrNull() ?: 0f
+                    val cellTxSpeed = tokens[20].toFloatOrNull() ?: 0f
+                    val cellTotalMb = tokens[21].toFloatOrNull() ?: 0f
+                    val cellLoss = tokens[22].toFloatOrNull() ?: 0f
+                    val wlanRxSpeed = tokens[23].toFloatOrNull() ?: 0f
+                    val wlanTxSpeed = tokens[24].toFloatOrNull() ?: 0f
+                    val wlanTotalMb = tokens[25].toFloatOrNull() ?: 0f
+                    val wlanLoss = tokens[26].toFloatOrNull() ?: 0f
 
                     val cpuFreqs = mutableListOf<Float>()
                     val cpuHwLimits = mutableListOf<Pair<Float, Float>>()
 
-                    var idx = 25
+                    var idx = 27
                     while (idx + 2 < tokens.size) {
                         val cur = tokens[idx].toFloatOrNull() ?: 0f
                         val min = tokens[idx + 1].toFloatOrNull() ?: 0f
                         val max = tokens[idx + 2].toFloatOrNull() ?: 0f
-                
+
                         cpuFreqs.add(cur)
                         cpuHwLimits.add(Pair(min, max))
                         idx += 3
@@ -823,6 +838,8 @@ class PerformanceViewModel : ViewModel() {
                             batteryTemp = batteryTemp,
                             batteryLevel = batteryLevel,
                             batteryCurrentMa = batteryCurrentMa,
+                            batteryVoltageMv = batteryVoltageMv,
+                            batteryStatus = batteryStatus,
                             ramAvailGb = ramAvailGb,
                             ramTotalGb = ramTotalGb,
                             zramAvailGb = zramAvailGb,

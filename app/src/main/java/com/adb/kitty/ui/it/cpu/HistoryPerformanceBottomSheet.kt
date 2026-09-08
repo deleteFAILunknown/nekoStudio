@@ -240,6 +240,16 @@ private fun HistoryGraphView(history: HistoryRecording) {
                     )
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("电量/均压", fontSize = 9.sp, color = Color.Gray)
+                    val avgVolt = samples.map { it.batteryVoltageMv / 1000f }.average().toFloat()
+                    Text(
+                        text = "$lastBatteryLevel% / ${String.format(Locale.US, "%.2fV", avgVolt)}",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 10.sp,
+                        color = Color(0xFFFFC107)
+                    )
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("WLAN/蜂窝流量", fontSize = 9.sp, color = Color.Gray)
                     Text(
                         text = "${formatMb(lastWlanTotal)} / ${formatMb(lastCellTotal)}",
@@ -386,6 +396,23 @@ private fun HistoryGraphView(history: HistoryRecording) {
             unit = "°C",
             valueFormat = "%.1f",
             displayValue = tempTypeList.average().toFloat()
+        )
+
+        // 3.5 电池电压 (V)
+        val voltageList = samples.map { it.batteryVoltageMv / 1000f }
+        val voltMin = voltageList.minOrNull() ?: 0f
+        val voltMax = voltageList.maxOrNull() ?: 0f
+        val voltDeltaMax = (voltMax - voltMin).coerceAtLeast(0.1f)
+
+        HistoryChartCard(
+            title = "电池电压 (V)",
+            limitText = String.format(Locale.US, "范围: %.2f V - %.2f V", voltMin, voltMax),
+            data = voltageList.map { it - voltMin },
+            maxVal = voltDeltaMax,
+            lineColor = Color(0xFFFFC107),
+            unit = "V",
+            valueFormat = "%.2f",
+            displayValue = voltageList.average().toFloat()
         )
 
         // 4. 放电电流
