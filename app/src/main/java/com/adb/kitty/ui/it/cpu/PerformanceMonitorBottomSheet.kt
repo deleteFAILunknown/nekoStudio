@@ -477,14 +477,6 @@ fun BatteryStatusCard(
 ) {
     val isCharging = batteryStatus.contains("Charging", ignoreCase = true)
     val isFull = batteryStatus.contains("Full", ignoreCase = true)
-    val isDischarging = batteryStatus.contains("Discharging", ignoreCase = true)
-
-    val statusText = when {
-        isFull -> "已充满"
-        isCharging -> "充电中"
-        isDischarging -> "放电中"
-        else -> batteryStatus.ifEmpty { "未充电" }
-    }
 
     val statusColor = when {
         isFull -> Color(0xFF2196F3)
@@ -515,7 +507,7 @@ fun BatteryStatusCard(
                 Text("🔋 电池功耗与状态", fontSize = 12.sp, fontWeight = FontWeight.Bold)
 
                 Text(
-                    text = statusText,
+                    text = batteryStatus.ifEmpty { "Unknown" },
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     color = statusColor,

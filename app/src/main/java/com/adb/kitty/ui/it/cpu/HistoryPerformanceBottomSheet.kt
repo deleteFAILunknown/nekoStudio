@@ -203,72 +203,55 @@ private fun HistoryGraphView(history: HistoryRecording) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(10.dp),
-                horizontalArrangement = Arrangement.SpaceAround
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("时长", fontSize = 9.sp, color = Color.Gray)
-                    Text(
-                        text = "${history.durationSeconds}/s",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 10.sp
-                    )
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("平均帧率", fontSize = 9.sp, color = Color.Gray)
-                    Text(
-                        text = String.format(Locale.US, "%.2f FPS", avgFps),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 10.sp,
-                        color = Color(0xFF4CAF50)
-                    )
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("平均刷新率", fontSize = 9.sp, color = Color.Gray)
-                    Text(
-                        text = String.format(Locale.US, "%.2f Hz", avgRefreshRate),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 10.sp,
-                        color = Color(0xFF4CAF50)
-                    )
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("电量/最高温度", fontSize = 9.sp, color = Color.Gray)
-                    Text(
-                        text = "$lastBatteryLevel% / ${String.format(Locale.US, "%.1f", maxTemp)}°C",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 10.sp,
-                        color = Color(0xFFFF5722)
-                    )
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("平均放电电流", fontSize = 9.sp, color = Color.Gray)
-                    Text(
-                        text = String.format(Locale.US, "%.0f mA", avgCurrent),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 10.sp,
-                        color = Color(0xFFFF9800)
-                    )
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("电量/均压", fontSize = 9.sp, color = Color.Gray)
-                    val avgVolt = samples.map { it.batteryVoltageMv / 1000f }.average().toFloat()
-                    Text(
-                        text = "$lastBatteryLevel% / ${String.format(Locale.US, "%.2fV", avgVolt)}",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 10.sp,
-                        color = Color(0xFFFFC107)
-                    )
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("WLAN/蜂窝流量", fontSize = 9.sp, color = Color.Gray)
-                    Text(
-                        text = "${formatMb(lastWlanTotal)} / ${formatMb(lastCellTotal)}",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 10.sp,
-                        color = Color(0xFF00BCD4)
-                    )
-                }
+                SummaryItem(
+                    label = "时长",
+                    value = "${history.durationSeconds}/s"
+                )
+                SummaryItem(
+                    label = "平均帧率",
+                    value = String.format(Locale.US, "%.2f FPS", avgFps),
+                    valueColor = Color(0xFF4CAF50)
+                )
+                SummaryItem(
+                    label = "平均刷新率",
+                    value = String.format(Locale.US, "%.2f Hz", avgRefreshRate),
+                    valueColor = Color(0xFF00BCD4)
+                )
+                SummaryItem(
+                    label = "电池电量",
+                    value = "$lastBatteryLevel%",
+                    valueColor = Color(0xFFFF5722)
+                )
+                SummaryItem(
+                    label = "电池最高温度",
+                    value = "${String.format(Locale.US, "%.1f", maxTemp)}°C",
+                    valueColor = Color(0xFFFF5722)
+                )
+                SummaryItem(
+                    label = "平均放电电流",
+                    value = String.format(Locale.US, "%.0f mA", avgCurrent),
+                    valueColor = Color(0xFFFF9800)
+                )
+                SummaryItem(
+                    label = "平均电压",
+                    value = String.format(Locale.US, "%.2fV", avgVolt)
+                    valueColor = Color(0xFFFFC107)
+                )
+                SummaryItem(
+                    label = "WLAN流量",
+                    value = "${formatMb(lastWlanTotal)}",
+                    valueColor = Color(0xFF00BCD4)
+                )
+                SummaryItem(
+                    label = "蜂窝流量",
+                    value = "${formatMb(lastCellTotal)}",
+                    valueColor = Color(0xFF00BCD4)
+                )
             }
         }
 
@@ -509,6 +492,29 @@ private fun HistoryGraphView(history: HistoryRecording) {
                 displayValue = coreFreqs.average().toFloat()
             )
         }
+    }
+}
+
+@Composable
+private fun SummaryItem(
+    label: String,
+    value: String,
+    valueColor: Color = MaterialTheme.colorScheme.onSurface
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = label, 
+            fontSize = 10.sp, 
+            color = Color.Gray,
+            maxLines = 1
+        )
+        Text(
+            text = value,
+            fontWeight = FontWeight.Bold,
+            fontSize = 12.sp,
+            color = valueColor,
+            maxLines = 1
+        )
     }
 }
 
