@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import java.text.SimpleDateFormat
 import java.util.ArrayDeque
 import java.util.Date
@@ -412,6 +413,7 @@ class PerformanceViewModel : ViewModel() {
         _uiState.update { it.copy(exportCsvContent = null) }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun startPollingHardware() {
         rootJob?.cancel()
         rootJob = viewModelScope.launch(Dispatchers.IO) {

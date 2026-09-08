@@ -228,7 +228,7 @@ fun RomStatusCard(rom: RomMetric) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text("💾 ROM 内部存储", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text("💾 ROM 内部存储 (/proc/diskstats)", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     Text(
                         text = String.format(
                             Locale.US,
@@ -433,7 +433,7 @@ fun MemoryStatusCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text("RAM 物理内存", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text("RAM 物理内存 (/proc/meminfo)", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     Text(
                         text = String.format(Locale.US, "已用: %.3f GB / 总量: %.3f GB (可用: %.3f GB)", ramUsedGb, ramTotalGb, ramAvailGb),
                         fontSize = 10.sp,
@@ -463,7 +463,7 @@ fun MemoryStatusCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text("ZRAM 虚拟内存", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text("ZRAM 虚拟内存 (/proc/meminfo)", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     Text(
                         text = String.format(Locale.US, "已用: %.3f GB / 总量: %.3f GB (可用: %.3f GB)", zramUsedGb, zramTotalGb, zramAvailGb),
                         fontSize = 10.sp,
