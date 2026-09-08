@@ -115,6 +115,8 @@ data class PerformanceSample(
     val ramAvailGb: Float = 0f,
     val zramTotalGb: Float = 0f,
     val zramAvailGb: Float = 0f,
+    val romReadSpeedMb: Float = 0f,
+    val romWriteSpeedMb: Float = 0f,
     val gpuFreqGhz: Float = 0f,
     val gpuLoadPercent: Float = 0f,
     val gpuMinFreqGhz: Float = 0f,
@@ -581,6 +583,8 @@ class PerformanceViewModel : ViewModel() {
                                     ramAvailGb = memStats.ramAvailGb,
                                     zramTotalGb = memStats.zramTotalGb,
                                     zramAvailGb = memStats.zramAvailGb,
+                                    romReadSpeedMb = romMetric.readSpeedMb,
+                                    romWriteSpeedMb = romMetric.writeSpeedMb,
                                     gpuFreqGhz = gpuData[0],
                                     gpuLoadPercent = gpuData[3],
                                     gpuMinFreqGhz = gpuData[1],
@@ -640,8 +644,8 @@ class PerformanceViewModel : ViewModel() {
         val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
         val sb = StringBuilder()
 
-        sb.append("Time,Timestamp(ms),FPS,RefreshRate(Hz),BatteryTemp(°C),BatteryLevel(%),BatteryCurrent(mA),RAM_Avail(GB),RAM_Total(GB),ZRAM_Avail(GB),ZRAM_Total(GB),GPU_Freq(GHz),GPU_Load(%),GPU_Min(GHz),GPU_Max(GHz),Cell_RxSpeed(KB/s),Cell_TxSpeed(KB/s),Cell_Total(MB),Cell_Loss(%),Wlan_RxSpeed(KB/s),Wlan_TxSpeed(KB/s),Wlan_Total(MB),Wlan_Loss(%)")
-    
+        sb.append("Time,Timestamp(ms),FPS,RefreshRate(Hz),BatteryTemp(°C),BatteryLevel(%),BatteryCurrent(mA),RAM_Avail(GB),RAM_Total(GB),ZRAM_Avail(GB),ZRAM_Total(GB),ROM_Read(MB/s),ROM_Write(MB/s),GPU_Freq(GHz),GPU_Load(%),GPU_Min(GHz),GPU_Max(GHz),Cell_RxSpeed(KB/s),Cell_TxSpeed(KB/s),Cell_Total(MB),Cell_Loss(%),Wlan_RxSpeed(KB/s),Wlan_TxSpeed(KB/s),Wlan_Total(MB),Wlan_Loss(%)")
+
         val maxCpuCount = samples.maxOfOrNull { it.cpuFreqsGhz.size } ?: 0
         for (i in 0 until maxCpuCount) {
             sb.append(",CPU${i}_Cur(GHz),CPU${i}_Min(GHz),CPU${i}_Max(GHz)")
@@ -650,10 +654,11 @@ class PerformanceViewModel : ViewModel() {
 
         for (sample in samples) {
             val timeStr = dateFormat.format(Date(sample.timestampMs))
-            sb.append(String.format(Locale.US, "%s,%d,%.2f,%.2f,%.1f,%d,%.1f,%.2f,%.2f,%.2f,%.2f,%.3f,%.1f,%.3f,%.3f,%.1f,%.1f,%.2f,%.2f,%.1f,%.1f,%.2f,%.2f",
+            sb.append(String.format(Locale.US, "%s,%d,%.2f,%.2f,%.1f,%d,%.1f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.3f,%.1f,%.3f,%.3f,%.1f,%.1f,%.2f,%.2f,%.1f,%.1f,%.2f,%.2f",
                 timeStr, sample.timestampMs, sample.fps, sample.refreshRate,
                 sample.batteryTemp, sample.batteryLevel, sample.batteryCurrentMa,
                 sample.ramAvailGb, sample.ramTotalGb, sample.zramAvailGb, sample.zramTotalGb,
+                sample.romReadSpeedMb, sample.romWriteSpeedMb,
                 sample.gpuFreqGhz, sample.gpuLoadPercent, sample.gpuMinFreqGhz, sample.gpuMaxFreqGhz,
                 sample.cellRxSpeedKbps, sample.cellTxSpeedKbps, sample.cellTotalMb, sample.cellLossRate,
                 sample.wlanRxSpeedKbps, sample.wlanTxSpeedKbps, sample.wlanTotalMb, sample.wlanLossRate
@@ -777,7 +782,7 @@ class PerformanceViewModel : ViewModel() {
                 if (line.isEmpty()) continue
                 val tokens = line.split(",")
 
-                if (tokens.size >= 23) {
+                if (tokens.size >= 25) {
                     val timestampMs = tokens[1].toLongOrNull() ?: 0L
                     val fps = tokens[2].toFloatOrNull() ?: 0f
                     val refreshRate = tokens[3].toFloatOrNull() ?: 60f
@@ -788,29 +793,31 @@ class PerformanceViewModel : ViewModel() {
                     val ramTotalGb = tokens[8].toFloatOrNull() ?: 0f
                     val zramAvailGb = tokens[9].toFloatOrNull() ?: 0f
                     val zramTotalGb = tokens[10].toFloatOrNull() ?: 0f
-                    val gpuFreqGhz = tokens[11].toFloatOrNull() ?: 0f
-                    val gpuLoadPercent = tokens[12].toFloatOrNull() ?: 0f
-                    val gpuMinFreqGhz = tokens[13].toFloatOrNull() ?: 0f
-                    val gpuMaxFreqGhz = tokens[14].toFloatOrNull() ?: 0f
+                    val romReadSpeed = tokens[11].toFloatOrNull() ?: 0f
+                    val romWriteSpeed = tokens[12].toFloatOrNull() ?: 0f
+                    val gpuFreqGhz = tokens[13].toFloatOrNull() ?: 0f
+                    val gpuLoadPercent = tokens[14].toFloatOrNull() ?: 0f
+                    val gpuMinFreqGhz = tokens[15].toFloatOrNull() ?: 0f
+                    val gpuMaxFreqGhz = tokens[16].toFloatOrNull() ?: 0f
 
-                    val cellRxSpeed = tokens[15].toFloatOrNull() ?: 0f
-                    val cellTxSpeed = tokens[16].toFloatOrNull() ?: 0f
-                    val cellTotalMb = tokens[17].toFloatOrNull() ?: 0f
-                    val cellLoss = tokens[18].toFloatOrNull() ?: 0f
-                    val wlanRxSpeed = tokens[19].toFloatOrNull() ?: 0f
-                    val wlanTxSpeed = tokens[20].toFloatOrNull() ?: 0f
-                    val wlanTotalMb = tokens[21].toFloatOrNull() ?: 0f
-                    val wlanLoss = tokens[22].toFloatOrNull() ?: 0f
+                    val cellRxSpeed = tokens[17].toFloatOrNull() ?: 0f
+                    val cellTxSpeed = tokens[18].toFloatOrNull() ?: 0f
+                    val cellTotalMb = tokens[19].toFloatOrNull() ?: 0f
+                    val cellLoss = tokens[20].toFloatOrNull() ?: 0f
+                    val wlanRxSpeed = tokens[21].toFloatOrNull() ?: 0f
+                    val wlanTxSpeed = tokens[22].toFloatOrNull() ?: 0f
+                    val wlanTotalMb = tokens[23].toFloatOrNull() ?: 0f
+                    val wlanLoss = tokens[24].toFloatOrNull() ?: 0f
 
                     val cpuFreqs = mutableListOf<Float>()
                     val cpuHwLimits = mutableListOf<Pair<Float, Float>>()
 
-                    var idx = 23
+                    var idx = 25
                     while (idx + 2 < tokens.size) {
                         val cur = tokens[idx].toFloatOrNull() ?: 0f
                         val min = tokens[idx + 1].toFloatOrNull() ?: 0f
                         val max = tokens[idx + 2].toFloatOrNull() ?: 0f
-                    
+                
                         cpuFreqs.add(cur)
                         cpuHwLimits.add(Pair(min, max))
                         idx += 3
@@ -828,6 +835,8 @@ class PerformanceViewModel : ViewModel() {
                             ramTotalGb = ramTotalGb,
                             zramAvailGb = zramAvailGb,
                             zramTotalGb = zramTotalGb,
+                            romReadSpeedMb = romReadSpeed,
+                            romWriteSpeedMb = romWriteSpeed,
                             gpuFreqGhz = gpuFreqGhz,
                             gpuLoadPercent = gpuLoadPercent,
                             gpuMinFreqGhz = gpuMinFreqGhz,

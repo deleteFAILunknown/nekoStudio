@@ -348,6 +348,30 @@ private fun HistoryGraphView(history: HistoryRecording) {
             displayValue = zramAvailList.average().toFloat()
         )
 
+        // ROM 读取速率
+        val romReadList = samples.map { it.romReadSpeedMb }
+        HistoryChartCard(
+            title = "ROM 读取速度 (MB/s)",
+            data = romReadList,
+            maxVal = (romReadList.maxOrNull() ?: 10f).coerceAtLeast(5f),
+            lineColor = Color(0xFF3F51B5),
+            unit = "MB/s",
+            valueFormat = "%.2f",
+            displayValue = romReadList.average().toFloat()
+        )
+
+        // ROM 写入速率
+        val romWriteList = samples.map { it.romWriteSpeedMb }
+        HistoryChartCard(
+            title = "ROM 写入速度 (MB/s)",
+            data = romWriteList,
+            maxVal = (romWriteList.maxOrNull() ?: 10f).coerceAtLeast(5f),
+            lineColor = Color(0xFF673AB7),
+            unit = "MB/s",
+            valueFormat = "%.2f",
+            displayValue = romWriteList.average().toFloat()
+        )
+
         // 3. 电池温度
         val tempTypeList = samples.map { it.batteryTemp }
         val tempMin = tempTypeList.minOrNull() ?: 0f
@@ -376,6 +400,20 @@ private fun HistoryGraphView(history: HistoryRecording) {
             unit = "mA",
             valueFormat = "%.0f",
             displayValue = avgCurrent
+        )
+        
+        // GPU 运行频率 (GHz)
+        val gpuFreqList = samples.map { it.gpuFreqGhz }
+        val maxGpuFreq = (gpuFreqList.maxOrNull() ?: 1f).coerceAtLeast(0.5f)
+        HistoryChartCard(
+            title = "GPU 运行频率 (GHz)",
+            limitText = gpuLimitStr,
+            data = gpuFreqList,
+            maxVal = maxGpuFreq,
+            lineColor = Color(0xFFAB47BC),
+            unit = "GHz",
+            valueFormat = "%.3f",
+            displayValue = gpuFreqList.average().toFloat()
         )
 
         // 5. GPU 负载率
