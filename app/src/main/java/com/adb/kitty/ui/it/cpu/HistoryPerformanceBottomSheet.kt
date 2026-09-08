@@ -402,20 +402,6 @@ private fun HistoryGraphView(history: HistoryRecording) {
             displayValue = avgCurrent
         )
         
-        // GPU 运行频率 (GHz)
-        val gpuFreqList = samples.map { it.gpuFreqGhz }
-        val maxGpuFreq = (gpuFreqList.maxOrNull() ?: 1f).coerceAtLeast(0.5f)
-        HistoryChartCard(
-            title = "GPU 运行频率 (GHz)",
-            limitText = gpuLimitStr,
-            data = gpuFreqList,
-            maxVal = maxGpuFreq,
-            lineColor = Color(0xFFAB47BC),
-            unit = "GHz",
-            valueFormat = "%.3f",
-            displayValue = gpuFreqList.average().toFloat()
-        )
-
         // 5. GPU 负载率
         val gpuLoadList = samples.map { it.gpuLoadPercent }
         val gpuMin = samples.mapNotNull { if (it.gpuMinFreqGhz > 0) it.gpuMinFreqGhz else null }.firstOrNull() ?: 0f
@@ -430,6 +416,20 @@ private fun HistoryGraphView(history: HistoryRecording) {
             lineColor = Color(0xFF9C27B0),
             unit = "%",
             displayValue = gpuLoadList.average().toFloat()
+        )
+
+        // GPU 运行频率 (GHz)
+        val gpuFreqList = samples.map { it.gpuFreqGhz }
+        val maxGpuFreq = (gpuFreqList.maxOrNull() ?: 1f).coerceAtLeast(0.5f)
+        HistoryChartCard(
+            title = "GPU 运行频率 (GHz)",
+            limitText = gpuLimitStr,
+            data = gpuFreqList,
+            maxVal = maxGpuFreq,
+            lineColor = Color(0xFFAB47BC),
+            unit = "GHz",
+            valueFormat = "%.3f",
+            displayValue = gpuFreqList.average().toFloat()
         )
 
         // 6. CPU 核心频率
