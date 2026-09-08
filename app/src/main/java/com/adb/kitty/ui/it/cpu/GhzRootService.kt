@@ -1,12 +1,14 @@
 package com.adb.kitty.ui.it.cpu
 
 import android.content.Intent
+import android.os.Bundle
 import android.os.Environment
 import android.os.IBinder
 import android.os.StatFs
 import androidx.annotation.Keep
 import com.topjohnwu.superuser.ipc.RootService
 import java.io.File
+import kotlin.math.abs
 
 @Keep
 class GhzRootService : RootService() {
@@ -193,6 +195,10 @@ class GhzRootService : RootService() {
 
                 return longArrayOf(readSectors, writeSectors, totalBytes, availBytes)
             }
+            
+            override fun getBatteryMetrics(): Bundle {
+                return BatterySysfsReader.readMetrics()
+            }
         }
     }
     
@@ -218,5 +224,105 @@ class GhzRootService : RootService() {
             }
         }
         return 0f
+    }
+}
+
+object BatterySysfsReader {
+
+    private val TEMP_PATHS = arrayOf(
+        "/sys/class/power_supply/battery/temp",
+        "/sys/class/power_supply/bms/temp"
+    )
+
+    private val CAPACITY_PATHS = arrayOf(
+        "/sys/class/power_supply/battery/capacity",
+        "/sys/class/power_supply/bms/capacity"
+    )
+
+    private val CURRENT_PATHS = arrayOf(
+        "/sys/class/power_supply/battery/current_now",
+        "/sys/class/power_supply/bms/current_now"
+    )
+
+    private val VOLTAGE_PATHS = arrayOf(
+        "/sys/class/power_supply/battery/voltage_now",
+        "/sys/class/power_supply/bms/voltage_now"
+    )
+
+    private val STATUS_PATHS = arrayOf(
+        "/sys/class/power_supply/battery/status",
+        "/sys/class/power_supply/bms/status"
+    )
+
+    fun readMetrics(): Bundle {
+        val bundle = Bundle()
+
+        // 1. 读取温度 (°C)
+        var rawTemp = readFirstAvailableFloat(TEMP_PATHS)
+        val tempSec = when {
+            rawTemp > 1000f -> rawTemp / 1000f
+            rawTemp > 100f -> rawTemp / 10f
+            else -> rawTemp
+        }
+        bundle.putFloat("battery_temp", tempSec)
+
+        // 2. 读取电量百分比 (%)
+        val capacity = readFirstAvailableFloat(CAPACITY_PATHS).toInt()
+        bundle.putInt("battery_level", capacity)
+
+        // 3. 读取电流 (mA)
+        var rawCurrent = readFirstAvailableFloat(CURRENT_PATHS)
+        // Linux sysfs current_now 通常单位为微安 (µA)；少数内核可能直接输出 mA
+        val currentMa = if (abs(rawCurrent) > 10000f) {
+            abs(rawCurrent) / 1000f
+        } else {
+            abs(rawCurrent)
+        }
+        bundle.putFloat("battery_current_ma", currentMa)
+
+        // 4. 读取电压 (mV)
+        var rawVoltage = readFirstAvailableFloat(VOLTAGE_PATHS)
+        // voltage_now 通常为微伏 (µV)；部分驱动为 mV
+        val voltageMv = if (rawVoltage > 1000000f) {
+            rawVoltage / 1000f
+        } else {
+            rawVoltage
+        }
+        bundle.putFloat("battery_voltage_mv", voltageMv)
+
+        // 5. 读取充电状态 (Charging, Discharging, Full 等)
+        val status = readFirstAvailableString(STATUS_PATHS)
+        bundle.putString("battery_status", status)
+
+        return bundle
+    }
+
+    private fun readFirstAvailableFloat(paths: Array<String>): Float {
+        for (path in paths) {
+            val file = File(path)
+            if (file.exists()) {
+                try {
+                    val text = file.readText().trim()
+                    val value = text.toFloatOrNull()
+                    if (value != null) return value
+                } catch (_: Exception) {
+                }
+            }
+        }
+        return 0f
+    }
+
+    private fun readFirstAvailableString(paths: Array<String>): String {
+        for (path in paths) {
+            val file = File(path)
+            if (file.exists()) {
+                try {
+                    val text = file.readText().trim()
+                    if (text.isNotEmpty()) return text
+                } catch (_: Exception) {
+                }
+            }
+        }
+        return "Unknown"
     }
 }

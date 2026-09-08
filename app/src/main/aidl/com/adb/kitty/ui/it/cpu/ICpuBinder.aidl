@@ -8,4 +8,5 @@ interface ICpuBinder {
     long[] getNetworkStats();
     float getMeasuredFps();
     long[] getDiskStats();
+    Bundle getBatteryMetrics();
 }

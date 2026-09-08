@@ -6,7 +6,6 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.hardware.display.DisplayManager
 import android.os.IBinder
-import android.view.Choreographer
 import android.view.Display
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
@@ -19,6 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 import java.text.SimpleDateFormat
 import java.util.ArrayDeque
 import java.util.Date
@@ -175,6 +175,8 @@ class PerformanceViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(PerformanceUiState())
     val uiState: StateFlow<PerformanceUiState> = _uiState.asStateFlow()
 
+    private var rootJob: Job? = null
+
     private var rootBinder: ICpuBinder? = null
     private val maxHistoryPoints = 30
     private val fpsHistory = ArrayDeque<Float>()
@@ -204,10 +206,9 @@ class PerformanceViewModel : ViewModel() {
     private var recordingStartTimeMs: Long = 0L
 
     private var displayManager: DisplayManager? = null
-    
-    private var batteryManager: android.os.BatteryManager? = null
+
     private val batteryCurrentHistory = ArrayDeque<Float>()
-    
+
     private val ramAvailHistory = ArrayDeque<Float>()
     private val zramAvailHistory = ArrayDeque<Float>()
 
@@ -225,10 +226,6 @@ class PerformanceViewModel : ViewModel() {
     }
 
     fun initAndBind(context: Context) {
-        if (batteryManager == null) {
-            batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as? android.os.BatteryManager
-        }
-
         if (displayManager == null) {
             displayManager = context.getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager
         }
@@ -305,16 +302,6 @@ class PerformanceViewModel : ViewModel() {
             e.printStackTrace()
             Pair(RawNetStats(), RawNetStats())
         }
-    }
-
-    private fun getBatteryStats(): Pair<Int, Float> {
-        val bm = batteryManager ?: return Pair(0, 0f)
-        val level = bm.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)
-        // BATTERY_PROPERTY_CURRENT_NOW 返回单位为微安 (uA)
-        // 负数通常表示放电，正数表示充电，这里取绝对值并转为毫安 (mA)
-        val currentUa = bm.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
-        val currentMa = kotlin.math.abs(currentUa) / 1000f
-        return Pair(level, currentMa)
     }
 
     private data class MemoryStats(
@@ -432,8 +419,9 @@ class PerformanceViewModel : ViewModel() {
     }
 
     private fun startPollingHardware() {
-        viewModelScope.launch(Dispatchers.IO) {
-            while (rootBinder != null) {
+        rootJob?.cancel()
+        rootJob = viewModelScope.launch(Dispatchers.IO) {
+            while (rootBinder != null && isActive) {
                 try {
                     val binder = rootBinder ?: break
                     val nowMs = System.currentTimeMillis()
@@ -466,9 +454,11 @@ class PerformanceViewModel : ViewModel() {
                     )
 
                     // 3. System & Memory
-                    val sysData = binder.systemMetrics
-                    val temp = sysData[0]
-                    val (batLevel, batCurrentMa) = getBatteryStats()
+                    val batBundle = try { binder.batteryMetrics } catch (e: Exception) { null }
+                    val temp = batBundle?.getFloat("battery_temp") ?: 0f
+                    val batLevel = batBundle?.getInt("battery_level") ?: 0
+                    val batCurrentMa = batBundle?.getFloat("battery_current_ma") ?: 0f
+
                     val memStats = getMemoryStats()
 
                     pushHistory(batteryCurrentHistory, batCurrentMa)
@@ -681,6 +671,7 @@ class PerformanceViewModel : ViewModel() {
     }
 
     override fun onCleared() {
+        rootJob?.cancel()
         try {
             RootService.unbind(serviceConnection)
         } catch (e: Exception) { }
