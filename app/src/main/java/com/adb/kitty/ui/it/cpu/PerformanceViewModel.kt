@@ -215,6 +215,9 @@ class PerformanceViewModel : ViewModel() {
 
     private val batteryCurrentHistory = ArrayDeque<Float>()
 
+    // 静态常量
+    private val SPACES_REGEX = Regex("\\s+")
+
     private val ramAvailHistory = ArrayDeque<Float>()
     private val zramAvailHistory = ArrayDeque<Float>()
 
@@ -242,40 +245,6 @@ class PerformanceViewModel : ViewModel() {
             val intent = Intent(context, GhzRootService::class.java)
             RootService.bind(intent, serviceConnection)
         }
-    }
-
-    // 获取 /data 分区存储空间 (GB)
-    private fun getRomStorageStats(): Pair<Float, Float> {
-        return try {
-            val stat = android.os.StatFs(android.os.Environment.getDataDirectory().path)
-            val totalBytes = stat.blockCountLong * stat.blockSizeLong
-            val availBytes = stat.availableBlocksLong * stat.blockSizeLong
-            Pair(totalBytes / (1024f * 1024f * 1024f), availBytes / (1024f * 1024f * 1024f))
-        } catch (e: Exception) {
-            Pair(0f, 0f)
-        }
-    }
-
-    // 从 /proc/diskstats 解析主存储芯片读写扇区数
-    private fun getDiskSectors(): Pair<Long, Long> {
-        var readSectors = 0L
-        var writeSectors = 0L
-        try {
-            File("/proc/diskstats").forEachLine { line ->
-                val parts = line.trim().split("\\s+".toRegex())
-                if (parts.size >= 14) {
-                    val devName = parts[2]
-                    // 匹配主块设备名称（如 sda, sdb, mmcblk0, nvme0n1），排除 loop, zram 和普通分区
-                    if (devName.matches(Regex("^(sd[a-z]|mmcblk[0-9]|nvme[0-9]n[0-9])$"))) {
-                        readSectors += parts[5].toLongOrNull() ?: 0L
-                        writeSectors += parts[9].toLongOrNull() ?: 0L
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        return Pair(readSectors, writeSectors)
     }
 
     private fun readProcNetDev(): Pair<RawNetStats, RawNetStats> {
@@ -327,7 +296,8 @@ class PerformanceViewModel : ViewModel() {
 
         try {
             File("/proc/meminfo").forEachLine { line ->
-                val parts = line.split("\\s+".toRegex())
+             //   val parts = line.split("\\s+".toRegex())
+                val parts = line.split(SPACES_REGEX)
                 if (parts.size >= 2) {
                     when (parts[0]) {
                         "MemTotal:" -> memTotalKb = parts[1].toLongOrNull() ?: 0L
