@@ -1,6 +1,7 @@
 package com.adb.kitty.ui.it.cpu
 
 import android.content.Intent
+import android.hardware.display.DisplayManager
 import android.os.Bundle
 import android.os.Environment
 import android.os.IBinder
@@ -12,6 +13,10 @@ import kotlin.math.abs
 
 @Keep
 class GhzRootService : RootService() {
+
+    private val displayManager by lazy {
+        getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager
+    }
 
     override fun onBind(intent: Intent): IBinder {
         return object : ICpuBinder.Stub() {
@@ -198,6 +203,29 @@ class GhzRootService : RootService() {
             
             override fun getBatteryMetrics(): Bundle {
                 return BatterySysfsReader.readMetrics()
+            }
+
+            override fun getCurrentResolution(): String {
+                val display = displayManager?.getDisplay(Display.DEFAULT_DISPLAY) ?: return ""
+                val currentMode = display.mode
+                val curW = maxOf(currentMode.physicalWidth, currentMode.physicalHeight)
+                val curH = minOf(currentMode.physicalWidth, currentMode.physicalHeight)
+                return "${curW}×${curH}"
+            }
+
+            override fun getSupportedDisplayModes(): List<String> {
+                val display = displayManager?.getDisplay(Display.DEFAULT_DISPLAY) ?: return emptyList()
+                return display.supportedModes.map { mode ->
+                    val w = maxOf(mode.physicalWidth, mode.physicalHeight)
+                    val h = minOf(mode.physicalWidth, mode.physicalHeight)
+                    val hz = mode.refreshRate.toInt()
+                    "${w}×${h} @ ${hz}Hz"
+                }.distinct()
+            }
+
+            override fun getActiveRefreshRate(): Float {
+                val display = displayManager?.getDisplay(Display.DEFAULT_DISPLAY)
+                return display?.refreshRate ?: display?.mode?.refreshRate ?: 60f
             }
         }
     }

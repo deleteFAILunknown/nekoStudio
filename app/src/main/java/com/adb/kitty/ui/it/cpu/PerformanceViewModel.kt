@@ -4,7 +4,6 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
-import android.hardware.display.DisplayManager
 import android.os.IBinder
 import android.view.Display
 import androidx.compose.runtime.Immutable
@@ -230,8 +229,6 @@ class PerformanceViewModel : ViewModel() {
     private val recordingBuffer = mutableListOf<PerformanceSample>()
     private var recordingStartTimeMs: Long = 0L
 
-    private var displayManager: DisplayManager? = null
-
     private val batteryCurrentHistory = ArrayDeque<Float>()
 
     // 静态常量
@@ -244,14 +241,6 @@ class PerformanceViewModel : ViewModel() {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             rootBinder = ICpuBinder.Stub.asInterface(service)
             _uiState.update { it.copy(isRootConnected = true) }
-
-            // 我们要获取的是 Root 进程的数据，而不是主进程的数据
-            if (displayManager == null) {
-                displayManager = context.getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager
-            }
-
-            // 把方法丢给全局 Root 的跨进程，确保不会有任何误差
-            updateDisplayCapabilities()
 
             // Root 协程监控
             startPollingHardware()
@@ -365,34 +354,6 @@ class PerformanceViewModel : ViewModel() {
         )
     }
 
-    private fun updateDisplayCapabilities() {
-        val display = displayManager?.getDisplay(Display.DEFAULT_DISPLAY) ?: return
-        val currentMode = display.mode
-
-        val curW = maxOf(currentMode.physicalWidth, currentMode.physicalHeight)
-        val curH = minOf(currentMode.physicalWidth, currentMode.physicalHeight)
-        val resFormatted = "${curW}×${curH}"
-
-        val modes = display.supportedModes.map { mode ->
-            val w = maxOf(mode.physicalWidth, mode.physicalHeight)
-            val h = minOf(mode.physicalWidth, mode.physicalHeight)
-            val hz = mode.refreshRate.toInt()
-            "${w}×${h} @ ${hz}Hz"
-        }.distinct()
-
-        _uiState.update {
-            it.copy(
-                currentResolution = resFormatted,
-                supportedDisplayModes = modes
-            )
-        }
-    }
-
-    private fun getActiveRefreshRate(): Float {
-        val display = displayManager?.getDisplay(Display.DEFAULT_DISPLAY)
-        return display?.refreshRate ?: display?.mode?.refreshRate ?: 60f
-    }
-
     // 手动点击：开始录制
     fun startRecording() {
         recordingStartTimeMs = System.currentTimeMillis()
@@ -489,7 +450,10 @@ class PerformanceViewModel : ViewModel() {
                         pushHistory(batteryCurrentHistory, batCurrentMa)
 
                         // 4. Display & FPS
-                        val activeHz = getActiveRefreshRate()
+                        val activeHz = try { binder.activeRefreshRate } catch (e: Exception) { 60f }
+                        val currentRes = try { binder.currentResolution ?: "" } catch (e: Exception) { "" }
+                        val supportedModes = try { binder.supportedDisplayModes ?: emptyList() } catch (e: Exception) { emptyList() }
+
                         val hwFps = try { binder.measuredFps } catch (e: Exception) { 0f }
                         val realFps = if (hwFps > 0f) hwFps else 0f
 
@@ -632,6 +596,8 @@ class PerformanceViewModel : ViewModel() {
                                 batteryCurrentHistory = batteryCurrentHistory.toList(),
                                 renderFps = realFps,
                                 refreshRateHz = activeHz,
+                                currentResolution = currentRes,
+                                supportedDisplayModes = supportedModes,
                                 fpsHistory = fpsHistory.toList(),
                                 gpuMetric = gpuMetric,
                                 cpuCores = cpuMetrics,

@@ -9,4 +9,7 @@ interface ICpuBinder {
     float getMeasuredFps();
     long[] getDiskStats();
     Bundle getBatteryMetrics();
+    String getCurrentResolution();
+    List<String> getSupportedDisplayModes();
+    float getActiveRefreshRate();
 }
