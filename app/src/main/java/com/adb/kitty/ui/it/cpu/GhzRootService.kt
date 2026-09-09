@@ -14,6 +14,10 @@ import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
 
+/*
+* RootService 继承自 android.content.ContextWrapper
+*/
+
 @Keep
 class GhzRootService : RootService() {
 

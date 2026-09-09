@@ -444,6 +444,20 @@ private fun HistoryGraphView(history: HistoryRecording) {
             valueOffset = tempMin
         )
 
+        val batteryLevelList = samples.map { it.batteryLevel.toFloat() }
+        val levelMin = batteryLevelList.minOrNull() ?: 0f
+        val levelMax = batteryLevelList.maxOrNull() ?: 0f
+
+        HistoryChartCard(
+            title = "电池电量 (%)",
+            limitText = String.format(Locale.US, "变化区间: %.0f%% - %.0f%% | 最终电量: %d%%", levelMin, levelMax, lastBatteryLevel),
+            data = batteryLevelList,
+            maxVal = 100f,
+            lineColor = Color(0xFFFF5722),
+            unit = "%",
+            valueFormat = "%.0f"
+        )
+
         // 3.1 电池电压 (V)
         val voltageList = samples.map { it.batteryVoltageMv / 1000f }
         val voltMin = voltageList.minOrNull() ?: 0f
