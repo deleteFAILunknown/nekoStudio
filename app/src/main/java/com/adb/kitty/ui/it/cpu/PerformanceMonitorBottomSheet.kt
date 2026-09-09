@@ -193,7 +193,7 @@ fun CompletePerformanceMonitorBottomSheet(
 
             // 4. CPU 核心集群网格
             Text(
-                text = "CPU 核心集群 (${uiState.cpuCores.size} Cores / HW)",
+                text = "CPU 核心数 (${uiState.cpuCores.size} 核 / HW)",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp)
@@ -276,7 +276,7 @@ fun RomStatusCard(rom: RomMetric) {
                 lineColor = Color(0xFFFF9800),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp)
+                    .height(70.dp)
             )
         }
     }
@@ -411,7 +411,7 @@ private fun NetworkSectionItem(
             lineColor = lineColor,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(50.dp)
+                .height(70.dp)
         )
     }
 }
@@ -476,7 +476,7 @@ fun MemoryStatusCard(
                 lineColor = Color(0xFF2196F3),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp)
+                    .height(70.dp)
             )
 
             HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
@@ -508,7 +508,7 @@ fun MemoryStatusCard(
                 lineColor = Color(0xFF00BCD4),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp)
+                    .height(70.dp)
             )
         }
     }
@@ -708,7 +708,7 @@ fun BatteryStatusCard(
                     lineColor = statusColor,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(50.dp)
+                        .height(70.dp)
                 )
             }
         }
@@ -775,7 +775,7 @@ fun SystemSummaryCard(state: PerformanceUiState) {
                 lineColor = Color(0xFF4CAF50),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp)
+                    .height(70.dp)
             )
         }
     }
@@ -895,7 +895,7 @@ fun GpuMetricCard(gpu: GpuMetric) {
                 lineColor = Color(0xFF9C27B0),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp)
+                    .height(70.dp)
             )
         }
     }
@@ -915,7 +915,7 @@ fun SingleCoreCard(core: CpuCoreMetric, modifier: Modifier = Modifier) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Core ${core.coreIndex}", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                Text("CPU ${core.coreIndex}", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 Text(
                     text = String.format(Locale.US, "%.3f GHz", core.curFreqGhz),
                     fontWeight = FontWeight.Bold,
@@ -935,7 +935,7 @@ fun SingleCoreCard(core: CpuCoreMetric, modifier: Modifier = Modifier) {
                 lineColor = color,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp)
+                    .height(70.dp)
             )
         }
     }

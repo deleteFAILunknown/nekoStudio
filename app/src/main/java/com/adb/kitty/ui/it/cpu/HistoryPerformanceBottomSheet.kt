@@ -551,7 +551,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
             val maxFreq = coreFreqs.maxOrNull()?.coerceAtLeast(1f) ?: 3f
 
             HistoryChartCard(
-                title = "CPU Core $coreIndex",
+                title = "CPU 核心 $coreIndex",
                 limitText = hwLimitStr,
                 data = coreFreqs,
                 maxVal = maxFreq,
@@ -693,7 +693,7 @@ private fun HistoryChartCard(
                 lineColor = lineColor,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(72.dp)
+                    .height(120.dp)
             )
         }
     }
