@@ -60,7 +60,7 @@ fun CompletePerformanceMonitorBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "⚡ 硬件性能与热状态监控",
+                    text = "⚡ Qualcomm 硬件性能监控",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )

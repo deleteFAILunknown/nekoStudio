@@ -31,14 +31,14 @@ import java.util.Locale
 import java.io.File
 
 enum class SampleInterval(val label: String, val millis: Long) {
-    ULTRA("100ms", 100L),    // 极速，短时间极速抓取
-    FAST("200ms", 200L),     // 高频，流畅观察帧率/CPU抖动
-    MEDIUM("500ms", 500L),   // 均衡，常规压测默认值
-    NORMAL("1000ms", 1000L), // 标准，日常性能监视
-    SLOW("2000ms", 2000L),   // 低耗，温度/功耗监控
-    LONG_3S("3000ms", 3000L),   // 轻量长测，低开销后台监视
-    BATTERY_5S("5000ms", 5000L), // 电池专项，长时续航/发热曲线
-    STANDBY_10S("10s", 10000L)  // 待机挂测，夜间待机/极低干扰测试
+    ULTRA("100ms", 100L),    // 极速
+    FAST("200ms", 200L),     // 高频
+    MEDIUM("500ms", 500L),   // 均衡
+    NORMAL("1000ms", 1000L), // 标准
+    SLOW("2000ms", 2000L),   // 低耗
+    LONG_3S("3000ms", 3000L),   // 轻量长测
+    BATTERY_5S("5000ms", 5000L), // 电池专项
+    STANDBY_10S("10s", 10000L)  // 待机挂测
 }
 
 @Immutable
@@ -244,6 +244,16 @@ class PerformanceViewModel : ViewModel() {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             rootBinder = ICpuBinder.Stub.asInterface(service)
             _uiState.update { it.copy(isRootConnected = true) }
+
+            // 我们要获取的是 Root 进程的数据，而不是主进程的数据
+            if (displayManager == null) {
+                displayManager = context.getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager
+            }
+
+            // 把方法丢给全局 Root 的跨进程，确保不会有任何误差
+            updateDisplayCapabilities()
+
+            // Root 协程监控
             startPollingHardware()
         }
 
@@ -259,12 +269,7 @@ class PerformanceViewModel : ViewModel() {
     }
 
     fun initAndBind(context: Context) {
-        if (displayManager == null) {
-            displayManager = context.getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager
-        }
-
-        updateDisplayCapabilities()
-
+        // 确保这里仅初始化 RootService，避免权限问题
         if (rootBinder == null) {
             // 在首次 bind 之前，显式配置 MainShell 使用 Mount Master 模式
             Shell.setDefaultBuilder(

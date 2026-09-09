@@ -420,7 +420,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
             limitText = String.format(Locale.US, "范围: %.2f V - %.2f V", voltMin, voltMax),
             data = voltageList.map { it - voltMin },
             maxVal = voltDeltaMax,
-            lineColor = Color(0xFFFFC107),
+            lineColor = Color(0xFFFBBC02),
             unit = "V",
             valueFormat = "%.2f",
             displayValue = voltageList.average().toFloat()
