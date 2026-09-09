@@ -39,5 +39,5 @@
     <string name="action_service_aah">此服务可以确保在退后台或返回桌面时连接不断开、网络不断开</string>
     <string name="permission_label">独立私有 API</string>
     <string name="permission_description">这是应用程序自身的私有 API 权限, 个人开发者的同一系列同签名应用可随意访问、随意调用</string>
-    <string name="app_logs">骗你的，其实那天我根本没戴</string>
+    <string name="app_logs">家里进了一只老鼠，我原本以为它会第一时间去找食物，没想到它第一时间来找我，我有点不知所措，果然，长得帅的人就连老鼠都迷恋</string>
 </resources>
