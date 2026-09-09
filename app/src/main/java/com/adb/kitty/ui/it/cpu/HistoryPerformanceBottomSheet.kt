@@ -183,7 +183,16 @@ private fun HistoryGraphView(history: HistoryRecording) {
     val maxTemp = samples.maxOfOrNull { it.batteryTemp } ?: 0f
     val avgCurrent = samples.map { it.batteryCurrentMa }.average().toFloat()
     val avgVolt = samples.map { it.batteryVoltageMv / 1000f }.average().toFloat()
+    val avgPower = samples.map { it.batteryPowerW }.average().toFloat()
     val lastBatteryLevel = samples.lastOrNull()?.batteryLevel ?: 0
+    val lastStatus = samples.lastOrNull()?.batteryStatus ?: "Unknown"
+    val lastChargeType = samples.lastOrNull()?.batteryChargeType ?: "Unknown"
+    val lastHealth = samples.lastOrNull()?.batteryHealth ?: "Unknown"
+    val lastCycleCount = samples.lastOrNull()?.batteryCycleCount ?: 0
+    val lastFullMah = samples.lastOrNull()?.batteryFullMah ?: 0f
+    val lastDesignMah = samples.lastOrNull()?.batteryFullDesignMah ?: 0f
+    val lastSoh = samples.lastOrNull()?.batterySohPercent ?: 0f
+
     val maxCpuCount = samples.maxOfOrNull { it.cpuFreqsGhz.size } ?: 0
 
     val lastCellTotal = samples.lastOrNull()?.cellTotalMb ?: 0f
@@ -195,7 +204,6 @@ private fun HistoryGraphView(history: HistoryRecording) {
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // 1. 概要数据统计卡片
         Card(
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
@@ -210,10 +218,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                SummaryItem(
-                    label = "时长",
-                    value = "${history.durationSeconds} s"
-                )
+                SummaryItem(label = "时长", value = "${history.durationSeconds} s")
                 SummaryItem(
                     label = "平均帧率",
                     value = String.format(Locale.US, "%.2f FPS", avgFps),
@@ -240,18 +245,42 @@ private fun HistoryGraphView(history: HistoryRecording) {
                     valueColor = Color(0xFFFF9800)
                 )
                 SummaryItem(
+                    label = "平均功耗",
+                    value = String.format(Locale.US, "%.2f W", avgPower),
+                    valueColor = Color(0xFFE91E63)
+                )
+                SummaryItem(
                     label = "平均电压",
                     value = String.format(Locale.US, "%.2fV", avgVolt),
                     valueColor = Color(0xFFFFC107)
                 )
                 SummaryItem(
+                    label = "电池SoH健康度",
+                    value = if (lastSoh > 0f) String.format(Locale.US, "%.1f%%", lastSoh) else "未知",
+                    valueColor = Color(0xFF4CAF50)
+                )
+                SummaryItem(
+                    label = "循环次数",
+                    value = if (lastCycleCount > 0) "$lastCycleCount 次" else "未知",
+                    valueColor = Color(0xFF00BCD4)
+                )
+                SummaryItem(
+                    label = "电池状态",
+                    value = if (lastChargeType != "Unknown" && lastChargeType.isNotEmpty()) "$lastStatus ($lastChargeType)" else lastStatus
+                )
+                SummaryItem(label = "健康状况", value = lastHealth)
+                SummaryItem(
+                    label = "满电/设计容量",
+                    value = String.format(Locale.US, "%.0f / %.0f mAh", lastFullMah, lastDesignMah)
+                )
+                SummaryItem(
                     label = "WLAN流量",
-                    value = "${formatMb(lastWlanTotal)}",
+                    value = formatMb(lastWlanTotal),
                     valueColor = Color(0xFF00BCD4)
                 )
                 SummaryItem(
                     label = "蜂窝流量",
-                    value = "${formatMb(lastCellTotal)}",
+                    value = formatMb(lastCellTotal),
                     valueColor = Color(0xFF00BCD4)
                 )
             }
@@ -263,11 +292,10 @@ private fun HistoryGraphView(history: HistoryRecording) {
             data = samples.map { it.fps },
             maxVal = samples.maxOfOrNull { it.refreshRate }?.coerceAtLeast(60f) ?: 60f,
             lineColor = Color(0xFF4CAF50),
-            unit = "FPS",
-            displayValue = avgFps
+            unit = "FPS"
         )
 
-        // 2.1 新增：屏幕刷新率历史趋势图
+        // 2.1 屏幕刷新率历史趋势图
         val refreshRateList = samples.map { it.refreshRate }
         val maxRefreshRate = refreshRateList.maxOrNull() ?: 60f
 
@@ -278,8 +306,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
             maxVal = maxRefreshRate,
             lineColor = Color(0xFF00BCD4),
             unit = "Hz",
-            valueFormat = "%.0f",
-            displayValue = avgRefreshRate
+            valueFormat = "%.0f"
         )
 
         val wlanTotalStr = formatMb(lastWlanTotal)
@@ -293,8 +320,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
             data = wlanTxList,
             maxVal = (wlanTxList.maxOrNull() ?: 100f).coerceAtLeast(50f),
             lineColor = Color(0xFF0288D1),
-            unit = "KB/s",
-            displayValue = wlanTxList.average().toFloat()
+            unit = "KB/s"
         )
 
         // WLAN 下载
@@ -305,8 +331,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
             data = wlanRxList,
             maxVal = (wlanRxList.maxOrNull() ?: 100f).coerceAtLeast(50f),
             lineColor = Color(0xFF00BCD4),
-            unit = "KB/s",
-            displayValue = wlanRxList.average().toFloat()
+            unit = "KB/s"
         )
 
         // 蜂窝上传
@@ -317,8 +342,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
             data = cellTxList,
             maxVal = (cellTxList.maxOrNull() ?: 100f).coerceAtLeast(50f),
             lineColor = Color(0xFFC2185B),
-            unit = "KB/s",
-            displayValue = cellTxList.average().toFloat()
+            unit = "KB/s"
         )
 
         // 蜂窝下载
@@ -329,8 +353,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
             data = cellRxList,
             maxVal = (cellRxList.maxOrNull() ?: 100f).coerceAtLeast(50f),
             lineColor = Color(0xFFE91E63),
-            unit = "KB/s",
-            displayValue = cellRxList.average().toFloat()
+            unit = "KB/s"
         )
 
         // RAM 可用内存
@@ -348,7 +371,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
             lineColor = Color(0xFF2196F3),
             unit = "GB",
             valueFormat = "%.3f",
-            displayValue = ramAvailList.average().toFloat()
+            valueOffset = ramMin
         )
 
         // ZRAM 可用内存
@@ -366,7 +389,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
             lineColor = Color(0xFF00BCD4),
             unit = "GB",
             valueFormat = "%.3f",
-            displayValue = zramAvailList.average().toFloat()
+            valueOffset = zramMin
         )
 
         // ROM 读取速率
@@ -377,8 +400,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
             maxVal = (romReadList.maxOrNull() ?: 10f).coerceAtLeast(5f),
             lineColor = Color(0xFF3F51B5),
             unit = "MB/s",
-            valueFormat = "%.2f",
-            displayValue = romReadList.average().toFloat()
+            valueFormat = "%.2f"
         )
 
         // ROM 写入速率
@@ -389,8 +411,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
             maxVal = (romWriteList.maxOrNull() ?: 10f).coerceAtLeast(5f),
             lineColor = Color(0xFF673AB7),
             unit = "MB/s",
-            valueFormat = "%.2f",
-            displayValue = romWriteList.average().toFloat()
+            valueFormat = "%.2f"
         )
 
         // 3. 电池温度
@@ -406,10 +427,10 @@ private fun HistoryGraphView(history: HistoryRecording) {
             lineColor = Color(0xFFFF5722),
             unit = "°C",
             valueFormat = "%.1f",
-            displayValue = tempTypeList.average().toFloat()
+            valueOffset = tempMin
         )
 
-        // 3.5 电池电压 (V)
+        // 3.1 电池电压 (V)
         val voltageList = samples.map { it.batteryVoltageMv / 1000f }
         val voltMin = voltageList.minOrNull() ?: 0f
         val voltMax = voltageList.maxOrNull() ?: 0f
@@ -423,24 +444,44 @@ private fun HistoryGraphView(history: HistoryRecording) {
             lineColor = Color(0xFFFBBC02),
             unit = "V",
             valueFormat = "%.2f",
-            displayValue = voltageList.average().toFloat()
+            valueOffset = voltMin
         )
 
-        // 4. 放电电流
+        // 3.2 放电电流 (mA)
         val currentList = samples.map { it.batteryCurrentMa }
         val maxCurrent = (currentList.maxOrNull() ?: 1000f).coerceAtLeast(500f)
         HistoryChartCard(
-            title = "放电电流 (mA)",
-            limitText = "电池剩余电量: $lastBatteryLevel%",
+            title = "放电/充电电流 (mA)",
+            limitText = "电池电量: $lastBatteryLevel% | 状态: $lastStatus",
             data = currentList,
             maxVal = maxCurrent,
             lineColor = Color(0xFFFF9800),
             unit = "mA",
-            valueFormat = "%.0f",
-            displayValue = avgCurrent
+            valueFormat = "%.0f"
         )
-        
-        // 5. GPU 负载率
+
+        // 3.3 新增：电池实时功耗/功率 (W)
+        val powerList = samples.map { it.batteryPowerW }
+        val maxPower = (powerList.maxOrNull() ?: 5f).coerceAtLeast(1f)
+        val batCapLimitStr = if (lastFullMah > 0f) {
+            String.format(
+                Locale.US,
+                "SoH: %.1f%% | 循环: %d次 | 容量: %.0f/%.0f mAh",
+                lastSoh, lastCycleCount, lastFullMah, lastDesignMah
+            )
+        } else null
+
+        HistoryChartCard(
+            title = "电池实时功率/功耗 (W)",
+            limitText = batCapLimitStr,
+            data = powerList,
+            maxVal = maxPower,
+            lineColor = Color(0xFFE91E63),
+            unit = "W",
+            valueFormat = "%.2f"
+        )
+
+        // 4. GPU 负载率
         val gpuLoadList = samples.map { it.gpuLoadPercent }
         val gpuMin = samples.mapNotNull { if (it.gpuMinFreqGhz > 0) it.gpuMinFreqGhz else null }.firstOrNull() ?: 0f
         val gpuMax = samples.mapNotNull { if (it.gpuMaxFreqGhz > 0) it.gpuMaxFreqGhz else null }.firstOrNull() ?: 0f
@@ -452,8 +493,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
             data = gpuLoadList,
             maxVal = 100f,
             lineColor = Color(0xFF9C27B0),
-            unit = "%",
-            displayValue = gpuLoadList.average().toFloat()
+            unit = "%"
         )
 
         // GPU 运行频率 (GHz)
@@ -466,16 +506,15 @@ private fun HistoryGraphView(history: HistoryRecording) {
             maxVal = maxGpuFreq,
             lineColor = Color(0xFFAB47BC),
             unit = "GHz",
-            valueFormat = "%.3f",
-            displayValue = gpuFreqList.average().toFloat()
+            valueFormat = "%.3f"
         )
 
-        // 6. CPU 核心频率
+        // 5. CPU 核心频率
         Text("CPU 核心频率轨迹 (GHz)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
         for (coreIndex in 0 until maxCpuCount) {
             val coreFreqs = samples.map { it.cpuFreqsGhz.getOrNull(coreIndex) ?: 0f }
             val coreLimits = samples.mapNotNull { it.cpuHwLimitsGhz.getOrNull(coreIndex) }.firstOrNull()
-            
+
             val hwLimitStr = if (coreLimits != null && coreLimits.second > 0f) {
                 String.format(Locale.US, "HW: %.3f - %.3f GHz", coreLimits.first, coreLimits.second)
             } else null
@@ -490,8 +529,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
                 maxVal = maxFreq,
                 lineColor = coreColor,
                 unit = "GHz",
-                valueFormat = "%.3f",
-                displayValue = coreFreqs.average().toFloat()
+                valueFormat = "%.3f"
             )
         }
     }
@@ -529,10 +567,11 @@ private fun HistoryChartCard(
     lineColor: Color,
     unit: String,
     valueFormat: String = "%.2f",
-    displayValue: Float? = null
+    valueOffset: Float = 0f
 ) {
-    val avgVal = if (data.isNotEmpty()) data.average().toFloat() else 0f
-    val curVal = displayValue ?: avgVal
+    val minVal = (if (data.isNotEmpty()) data.minOrNull() ?: 0f else 0f) + valueOffset
+    val maxValReal = (if (data.isNotEmpty()) data.maxOrNull() ?: 0f else 0f) + valueOffset
+    val avgVal = (if (data.isNotEmpty()) data.average().toFloat() else 0f) + valueOffset
 
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
@@ -545,7 +584,7 @@ private fun HistoryChartCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(title, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     if (!limitText.isNullOrEmpty()) {
                         Text(
@@ -555,12 +594,27 @@ private fun HistoryChartCard(
                         )
                     }
                 }
-                Text(
-                    text = String.format(Locale.US, "均值: $valueFormat %s", curVal, unit),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = lineColor
-                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = String.format(Locale.US, "最高: $valueFormat %s", maxValReal, unit),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = lineColor
+                    )
+                    Text(
+                        text = String.format(Locale.US, "平均: $valueFormat %s", avgVal, unit),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = lineColor
+                    )
+                    Text(
+                        text = String.format(Locale.US, "最低: $valueFormat %s", minVal, unit),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = lineColor
+                    )
+                }
             }
             Spacer(modifier = Modifier.height(6.dp))
             MetricLineChart(

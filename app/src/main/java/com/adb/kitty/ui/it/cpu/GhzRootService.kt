@@ -11,6 +11,7 @@ import android.os.StatFs
 import androidx.annotation.Keep
 import com.topjohnwu.superuser.ipc.RootService
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
 
 @Keep
@@ -259,9 +260,11 @@ class GhzRootService : RootService() {
 
 object BatterySysfsReader {
 
+    // --- 路径候选池扩展 ---
     private val TEMP_PATHS = arrayOf(
         "/sys/class/power_supply/battery/temp",
-        "/sys/class/power_supply/bms/temp"
+        "/sys/class/power_supply/bms/temp",
+        "/sys/class/power_supply/google_battery/temp"
     )
 
     private val CAPACITY_PATHS = arrayOf(
@@ -271,12 +274,14 @@ object BatterySysfsReader {
 
     private val CURRENT_PATHS = arrayOf(
         "/sys/class/power_supply/battery/current_now",
-        "/sys/class/power_supply/bms/current_now"
+        "/sys/class/power_supply/bms/current_now",
+        "/sys/class/power_supply/usb/current_now"
     )
 
     private val VOLTAGE_PATHS = arrayOf(
         "/sys/class/power_supply/battery/voltage_now",
-        "/sys/class/power_supply/bms/voltage_now"
+        "/sys/class/power_supply/bms/voltage_now",
+        "/sys/class/power_supply/usb/voltage_now"
     )
 
     private val STATUS_PATHS = arrayOf(
@@ -284,11 +289,45 @@ object BatterySysfsReader {
         "/sys/class/power_supply/bms/status"
     )
 
+    // 新增：充电模式（Fast/Taper/Slow/Trickle 等）
+    private val CHARGE_TYPE_PATHS = arrayOf(
+        "/sys/class/power_supply/battery/charge_type",
+        "/sys/class/power_supply/usb/charge_type",
+        "/sys/class/power_supply/main/charge_type"
+    )
+
+    // 新增：电池健康度文本（Good/Overheat/Dead 等）
+    private val HEALTH_PATHS = arrayOf(
+        "/sys/class/power_supply/battery/health",
+        "/sys/class/power_supply/bms/health"
+    )
+
+    // 新增：电池循环次数
+    private val CYCLE_COUNT_PATHS = arrayOf(
+        "/sys/class/power_supply/battery/cycle_count",
+        "/sys/class/power_supply/bms/cycle_count",
+        "/sys/class/power_supply/battery/cycle_counter"
+    )
+
+    // 新增：当前满充容量与设计容量（用于计算电池真实健康度 SoH）
+    private val CHARGE_FULL_PATHS = arrayOf(
+        "/sys/class/power_supply/battery/charge_full",
+        "/sys/class/power_supply/bms/charge_full"
+    )
+
+    private val CHARGE_FULL_DESIGN_PATHS = arrayOf(
+        "/sys/class/power_supply/battery/charge_full_design",
+        "/sys/class/power_supply/bms/charge_full_design"
+    )
+
+    // 路径缓存，避免高频轮询（如 100ms 采样）时重复查找不存在的文件节点导致多余 IO 开销
+    private val resolvedPathCache = ConcurrentHashMap<Array<String>, String>()
+
     fun readMetrics(): Bundle {
         val bundle = Bundle()
 
         // 1. 读取温度 (°C)
-        var rawTemp = readFirstAvailableFloat(TEMP_PATHS)
+        val rawTemp = readFloat(TEMP_PATHS)
         val tempSec = when {
             rawTemp > 1000f -> rawTemp / 1000f
             rawTemp > 100f -> rawTemp / 10f
@@ -297,11 +336,11 @@ object BatterySysfsReader {
         bundle.putFloat("battery_temp", tempSec)
 
         // 2. 读取电量百分比 (%)
-        val capacity = readFirstAvailableFloat(CAPACITY_PATHS).toInt()
+        val capacity = readFloat(CAPACITY_PATHS).toInt()
         bundle.putInt("battery_level", capacity)
 
-        // 3. 读取电流 (mA) - 保持原始正负号输出（负数代表放电，正数代表充电）
-        var rawCurrent = readFirstAvailableFloat(CURRENT_PATHS)
+        // 3. 读取电流 (mA) - 按照 Sysfs 节点规范：正数代表放电，负数代表充电
+        val rawCurrent = readFloat(CURRENT_PATHS)
         val currentMa = if (abs(rawCurrent) > 10000f) {
             rawCurrent / 1000f
         } else {
@@ -310,7 +349,7 @@ object BatterySysfsReader {
         bundle.putFloat("battery_current_ma", currentMa)
 
         // 4. 读取电压 (mV)
-        var rawVoltage = readFirstAvailableFloat(VOLTAGE_PATHS)
+        val rawVoltage = readFloat(VOLTAGE_PATHS)
         val voltageMv = if (rawVoltage > 1000000f) {
             rawVoltage / 1000f
         } else {
@@ -318,39 +357,91 @@ object BatterySysfsReader {
         }
         bundle.putFloat("battery_voltage_mv", voltageMv)
 
-        // 5. 读取充电状态（直接信任节点返回的 "Discharging", "Charging", "Full" 等字符串）
-        val status = readFirstAvailableString(STATUS_PATHS)
+        // 5. 实时功耗计算 (W) -> P = (V * |I|) / 1,000,000
+        // 无论充放电（正负号），功耗计算均取绝对值
+        val powerWatts = (voltageMv * abs(currentMa)) / 1_000_000f
+        bundle.putFloat("battery_power_w", powerWatts)
+
+        // 6. 充电状态 (Discharging, Charging, Full 等)
+        val status = readString(STATUS_PATHS)
         bundle.putString("battery_status", status)
+
+        // 7. 充电模式 (Fast 快充, Taper 恒压, Trickle 涓流 等)
+        val chargeType = readString(CHARGE_TYPE_PATHS)
+        bundle.putString("battery_charge_type", chargeType)
+
+        // 8. 硬件层健康状态 (Good, Overheat 等)
+        val health = readString(HEALTH_PATHS)
+        bundle.putString("battery_health", health)
+
+        // 9. 电池充放电循环次数
+        val cycleCount = readFloat(CYCLE_COUNT_PATHS).toInt()
+        bundle.putInt("battery_cycle_count", cycleCount)
+
+        // 10. 实际满充容量 vs 设计容量 (mAh) & SoH 电池健康度估算
+        val rawFull = readFloat(CHARGE_FULL_PATHS)
+        val rawFullDesign = readFloat(CHARGE_FULL_DESIGN_PATHS)
+
+        val fullMah = if (rawFull > 10000f) rawFull / 1000f else rawFull
+        val fullDesignMah = if (rawFullDesign > 10000f) rawFullDesign / 1000f else rawFullDesign
+
+        bundle.putFloat("battery_charge_full_mah", fullMah)
+        bundle.putFloat("battery_charge_full_design_mah", fullDesignMah)
+
+        val sohPercent = if (fullDesignMah > 0f && fullMah > 0f) {
+            (fullMah / fullDesignMah * 100f).coerceIn(0f, 100f)
+        } else {
+            0f
+        }
+        bundle.putFloat("battery_soh_percent", sohPercent)
 
         return bundle
     }
 
-    private fun readFirstAvailableFloat(paths: Array<String>): Float {
-        for (path in paths) {
-            val file = File(path)
-            if (file.exists()) {
-                try {
-                    val text = file.readText().trim()
-                    val value = text.toFloatOrNull()
-                    if (value != null) return value
-                } catch (_: Exception) {
-                }
-            }
-        }
-        return 0f
+    private fun readFloat(paths: Array<String>): Float {
+        val text = readTextWithCache(paths) ?: return 0f
+        return text.toFloatOrNull() ?: 0f
     }
 
-    private fun readFirstAvailableString(paths: Array<String>): String {
+    private fun readString(paths: Array<String>): String {
+        return readTextWithCache(paths) ?: "Unknown"
+    }
+
+    /**
+     * 命中成功节点后进行路径缓存，防止 100ms 高频轮询时频繁执行 exists() 产生磁盘 IO 瓶颈
+     */
+    private fun readTextWithCache(paths: Array<String>): String? {
+        val cachedPath = resolvedPathCache[paths]
+        if (cachedPath != null) {
+            return tryReadPath(cachedPath)
+        }
+
         for (path in paths) {
-            val file = File(path)
-            if (file.exists()) {
-                try {
-                    val text = file.readText().trim()
-                    if (text.isNotEmpty()) return text
-                } catch (_: Exception) {
-                }
+            val content = tryReadPath(path)
+            if (content != null) {
+                resolvedPathCache[paths] = path
+                return content
             }
         }
-        return "Unknown"
+        return null
+    }
+
+    private fun tryReadPath(path: String): String? {
+        val file = File(path)
+        if (file.exists()) {
+            try {
+                val text = file.readText().trim()
+                if (text.isNotEmpty()) return text
+            } catch (_: Exception) {
+            }
+        }
+        return null
+    }
+
+    /**
+     * 清理缓存（可在插拔充电器或重启服务时调用）
+     */
+    fun clearCache() {
+        resolvedPathCache.clear()
     }
 }

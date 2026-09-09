@@ -176,6 +176,12 @@ fun CompletePerformanceMonitorBottomSheet(
                 batteryCurrentMa = uiState.batteryCurrentMa,
                 batteryVoltageMv = uiState.batteryVoltageMv,
                 batteryStatus = uiState.batteryStatus,
+                batteryChargeType = uiState.batteryChargeType,
+                batteryHealth = uiState.batteryHealth,
+                batteryCycleCount = uiState.batteryCycleCount,
+                batteryFullMah = uiState.batteryFullMah,
+                batteryFullDesignMah = uiState.batteryFullDesignMah,
+                batterySohPercent = uiState.batterySohPercent,
                 historyData = uiState.batteryCurrentHistory
             )
 
@@ -496,6 +502,12 @@ fun BatteryStatusCard(
     batteryCurrentMa: Float,
     batteryVoltageMv: Float,
     batteryStatus: String,
+    batteryChargeType: String = "",
+    batteryHealth: String = "",
+    batteryCycleCount: Int = 0,
+    batteryFullMah: Float = 0f,
+    batteryFullDesignMah: Float = 0f,
+    batterySohPercent: Float = 0f,
     historyData: List<Float>
 ) {
     val isCharging = batteryStatus.contains("Charging", ignoreCase = true)
@@ -512,6 +524,14 @@ fun BatteryStatusCard(
     val displayCurrentMa = abs(batteryCurrentMa)
     val powerWatts = (batteryVoltageMv / 1000f) * (displayCurrentMa / 1000f)
 
+    // 组合显示状态与类型字符串
+    val statusDisplayText = buildString {
+        append(batteryStatus.ifEmpty { "Unknown" })
+        if (batteryChargeType.isNotEmpty() && batteryChargeType != "Unknown") {
+            append(" ($batteryChargeType)")
+        }
+    }
+
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
         shape = RoundedCornerShape(12.dp),
@@ -521,23 +541,37 @@ fun BatteryStatusCard(
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // 1. 顶栏：标题 + 充电状态 Pill 标签
+            // 1. 顶栏：标题 + 充放电状态与健康度 Pill 标签
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("🔋 电池功耗与状态", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text("🔋 电池功耗与健康度", fontSize = 12.sp, fontWeight = FontWeight.Bold)
 
-                Text(
-                    text = batteryStatus.ifEmpty { "Unknown" },
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = statusColor,
-                    modifier = Modifier
-                        .background(statusColor.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (batteryHealth.isNotEmpty() && batteryHealth != "Unknown") {
+                        Text(
+                            text = batteryHealth,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF00BCD4),
+                            modifier = Modifier
+                                .background(Color(0xFF00BCD4).copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+
+                    Text(
+                        text = statusDisplayText,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = statusColor,
+                        modifier = Modifier
+                            .background(statusColor.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
             }
 
             // 2. 电量百分比与可视化进度条
@@ -571,29 +605,30 @@ fun BatteryStatusCard(
                         else -> Color(0xFF4CAF50)
                     },
                     trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
-                    strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                    strokeCap = StrokeCap.Round
                 )
             }
 
             HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
 
-            // 3. 4列核心指标网格：电压 / 电流 / 功率 / 温度
+            // 3. 实时电学参数网格：电压 / 电流 / 实时功率 / 温度
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 BatteryMetricItem(
-                    label = "电压", 
+                    label = "电压",
                     value = String.format(Locale.US, "%.2f V", batteryVoltageMv / 1000f)
                 )
                 BatteryMetricItem(
-                    label = "电流", 
-                    value = String.format(Locale.US, "%.0f mA", displayCurrentMa), 
+                    label = "电流",
+                    value = String.format(Locale.US, "%.0f mA", displayCurrentMa),
                     valueColor = statusColor
                 )
                 BatteryMetricItem(
-                    label = "实时功率", 
-                    value = String.format(Locale.US, "%.2f W", powerWatts)
+                    label = "实时功率",
+                    value = String.format(Locale.US, "%.2f W", powerWatts),
+                    valueColor = Color(0xFFE91E63)
                 )
                 BatteryMetricItem(
                     label = "电池温度",
@@ -602,7 +637,34 @@ fun BatteryStatusCard(
                 )
             }
 
-            // 4. 实时电流趋势图
+            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+
+            // 4. 电池健康度与硬件容量网格：SoH % / 循环次数 / 满电容量 / 设计容量
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                BatteryMetricItem(
+                    label = "SoH 健康度",
+                    value = if (batterySohPercent > 0f) String.format(Locale.US, "%.1f%%", batterySohPercent) else "N/A",
+                    valueColor = Color(0xFF4CAF50)
+                )
+                BatteryMetricItem(
+                    label = "循环次数",
+                    value = if (batteryCycleCount > 0) "$batteryCycleCount 次" else "N/A",
+                    valueColor = Color(0xFF00BCD4)
+                )
+                BatteryMetricItem(
+                    label = "实际满电量",
+                    value = if (batteryFullMah > 0f) String.format(Locale.US, "%.0f mAh", batteryFullMah) else "N/A"
+                )
+                BatteryMetricItem(
+                    label = "设计总容量",
+                    value = if (batteryFullDesignMah > 0f) String.format(Locale.US, "%.0f mAh", batteryFullDesignMah) else "N/A"
+                )
+            }
+
+            // 5. 实时电流趋势图
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
