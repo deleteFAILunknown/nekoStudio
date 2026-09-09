@@ -700,10 +700,18 @@ private fun HistoryChartCard(
 fun BiDirectionalCurrentCard(
     currentData: List<Float>
 ) {
-    // 负数极值代表最大充电电流
-    val maxCharge = currentData.filter { it < 0f }.minOrNull()?.let { abs(it) } ?: 0f
-    // 正数极值代表最大放电电流
-    val maxDischarge = currentData.filter { it > 0f }.maxOrNull() ?: 0f
+    // 1. 过滤充电采样 (取绝对值正数计算最高/平均/最低)
+    val chargeList = currentData.filter { it < 0f }.map { abs(it) }
+    val maxCharge = chargeList.maxOrNull() ?: 0f
+    val avgCharge = if (chargeList.isNotEmpty()) chargeList.average().toFloat() else 0f
+    val minCharge = chargeList.minOrNull() ?: 0f
+
+    // 2. 过滤放电采样
+    val dischargeList = currentData.filter { it > 0f }
+    val maxDischarge = dischargeList.maxOrNull() ?: 0f
+    val avgDischarge = if (dischargeList.isNotEmpty()) dischargeList.average().toFloat() else 0f
+    val minDischarge = dischargeList.minOrNull() ?: 0f
+
     val maxAbs = currentData.maxOfOrNull { abs(it) }?.coerceAtLeast(500f) ?: 1000f
 
     Card(
@@ -715,24 +723,46 @@ fun BiDirectionalCurrentCard(
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            // 顶栏：标题与右上角 3 排统计数据
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
                 Text(
                     text = "🔋 电池电流趋势",
                     fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = String.format(Locale.US, "充: %.0f mA | 放: %.0f mA", maxCharge, maxDischarge),
-                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    modifier = Modifier.padding(top = 2.dp)
                 )
+
+                // 右上角：三排统计（最高/平均/最低）
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        text = String.format(Locale.US, "最高  充: %.0f mA | 放: %.0f mA", maxCharge, maxDischarge),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = String.format(Locale.US, "平均  充: %.0f mA | 放: %.0f mA", avgCharge, avgDischarge),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = String.format(Locale.US, "最低  充: %.0f mA | 放: %.0f mA", minCharge, minDischarge),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
 
+            // 折线图主区域
             BiDirectionalMetricChart(
                 data = currentData,
                 maxAbs = maxAbs,
@@ -741,6 +771,7 @@ fun BiDirectionalCurrentCard(
                     .height(100.dp)
             )
 
+            // 底栏图例说明
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
