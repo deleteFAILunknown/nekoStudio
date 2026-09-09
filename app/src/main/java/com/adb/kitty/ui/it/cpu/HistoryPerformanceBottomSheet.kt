@@ -259,7 +259,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
                 )
                 SummaryItem(
                     label = "电池SoH健康度",
-                    value = if (lastSoh > 0f) String.format(Locale.US, "%.1f%%", lastSoh) else "未知",
+                    value = if (lastSoh > 0f) String.format(Locale.US, "%.1f%%", lastSoh) else "Unknown",
                     valueColor = Color(0xFF4CAF50)
                 )
                 SummaryItem(
@@ -269,7 +269,11 @@ private fun HistoryGraphView(history: HistoryRecording) {
                 )
                 SummaryItem(
                     label = "电池状态",
-                    value = if (lastChargeType != "Unknown" && lastChargeType.isNotEmpty()) "$lastStatus ($lastChargeType)" else lastStatus
+                    value = lastStatus
+                )
+                SummaryItem(
+                    label = "充电类型",
+                    value = lastChargeType
                 )
                 SummaryItem(
                     label = "健康状况",
@@ -319,47 +323,51 @@ private fun HistoryGraphView(history: HistoryRecording) {
         val cellTotalStr = formatMb(lastCellTotal)
 
         // WLAN 上传
-        val wlanTxList = samples.map { it.wlanTxSpeedKbps }
+        val wlanTx = autoScaleKbpsList(samples.map { it.wlanTxSpeedKbps })
         HistoryChartCard(
-            title = "WLAN 上传网速 (KB/s)",
+            title = "WLAN 上传网速 (${wlanTx.unit})",
             limitText = String.format(Locale.US, "录制总流量: %s | 丢包率: %.2f%%", wlanTotalStr, samples.lastOrNull()?.wlanLossRate ?: 0f),
-            data = wlanTxList,
-            maxVal = (wlanTxList.maxOrNull() ?: 100f).coerceAtLeast(50f),
+            data = wlanTx.data,
+            maxVal = wlanTx.maxVal,
             lineColor = Color(0xFF0288D1),
-            unit = "KB/s"
+            unit = wlanTx.unit,
+            valueFormat = wlanTx.valueFormat
         )
 
         // WLAN 下载
-        val wlanRxList = samples.map { it.wlanRxSpeedKbps }
+        val wlanRx = autoScaleKbpsList(samples.map { it.wlanRxSpeedKbps })
         HistoryChartCard(
-            title = "WLAN 下载网速 (KB/s)",
+            title = "WLAN 下载网速 (${wlanRx.unit})",
             limitText = String.format(Locale.US, "录制总流量: %s | 丢包率: %.2f%%", wlanTotalStr, samples.lastOrNull()?.wlanLossRate ?: 0f),
-            data = wlanRxList,
-            maxVal = (wlanRxList.maxOrNull() ?: 100f).coerceAtLeast(50f),
+            data = wlanRx.data,
+            maxVal = wlanRx.maxVal,
             lineColor = Color(0xFF00BCD4),
-            unit = "KB/s"
+            unit = wlanRx.unit,
+            valueFormat = wlanRx.valueFormat
         )
 
         // 蜂窝上传
-        val cellTxList = samples.map { it.cellTxSpeedKbps }
+        val cellTx = autoScaleKbpsList(samples.map { it.cellTxSpeedKbps })
         HistoryChartCard(
-            title = "蜂窝网络上传网速 (KB/s)",
+            title = "蜂窝网络上传网速 (${cellTx.unit})",
             limitText = String.format(Locale.US, "录制总流量: %s | 丢包率: %.2f%%", cellTotalStr, samples.lastOrNull()?.cellLossRate ?: 0f),
-            data = cellTxList,
-            maxVal = (cellTxList.maxOrNull() ?: 100f).coerceAtLeast(50f),
+            data = cellTx.data,
+            maxVal = cellTx.maxVal,
             lineColor = Color(0xFFC2185B),
-            unit = "KB/s"
+            unit = cellTx.unit,
+            valueFormat = cellTx.valueFormat
         )
 
         // 蜂窝下载
-        val cellRxList = samples.map { it.cellRxSpeedKbps }
+        val cellRx = autoScaleKbpsList(samples.map { it.cellRxSpeedKbps })
         HistoryChartCard(
-            title = "蜂窝网络下载网速 (KB/s)",
+            title = "蜂窝网络下载网速 (${cellRx.unit})",
             limitText = String.format(Locale.US, "录制总流量: %s | 丢包率: %.2f%%", cellTotalStr, samples.lastOrNull()?.cellLossRate ?: 0f),
-            data = cellRxList,
-            maxVal = (cellRxList.maxOrNull() ?: 100f).coerceAtLeast(50f),
+            data = cellRx.data,
+            maxVal = cellRx.maxVal,
             lineColor = Color(0xFFE91E63),
-            unit = "KB/s"
+            unit = cellRx.unit,
+            valueFormat = cellRx.valueFormat
         )
 
         // RAM 可用内存
@@ -541,6 +549,48 @@ private fun HistoryGraphView(history: HistoryRecording) {
     }
 }
 
+data class AutoScaledSpeedData(
+    val data: List<Float>,
+    val maxVal: Float,
+    val unit: String,
+    val valueFormat: String
+)
+
+fun formatKbps(kbps: Float): String {
+    return when {
+        kbps >= 1024f * 1024f -> String.format(Locale.US, "%.2f GB/s", kbps / (1024f * 1024f))
+        kbps >= 1024f -> String.format(Locale.US, "%.2f MB/s", kbps / 1024f)
+        else -> String.format(Locale.US, "%.0f KB/s", kbps)
+    }
+}
+
+fun autoScaleKbpsList(kbpsList: List<Float>): AutoScaledSpeedData {
+    val maxKbps = kbpsList.maxOrNull() ?: 0f
+    return when {
+        // 大于等于 1 GB/s (1,048,576 KB/s)
+        maxKbps >= 1024f * 1024f -> AutoScaledSpeedData(
+            data = kbpsList.map { it / (1024f * 1024f) },
+            maxVal = (maxKbps / (1024f * 1024f)).coerceAtLeast(0.1f),
+            unit = "GB/s",
+            valueFormat = "%.2f"
+        )
+        // 大于等于 1 MB/s (1,024 KB/s)
+        maxKbps >= 1024f -> AutoScaledSpeedData(
+            data = kbpsList.map { it / 1024f },
+            maxVal = (maxKbps / 1024f).coerceAtLeast(0.5f),
+            unit = "MB/s",
+            valueFormat = "%.2f"
+        )
+        // 保持 KB/s
+        else -> AutoScaledSpeedData(
+            data = kbpsList,
+            maxVal = maxKbps.coerceAtLeast(50f),
+            unit = "KB/s",
+            valueFormat = "%.0f"
+        )
+    }
+}
+
 @Composable
 private fun SummaryItem(
     label: String,
@@ -629,7 +679,7 @@ private fun HistoryChartCard(
                 lineColor = lineColor,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(42.dp)
+                    .height(72.dp)
             )
         }
     }

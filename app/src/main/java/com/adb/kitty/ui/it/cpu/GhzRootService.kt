@@ -260,7 +260,6 @@ class GhzRootService : RootService() {
 
 object BatterySysfsReader {
 
-    // --- 路径候选池扩展 ---
     private val TEMP_PATHS = arrayOf(
         "/sys/class/power_supply/battery/temp",
         "/sys/class/power_supply/bms/temp",

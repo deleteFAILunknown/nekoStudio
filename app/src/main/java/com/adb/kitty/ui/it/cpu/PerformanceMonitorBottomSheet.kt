@@ -193,7 +193,7 @@ fun CompletePerformanceMonitorBottomSheet(
 
             // 4. CPU 核心集群网格
             Text(
-                text = "CPU 核心集群 (${uiState.cpuCores.size} Cores / IPC Pure HW)",
+                text = "CPU 核心集群 (${uiState.cpuCores.size} Cores / HW)",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp)
@@ -276,7 +276,7 @@ fun RomStatusCard(rom: RomMetric) {
                 lineColor = Color(0xFFFF9800),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(32.dp)
+                    .height(50.dp)
             )
         }
     }
@@ -350,6 +350,21 @@ private fun NetworkSectionItem(
     metric: NetworkMetric,
     lineColor: Color
 ) {
+    val maxRxKbps = metric.rxSpeedHistory.maxOrNull() ?: 0f
+    val (chartData, chartMaxVal) = when {
+        maxRxKbps >= 1024f * 1024f -> { // GB/s
+            val scale = 1024f * 1024f
+            metric.rxSpeedHistory.map { it / scale } to (maxRxKbps / scale).coerceAtLeast(0.1f)
+        }
+        maxRxKbps >= 1024f -> { // MB/s
+            val scale = 1024f
+            metric.rxSpeedHistory.map { it / scale } to (maxRxKbps / scale).coerceAtLeast(0.5f)
+        }
+        else -> { // KB/s
+            metric.rxSpeedHistory to maxRxKbps.coerceAtLeast(50f)
+        }
+    }
+
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -357,8 +372,9 @@ private fun NetworkSectionItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(title, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            // 2. 实时速率文本自动换算单位 (KB/s, MB/s, GB/s)
             Text(
-                text = String.format(Locale.US, "↓ %.2f KB/s  ↑ %.2f KB/s", metric.rxSpeedKbps, metric.txSpeedKbps),
+                text = "↓ ${formatKbps(metric.rxSpeedKbps)}  ↑ ${formatKbps(metric.txSpeedKbps)}",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 color = lineColor
@@ -388,13 +404,14 @@ private fun NetworkSectionItem(
         }
 
         Spacer(modifier = Modifier.height(2.dp))
+
         MetricLineChart(
-            data = metric.rxSpeedHistory,
-            maxVal = (metric.rxSpeedHistory.maxOrNull() ?: 100f).coerceAtLeast(50f),
+            data = chartData,
+            maxVal = chartMaxVal,
             lineColor = lineColor,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(30.dp)
+                .height(50.dp)
         )
     }
 }
@@ -459,8 +476,10 @@ fun MemoryStatusCard(
                 lineColor = Color(0xFF2196F3),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(36.dp)
+                    .height(50.dp)
             )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
 
             // ZRAM 虚拟内存
             Row(
@@ -489,7 +508,7 @@ fun MemoryStatusCard(
                 lineColor = Color(0xFF00BCD4),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(36.dp)
+                    .height(50.dp)
             )
         }
     }
@@ -524,13 +543,8 @@ fun BatteryStatusCard(
     val displayCurrentMa = abs(batteryCurrentMa)
     val powerWatts = (batteryVoltageMv / 1000f) * (displayCurrentMa / 1000f)
 
-    // 组合显示状态与类型字符串
-    val statusDisplayText = buildString {
-        append(batteryStatus.ifEmpty { "Unknown" })
-        if (batteryChargeType.isNotEmpty() && batteryChargeType != "Unknown") {
-            append(" ($batteryChargeType)")
-        }
-    }
+    val invalidTypes = setOf("Unknown", "N/A")
+    val showChargeType = isCharging && batteryChargeType !in invalidTypes
 
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
@@ -563,7 +577,7 @@ fun BatteryStatusCard(
                     }
 
                     Text(
-                        text = statusDisplayText,
+                        text = batteryStatus.ifEmpty { "Unknown" },
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         color = statusColor,
@@ -571,6 +585,18 @@ fun BatteryStatusCard(
                             .background(statusColor.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     )
+
+                    if (showChargeType) {
+                        Text(
+                            text = batteryChargeType,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFFF9800),
+                            modifier = Modifier
+                            .background(Color(0xFFFF9800).copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
                 }
             }
 
@@ -682,7 +708,7 @@ fun BatteryStatusCard(
                     lineColor = statusColor,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(36.dp)
+                        .height(50.dp)
                 )
             }
         }
@@ -749,7 +775,7 @@ fun SystemSummaryCard(state: PerformanceUiState) {
                 lineColor = Color(0xFF4CAF50),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(36.dp)
+                    .height(50.dp)
             )
         }
     }
@@ -869,7 +895,7 @@ fun GpuMetricCard(gpu: GpuMetric) {
                 lineColor = Color(0xFF9C27B0),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(36.dp)
+                    .height(50.dp)
             )
         }
     }
@@ -909,7 +935,7 @@ fun SingleCoreCard(core: CpuCoreMetric, modifier: Modifier = Modifier) {
                 lineColor = color,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(30.dp)
+                    .height(50.dp)
             )
         }
     }
