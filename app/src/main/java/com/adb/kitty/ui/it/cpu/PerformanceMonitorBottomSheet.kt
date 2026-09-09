@@ -199,18 +199,11 @@ fun CompletePerformanceMonitorBottomSheet(
                 modifier = Modifier.padding(top = 4.dp)
             )
 
-            uiState.cpuCores.chunked(2).forEach { rowCores ->
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+            uiState.cpuCores.forEach { core ->
+                SingleCoreCard(
+                    core = core,
                     modifier = Modifier.fillMaxWidth()
-                ) {
-                    rowCores.forEach { core ->
-                        SingleCoreCard(core = core, modifier = Modifier.weight(1f))
-                    }
-                    if (rowCores.size == 1) {
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
-                }
+                )
             }
         }
     }
