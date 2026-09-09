@@ -1,5 +1,6 @@
 package com.adb.kitty.ui.it.cpu
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -12,12 +13,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.io.File
 import java.util.Locale
+import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -475,18 +481,9 @@ private fun HistoryGraphView(history: HistoryRecording) {
             valueOffset = voltMin
         )
 
-        // 3.2 放电电流 (mA)
+        // 提取电流采样数据 (+代表充电, -代表放电)
         val currentList = samples.map { it.batteryCurrentMa }
-        val maxCurrent = (currentList.maxOrNull() ?: 1000f).coerceAtLeast(500f)
-        HistoryChartCard(
-            title = "放电/充电电流 (mA)",
-            limitText = "电池电量: $lastBatteryLevel% | 状态: $lastStatus",
-            data = currentList,
-            maxVal = maxCurrent,
-            lineColor = Color(0xFFFF9800),
-            unit = "mA",
-            valueFormat = "%.0f"
-        )
+        BiDirectionalCurrentCard(currentData = currentList)
 
         // 3.3 新增：电池实时功耗/功率 (W)
         val powerList = samples.map { it.batteryPowerW }
@@ -695,6 +692,144 @@ private fun HistoryChartCard(
                     .fillMaxWidth()
                     .height(120.dp)
             )
+        }
+    }
+}
+
+@Composable
+fun BiDirectionalCurrentCard(
+    currentData: List<Float> // 传入历史 samples 里的原始电流数据
+) {
+    val maxCharge = currentData.filter { it > 0f }.maxOrNull() ?: 0f
+    val maxDischarge = currentData.filter { it < 0f }.minOrNull()?.let { abs(it) } ?: 0f
+    val maxAbs = currentData.maxOfOrNull { abs(it) }?.coerceAtLeast(500f) ?: 1000f
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // 顶栏：标题与充电/放电峰值统计
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "🔋 电池电流趋势 (放电 / 充电)",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = String.format(Locale.US, "充: +%.0f mA | 放: -%.0f mA", maxCharge, maxDischarge),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // 折线图主区域
+            BiDirectionalMetricChart(
+                data = currentData,
+                maxAbs = maxAbs,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp) // 给上下正负区域预留充足空间
+            )
+
+            // 底栏图例说明
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("▲ 充电 (+mA)", fontSize = 10.sp, color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)
+                Text("0 mA 基准线", fontSize = 10.sp, color = Color.Gray)
+                Text("▼ 放电 (-mA)", fontSize = 10.sp, color = Color(0xFFFF5722), fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+fun BiDirectionalMetricChart(
+    data: List<Float>, // 包含正负值的原始电流列表 (+为充电, -为放电)
+    maxAbs: Float,
+    modifier: Modifier = Modifier,
+    chargeColor: Color = Color(0xFF4CAF50),   // 充电：绿色
+    dischargeColor: Color = Color(0xFFFF5722) // 放电：橙红色
+) {
+    Canvas(modifier = modifier) {
+        if (data.size < 2) return@Canvas
+        val width = size.width
+        val height = size.height
+        val stepX = width / (data.size - 1)
+        val zeroY = height / 2f // 零刻度线固定位于 Canvas 中心线
+
+        // 1. 绘制中间的 0 mA 虚线基准线
+        drawLine(
+            color = Color.Gray.copy(alpha = 0.35f),
+            start = Offset(0f, zeroY),
+            end = Offset(width, zeroY),
+            strokeWidth = 1.dp.toPx(),
+            pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
+        )
+
+        // 2. 映射所有采样的坐标点
+        val points = data.mapIndexed { i, valMa ->
+            val x = i * stepX
+            val normalized = (valMa / maxAbs).coerceIn(-1f, 1f)
+            val y = zeroY - (normalized * zeroY) // 正数向上(y < zeroY)，负数向下(y > zeroY)
+            Offset(x, y)
+        }
+
+        // 3. 分段绘制线段（处理零轴跨越时的颜色切换）
+        for (i in 0 until points.size - 1) {
+            val p1 = points[i]
+            val p2 = points[i + 1]
+            val v1 = data[i]
+            val v2 = data[i + 1]
+
+            if ((v1 >= 0f && v2 >= 0f) || (v1 <= 0f && v2 <= 0f)) {
+                // 未跨越零轴：按当前极性直接绘制单色线段
+                val color = if (v1 >= 0f && v2 >= 0f) chargeColor else dischargeColor
+                drawLine(
+                    color = color,
+                    start = p1,
+                    end = p2,
+                    strokeWidth = 2.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+            } else {
+                // 跨越零轴：通过线性插值计算与 0 mA 线的交点 (crossPoint)
+                val t = (zeroY - p1.y) / (p2.y - p1.y)
+                val crossX = p1.x + t * (p2.x - p1.x)
+                val crossPoint = Offset(crossX, zeroY)
+
+                // 第一段 (起点 -> 零轴交点)
+                val color1 = if (v1 >= 0f) chargeColor else dischargeColor
+                drawLine(
+                    color = color1,
+                    start = p1,
+                    end = crossPoint,
+                    strokeWidth = 2.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+
+                // 第二段 (零轴交点 -> 终点)
+                val color2 = if (v2 >= 0f) chargeColor else dischargeColor
+                drawLine(
+                    color = color2,
+                    start = crossPoint,
+                    end = p2,
+                    strokeWidth = 2.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+            }
         }
     }
 }
