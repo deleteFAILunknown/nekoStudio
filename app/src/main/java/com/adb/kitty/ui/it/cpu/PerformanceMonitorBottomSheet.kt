@@ -269,7 +269,7 @@ fun RomStatusCard(rom: RomMetric) {
                 lineColor = Color(0xFFFF9800),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(70.dp)
+                    .height(80.dp)
             )
         }
     }
@@ -404,7 +404,7 @@ private fun NetworkSectionItem(
             lineColor = lineColor,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(70.dp)
+                .height(80.dp)
         )
     }
 }
@@ -469,7 +469,7 @@ fun MemoryStatusCard(
                 lineColor = Color(0xFF2196F3),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(70.dp)
+                    .height(80.dp)
             )
 
             HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
@@ -501,7 +501,7 @@ fun MemoryStatusCard(
                 lineColor = Color(0xFF00BCD4),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(70.dp)
+                    .height(80.dp)
             )
         }
     }
@@ -701,7 +701,7 @@ fun BatteryStatusCard(
                     lineColor = statusColor,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(70.dp)
+                        .height(80.dp)
                 )
             }
         }
@@ -768,7 +768,7 @@ fun SystemSummaryCard(state: PerformanceUiState) {
                 lineColor = Color(0xFF4CAF50),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(70.dp)
+                    .height(80.dp)
             )
         }
     }
@@ -888,7 +888,7 @@ fun GpuMetricCard(gpu: GpuMetric) {
                 lineColor = Color(0xFF9C27B0),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(70.dp)
+                    .height(80.dp)
             )
         }
     }
@@ -928,7 +928,7 @@ fun SingleCoreCard(core: CpuCoreMetric, modifier: Modifier = Modifier) {
                 lineColor = color,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(70.dp)
+                    .height(80.dp)
             )
         }
     }

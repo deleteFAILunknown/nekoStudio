@@ -690,7 +690,7 @@ private fun HistoryChartCard(
                 lineColor = lineColor,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(120.dp)
+                    .height(100.dp)
             )
         }
     }
@@ -698,10 +698,12 @@ private fun HistoryChartCard(
 
 @Composable
 fun BiDirectionalCurrentCard(
-    currentData: List<Float> // 传入历史 samples 里的原始电流数据
+    currentData: List<Float>
 ) {
-    val maxCharge = currentData.filter { it > 0f }.maxOrNull() ?: 0f
-    val maxDischarge = currentData.filter { it < 0f }.minOrNull()?.let { abs(it) } ?: 0f
+    // 负数极值代表最大充电电流
+    val maxCharge = currentData.filter { it < 0f }.minOrNull()?.let { abs(it) } ?: 0f
+    // 正数极值代表最大放电电流
+    val maxDischarge = currentData.filter { it > 0f }.maxOrNull() ?: 0f
     val maxAbs = currentData.maxOfOrNull { abs(it) }?.coerceAtLeast(500f) ?: 1000f
 
     Card(
@@ -713,43 +715,40 @@ fun BiDirectionalCurrentCard(
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // 顶栏：标题与充电/放电峰值统计
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "🔋 电池电流趋势 (放电 / 充电)",
+                    text = "🔋 电池电流趋势",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = String.format(Locale.US, "充: +%.0f mA | 放: -%.0f mA", maxCharge, maxDischarge),
+                    text = String.format(Locale.US, "充: %.0f mA | 放: %.0f mA", maxCharge, maxDischarge),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            // 折线图主区域
             BiDirectionalMetricChart(
                 data = currentData,
                 maxAbs = maxAbs,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(64.dp) // 给上下正负区域预留充足空间
+                    .height(100.dp)
             )
 
-            // 底栏图例说明
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("▲ 充电 (+mA)", fontSize = 10.sp, color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)
+                Text("▲ 充电 (-mA)", fontSize = 10.sp, color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)
                 Text("0 mA 基准线", fontSize = 10.sp, color = Color.Gray)
-                Text("▼ 放电 (-mA)", fontSize = 10.sp, color = Color(0xFFFF5722), fontWeight = FontWeight.Bold)
+                Text("▼ 放电 (+mA)", fontSize = 10.sp, color = Color(0xFFFF5722), fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -757,46 +756,38 @@ fun BiDirectionalCurrentCard(
 
 @Composable
 fun BiDirectionalMetricChart(
-    data: List<Float>, // 包含正负值的原始电流列表 (+为充电, -为放电)
+    data: List<Float>,
     maxAbs: Float,
     modifier: Modifier = Modifier,
-    chargeColor: Color = Color(0xFF4CAF50),   // 充电：绿色
-    dischargeColor: Color = Color(0xFFFF5722) // 放电：橙红色
+    chargeColor: Color = Color(0xFF4CAF50),
+    dischargeColor: Color = Color(0xFFFF5722)
 ) {
     Canvas(modifier = modifier) {
         if (data.size < 2) return@Canvas
         val width = size.width
         val height = size.height
         val stepX = width / (data.size - 1)
-        val zeroY = height / 2f // 零刻度线固定位于 Canvas 中心线
+        val zeroY = height / 2f // 0 mA 居中
 
-        // 1. 绘制中间的 0 mA 虚线基准线
-        drawLine(
-            color = Color.Gray.copy(alpha = 0.35f),
-            start = Offset(0f, zeroY),
-            end = Offset(width, zeroY),
-            strokeWidth = 1.dp.toPx(),
-            pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
-        )
-
-        // 2. 映射所有采样的坐标点
+        // 映射坐标点：负数(充电)向上(y < zeroY)，正数(放电)向下(y > zeroY)
         val points = data.mapIndexed { i, valMa ->
             val x = i * stepX
-            val normalized = (valMa / maxAbs).coerceIn(-1f, 1f)
-            val y = zeroY - (normalized * zeroY) // 正数向上(y < zeroY)，负数向下(y > zeroY)
+            // 取反 (-valMa)，使负数的充电向上延伸，正数的放电向下延伸
+            val normalized = (-valMa / maxAbs).coerceIn(-1f, 1f)
+            val y = zeroY - (normalized * zeroY)
             Offset(x, y)
         }
 
-        // 3. 分段绘制线段（处理零轴跨越时的颜色切换）
+        // 分段绘制与零轴插值切割
         for (i in 0 until points.size - 1) {
             val p1 = points[i]
             val p2 = points[i + 1]
             val v1 = data[i]
             val v2 = data[i + 1]
 
-            if ((v1 >= 0f && v2 >= 0f) || (v1 <= 0f && v2 <= 0f)) {
-                // 未跨越零轴：按当前极性直接绘制单色线段
-                val color = if (v1 >= 0f && v2 >= 0f) chargeColor else dischargeColor
+            // 判断极性：v < 0 为充电，v > 0 为放电
+            if ((v1 <= 0f && v2 <= 0f) || (v1 >= 0f && v2 >= 0f)) {
+                val color = if (v1 <= 0f && v2 <= 0f) chargeColor else dischargeColor
                 drawLine(
                     color = color,
                     start = p1,
@@ -805,13 +796,11 @@ fun BiDirectionalMetricChart(
                     cap = StrokeCap.Round
                 )
             } else {
-                // 跨越零轴：通过线性插值计算与 0 mA 线的交点 (crossPoint)
+                // 跨越 0 mA 零轴的插值点计算
                 val t = (zeroY - p1.y) / (p2.y - p1.y)
-                val crossX = p1.x + t * (p2.x - p1.x)
-                val crossPoint = Offset(crossX, zeroY)
+                val crossPoint = Offset(p1.x + t * (p2.x - p1.x), zeroY)
 
-                // 第一段 (起点 -> 零轴交点)
-                val color1 = if (v1 >= 0f) chargeColor else dischargeColor
+                val color1 = if (v1 <= 0f) chargeColor else dischargeColor
                 drawLine(
                     color = color1,
                     start = p1,
@@ -820,8 +809,7 @@ fun BiDirectionalMetricChart(
                     cap = StrokeCap.Round
                 )
 
-                // 第二段 (零轴交点 -> 终点)
-                val color2 = if (v2 >= 0f) chargeColor else dischargeColor
+                val color2 = if (v2 <= 0f) chargeColor else dischargeColor
                 drawLine(
                     color = color2,
                     start = crossPoint,
