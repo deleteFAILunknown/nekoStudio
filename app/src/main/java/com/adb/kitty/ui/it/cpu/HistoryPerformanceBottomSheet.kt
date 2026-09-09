@@ -177,13 +177,13 @@ private fun HistoryGraphView(history: HistoryRecording) {
         return
     }
 
-    val avgFps = samples.map { it.fps }.average().toFloat()
-    val avgRefreshRate = samples.map { it.refreshRate }.average().toFloat()
+    val maxFps = samples.maxOfOrNull { it.fps } ?: 0f
+    val maxRefreshRate = samples.maxOfOrNull { it.refreshRate } ?: 0f
 
     val maxTemp = samples.maxOfOrNull { it.batteryTemp } ?: 0f
-    val avgCurrent = samples.map { it.batteryCurrentMa }.average().toFloat()
-    val avgVolt = samples.map { it.batteryVoltageMv / 1000f }.average().toFloat()
-    val avgPower = samples.map { it.batteryPowerW }.average().toFloat()
+    val maxCurrent = samples.maxOfOrNull { it.batteryCurrentMa } ?: 0f
+    val maxVolt = (samples.maxOfOrNull { it.batteryVoltageMv } ?: 0f) / 1000f
+    val maxPower = samples.maxOfOrNull { it.batteryPowerW } ?: 0f
     val lastBatteryLevel = samples.lastOrNull()?.batteryLevel ?: 0
     val lastStatus = samples.lastOrNull()?.batteryStatus ?: "Unknown"
     val lastChargeType = samples.lastOrNull()?.batteryChargeType ?: "Unknown"
@@ -218,15 +218,18 @@ private fun HistoryGraphView(history: HistoryRecording) {
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                SummaryItem(label = "时长", value = "${history.durationSeconds} s")
                 SummaryItem(
-                    label = "平均帧率",
-                    value = String.format(Locale.US, "%.2f FPS", avgFps),
+                    label = "时长",
+                    value = "${history.durationSeconds} s"
+                )
+                SummaryItem(
+                    label = "最高帧率",
+                    value = String.format(Locale.US, "%.2f FPS", maxFps),
                     valueColor = Color(0xFF4CAF50)
                 )
                 SummaryItem(
-                    label = "平均刷新率",
-                    value = String.format(Locale.US, "%.2f Hz", avgRefreshRate),
+                    label = "最高刷新率",
+                    value = String.format(Locale.US, "%.2f Hz", maxRefreshRate),
                     valueColor = Color(0xFF00BCD4)
                 )
                 SummaryItem(
@@ -240,18 +243,18 @@ private fun HistoryGraphView(history: HistoryRecording) {
                     valueColor = Color(0xFFFF5722)
                 )
                 SummaryItem(
-                    label = "平均放电电流",
-                    value = String.format(Locale.US, "%.0f mA", avgCurrent),
+                    label = "最高放电电流",
+                    value = String.format(Locale.US, "%.0f mA", maxCurrent),
                     valueColor = Color(0xFFFF9800)
                 )
                 SummaryItem(
-                    label = "平均功耗",
-                    value = String.format(Locale.US, "%.2f W", avgPower),
+                    label = "最高功耗",
+                    value = String.format(Locale.US, "%.2f W", maxPower),
                     valueColor = Color(0xFFE91E63)
                 )
                 SummaryItem(
-                    label = "平均电压",
-                    value = String.format(Locale.US, "%.2fV", avgVolt),
+                    label = "最高电压",
+                    value = String.format(Locale.US, "%.2fV", maxVolt),
                     valueColor = Color(0xFFFFC107)
                 )
                 SummaryItem(
@@ -268,7 +271,10 @@ private fun HistoryGraphView(history: HistoryRecording) {
                     label = "电池状态",
                     value = if (lastChargeType != "Unknown" && lastChargeType.isNotEmpty()) "$lastStatus ($lastChargeType)" else lastStatus
                 )
-                SummaryItem(label = "健康状况", value = lastHealth)
+                SummaryItem(
+                    label = "健康状况",
+                    value = lastHealth
+                )
                 SummaryItem(
                     label = "满电/设计容量",
                     value = String.format(Locale.US, "%.0f / %.0f mAh", lastFullMah, lastDesignMah)
