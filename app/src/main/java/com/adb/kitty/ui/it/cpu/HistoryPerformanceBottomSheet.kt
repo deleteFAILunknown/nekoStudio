@@ -728,136 +728,134 @@ fun FastMetricLineChart(
     lineColor: Color,
     modifier: Modifier = Modifier,
     unit: String = "",
-    valueFormat: String = "%.2f",
-    valueOffset: Float = 0f,
-    pointSpacing: Dp = 3.dp
+    valueFormat: String = "%.3f",
+    valueOffset: Float = 0f
 ) {
     var selectedIndex by remember { mutableStateOf<Int?>(null) }
-    val scrollState = rememberScrollState()
+    val density = LocalDensity.current
 
     BoxWithConstraints(modifier = modifier) {
-        val visibleWidth = maxWidth
-        val contentWidth = maxOf(visibleWidth, pointSpacing * (data.size - 1).coerceAtLeast(1))
+        val widthPx = constraints.maxWidth.toFloat()
+        val heightPx = constraints.maxHeight.toFloat()
 
-        Box(
+        Spacer(
             modifier = Modifier
                 .fillMaxSize()
-                .horizontalScroll(scrollState)
-        ) {
-            Spacer(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .width(contentWidth)
-                    // 1. 手势检测：触控/长按/拖拽时捕获选中的采样点索引
-                    .pointerInput(data) {
-                        awaitEachGesture {
-                            val down = awaitFirstDown(requireUnconsumed = false)
-                            if (data.size >= 2) {
-                                val stepX = size.width.toFloat() / (data.size - 1)
-                                selectedIndex = (down.position.x / stepX)
-                                    .roundToInt()
-                                    .coerceIn(0, data.indices.last)
-                            }
-                            do {
-                                val event = awaitPointerEvent()
-                                val pointer = event.changes.firstOrNull()
-                                if (pointer != null && pointer.pressed) {
-                                    if (data.size >= 2) {
-                                        val stepX = size.width.toFloat() / (data.size - 1)
-                                        selectedIndex = (pointer.position.x / stepX)
-                                            .roundToInt()
-                                            .coerceIn(0, data.indices.last)
-                                    }
+                // 手势监听：划动时捕获选中的数组索引
+                .pointerInput(data) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        if (data.size >= 2) {
+                            val stepX = size.width.toFloat() / (data.size - 1)
+                            selectedIndex = (down.position.x / stepX)
+                                .roundToInt()
+                                .coerceIn(0, data.indices.last)
+                        }
+                        do {
+                            val event = awaitPointerEvent()
+                            val pointer = event.changes.firstOrNull()
+                            if (pointer != null && pointer.pressed) {
+                                if (data.size >= 2) {
+                                    val stepX = size.width.toFloat() / (data.size - 1)
+                                    selectedIndex = (pointer.position.x / stepX)
+                                        .roundToInt()
+                                        .coerceIn(0, data.indices.last)
                                 }
-                            } while (event.changes.any { it.pressed })
-                            selectedIndex = null // 松开手指后清理选择框
+                            }
+                        } while (event.changes.any { it.pressed })
+                        selectedIndex = null // 手指离开时隐藏高亮
+                    }
+                }
+                .drawWithCache {
+                    val path = Path()
+                    val effectiveMax = if (maxVal <= 0f) 1f else maxVal
+                    val stepX = if (data.size >= 2) size.width / (data.size - 1) else 0f
+
+                    if (data.size >= 2) {
+                        data.forEachIndexed { i, value ->
+                            val x = i * stepX
+                            val y = size.height - ((value / effectiveMax).coerceIn(0f, 1f) * size.height)
+                            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
                         }
                     }
-                    // 2. 绘制折线与触摸高亮线/圆点
-                    .drawWithCache {
-                        val path = Path()
-                        val effectiveMax = if (maxVal <= 0f) 1f else maxVal
-                        val stepX = if (data.size >= 2) size.width / (data.size - 1) else 0f
+                    val strokePx = 1.5.dp.toPx()
 
+                    onDrawBehind {
+                        // 1. 绘制折线
                         if (data.size >= 2) {
-                            data.forEachIndexed { i, value ->
-                                val x = i * stepX
-                                val y = size.height - ((value / effectiveMax).coerceIn(0f, 1f) * size.height)
-                                if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
-                            }
+                            drawPath(
+                                path = path,
+                                color = lineColor,
+                                style = Stroke(width = strokePx, cap = StrokeCap.Round)
+                            )
                         }
-                        val strokePx = 1.5.dp.toPx()
 
-                        onDrawBehind {
-                            if (data.size >= 2) {
-                                drawPath(
-                                    path = path,
+                        // 2. 绘制选中位置的准星竖线与焦点高亮圆点
+                        selectedIndex?.let { index ->
+                            if (index in data.indices) {
+                                val rawVal = data[index]
+                                val x = index * stepX
+                                val y = size.height - ((rawVal / effectiveMax).coerceIn(0f, 1f) * size.height)
+
+                                drawLine(
+                                    color = lineColor.copy(alpha = 0.7f),
+                                    start = Offset(x, 0f),
+                                    end = Offset(x, size.height),
+                                    strokeWidth = 1.dp.toPx(),
+                                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
+                                )
+
+                                drawCircle(
+                                    color = Color.White,
+                                    radius = 5.dp.toPx(),
+                                    center = Offset(x, y)
+                                )
+                                drawCircle(
                                     color = lineColor,
-                                    style = Stroke(width = strokePx, cap = StrokeCap.Round)
+                                    radius = 3.5.dp.toPx(),
+                                    center = Offset(x, y)
                                 )
                             }
-
-                            // 绘制手指选中时的指示竖线与实心圆点
-                            selectedIndex?.let { index ->
-                                if (index in data.indices) {
-                                    val rawVal = data[index]
-                                    val x = index * stepX
-                                    val y = size.height - ((rawVal / effectiveMax).coerceIn(0f, 1f) * size.height)
-
-                                    // 绘制竖向虚线准星
-                                    drawLine(
-                                        color = lineColor.copy(alpha = 0.7f),
-                                        start = Offset(x, 0f),
-                                        end = Offset(x, size.height),
-                                        strokeWidth = 1.dp.toPx(),
-                                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
-                                    )
-
-                                    // 绘制突出数据锚点
-                                    drawCircle(
-                                        color = Color.White,
-                                        radius = 5.dp.toPx(),
-                                        center = Offset(x, y)
-                                    )
-                                    drawCircle(
-                                        color = lineColor,
-                                        radius = 3.5.dp.toPx(),
-                                        center = Offset(x, y)
-                                    )
-                                }
-                            }
                         }
                     }
-            )
+                }
+        )
 
-            // 3. 在图表上方跟随手指触控点悬浮展示精确数值卡片
-            selectedIndex?.let { index ->
-                if (index in data.indices && data.size >= 2) {
-                    val realVal = data[index] + valueOffset
-                    val formattedVal = String.format(Locale.US, valueFormat, realVal)
-                    val textStr = if (unit.isNotEmpty()) "$formattedVal $unit" else formattedVal
+        // 3. 在触控数据点上方悬浮绘制纯数据气泡
+        selectedIndex?.let { index ->
+            if (index in data.indices && data.size >= 2) {
+                val realVal = data[index] + valueOffset
+                val formattedVal = String.format(Locale.US, valueFormat, realVal)
+                val textStr = if (unit.isNotEmpty()) "$formattedVal $unit" else formattedVal
 
-                    val stepX = contentWidth / (data.size - 1)
-                    val xDp = stepX * index
+                val stepX = widthPx / (data.size - 1)
+                val xPx = stepX * index
 
-                    Surface(
-                        color = MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.85f),
-                        shape = RoundedCornerShape(6.dp),
-                        shadowElevation = 2.dp,
-                        modifier = Modifier
-                            .offset(
-                                x = (xDp - 35.dp).coerceAtLeast(0.dp),
-                                y = 2.dp
-                            )
-                    ) {
-                        Text(
-                            text = "#$index: $textStr",
-                            color = MaterialTheme.colorScheme.inverseOnSurface,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                val effectiveMax = if (maxVal <= 0f) 1f else maxVal
+                val rawVal = data[index]
+                val yPx = heightPx - ((rawVal / effectiveMax).coerceIn(0f, 1f) * heightPx)
+
+                // 转换像素为 dp 坐标
+                val xDp = with(density) { xPx.toDp() }
+                val yDp = with(density) { yPx.toDp() }
+
+                Surface(
+                    color = MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.9f),
+                    shape = RoundedCornerShape(6.dp),
+                    shadowElevation = 4.dp,
+                    modifier = Modifier
+                        .offset(
+                            x = (xDp - 35.dp).coerceIn(0.dp, (maxWidth - 70.dp).coerceAtLeast(0.dp)),
+                            y = (yDp - 32.dp).coerceAtLeast((-12).dp) // 高空悬浮：位于选中锚点上方 32dp
                         )
-                    }
+                ) {
+                    Text(
+                        text = textStr,
+                        color = MaterialTheme.colorScheme.inverseOnSurface,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
                 }
             }
         }
@@ -1095,163 +1093,162 @@ fun BiDirectionalMetricChart(
     maxAbs: Float,
     modifier: Modifier = Modifier,
     chargeColor: Color = Color(0xFF4CAF50),
-    dischargeColor: Color = Color(0xFFFF5722),
-    pointSpacing: Dp = 3.dp
+    dischargeColor: Color = Color(0xFFFF5722)
 ) {
     var selectedIndex by remember { mutableStateOf<Int?>(null) }
-    val scrollState = rememberScrollState()
+    val density = LocalDensity.current
 
     BoxWithConstraints(modifier = modifier) {
-        val visibleWidth = maxWidth
-        val contentWidth = maxOf(visibleWidth, pointSpacing * (data.size - 1).coerceAtLeast(1))
+        val widthPx = constraints.maxWidth.toFloat()
+        val heightPx = constraints.maxHeight.toFloat()
 
-        Box(
+        Spacer(
             modifier = Modifier
                 .fillMaxSize()
-                .horizontalScroll(scrollState)
-        ) {
-            Spacer(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .width(contentWidth)
-                    .pointerInput(data) {
-                        awaitEachGesture {
-                            val down = awaitFirstDown(requireUnconsumed = false)
-                            if (data.size >= 2) {
-                                val stepX = size.width.toFloat() / (data.size - 1)
-                                selectedIndex = (down.position.x / stepX).roundToInt().coerceIn(0, data.indices.last)
-                            }
-                            do {
-                                val event = awaitPointerEvent()
-                                val pointer = event.changes.firstOrNull()
-                                if (pointer != null && pointer.pressed) {
-                                    if (data.size >= 2) {
-                                        val stepX = size.width.toFloat() / (data.size - 1)
-                                        selectedIndex = (pointer.position.x / stepX).roundToInt().coerceIn(0, data.indices.last)
-                                    }
-                                }
-                            } while (event.changes.any { it.pressed })
-                            selectedIndex = null
-                        }
-                    }
-                    .drawWithCache {
-                        val chargePath = Path()
-                        val dischargePath = Path()
-
-                        val stepX = if (data.size >= 2) size.width / (data.size - 1) else 0f
-                        val zeroY = size.height / 2f
-
+                .pointerInput(data) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
                         if (data.size >= 2) {
-                            var prevPoint = Offset(
-                                0f,
-                                zeroY - ((-data[0] / maxAbs).coerceIn(-1f, 1f) * zeroY)
-                            )
-                            var prevVal = data[0]
-
-                            for (i in 1 until data.size) {
-                                val valMa = data[i]
-                                val x = i * stepX
-                                val normalized = (-valMa / maxAbs).coerceIn(-1f, 1f)
-                                val currPoint = Offset(x, zeroY - (normalized * zeroY))
-
-                                if ((prevVal <= 0f && valMa <= 0f) || (prevVal >= 0f && valMa >= 0f)) {
-                                    val targetPath = if (prevVal <= 0f) chargePath else dischargePath
-                                    targetPath.moveTo(prevPoint.x, prevPoint.y)
-                                    targetPath.lineTo(currPoint.x, currPoint.y)
-                                } else {
-                                    val t = (zeroY - prevPoint.y) / (currPoint.y - prevPoint.y)
-                                    val crossPoint = Offset(prevPoint.x + t * (currPoint.x - prevPoint.x), zeroY)
-
-                                    val path1 = if (prevVal <= 0f) chargePath else dischargePath
-                                    path1.moveTo(prevPoint.x, prevPoint.y)
-                                    path1.lineTo(crossPoint.x, crossPoint.y)
-
-                                    val path2 = if (valMa <= 0f) chargePath else dischargePath
-                                    path2.moveTo(crossPoint.x, crossPoint.y)
-                                    path2.lineTo(currPoint.x, currPoint.y)
-                                }
-
-                                prevPoint = currPoint
-                                prevVal = valMa
-                            }
+                            val stepX = size.width.toFloat() / (data.size - 1)
+                            selectedIndex = (down.position.x / stepX).roundToInt().coerceIn(0, data.indices.last)
                         }
-
-                        val strokePx = 2.dp.toPx()
-
-                        onDrawBehind {
-                            drawPath(
-                                path = chargePath,
-                                color = chargeColor,
-                                style = Stroke(width = strokePx, cap = StrokeCap.Round)
-                            )
-                            drawPath(
-                                path = dischargePath,
-                                color = dischargeColor,
-                                style = Stroke(width = strokePx, cap = StrokeCap.Round)
-                            )
-
-                            selectedIndex?.let { index ->
-                                if (index in data.indices) {
-                                    val valMa = data[index]
-                                    val x = index * stepX
-                                    val normalized = (-valMa / maxAbs).coerceIn(-1f, 1f)
-                                    val y = zeroY - (normalized * zeroY)
-                                    val pointColor = if (valMa <= 0f) chargeColor else dischargeColor
-
-                                    drawLine(
-                                        color = pointColor.copy(alpha = 0.7f),
-                                        start = Offset(x, 0f),
-                                        end = Offset(x, size.height),
-                                        strokeWidth = 1.dp.toPx(),
-                                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
-                                    )
-
-                                    drawCircle(
-                                        color = Color.White,
-                                        radius = 5.dp.toPx(),
-                                        center = Offset(x, y)
-                                    )
-                                    drawCircle(
-                                        color = pointColor,
-                                        radius = 3.5.dp.toPx(),
-                                        center = Offset(x, y)
-                                    )
+                        do {
+                            val event = awaitPointerEvent()
+                            val pointer = event.changes.firstOrNull()
+                            if (pointer != null && pointer.pressed) {
+                                if (data.size >= 2) {
+                                    val stepX = size.width.toFloat() / (data.size - 1)
+                                    selectedIndex = (pointer.position.x / stepX).roundToInt().coerceIn(0, data.indices.last)
                                 }
                             }
-                        }
+                        } while (event.changes.any { it.pressed })
+                        selectedIndex = null
                     }
-            )
+                }
+                .drawWithCache {
+                    val chargePath = Path()
+                    val dischargePath = Path()
 
-            selectedIndex?.let { index ->
-                if (index in data.indices && data.size >= 2) {
-                    val currentMa = data[index]
-                    val textStr = if (currentMa < 0f) {
-                        String.format(Locale.US, "%.0f mA (充电)", abs(currentMa))
-                    } else {
-                        String.format(Locale.US, "%.0f mA (放电)", currentMa)
-                    }
+                    val stepX = if (data.size >= 2) size.width / (data.size - 1) else 0f
+                    val zeroY = size.height / 2f
 
-                    val stepX = contentWidth / (data.size - 1)
-                    val xDp = stepX * index
-
-                    Surface(
-                        color = MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.85f),
-                        shape = RoundedCornerShape(6.dp),
-                        shadowElevation = 2.dp,
-                        modifier = Modifier
-                            .offset(
-                                x = (xDp - 35.dp).coerceAtLeast(0.dp),
-                                y = 2.dp
-                            )
-                    ) {
-                        Text(
-                            text = "#$index: $textStr",
-                            color = MaterialTheme.colorScheme.inverseOnSurface,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    if (data.size >= 2) {
+                        var prevPoint = Offset(
+                            0f,
+                            zeroY - ((-data[0] / maxAbs).coerceIn(-1f, 1f) * zeroY)
                         )
+                        var prevVal = data[0]
+
+                        for (i in 1 until data.size) {
+                            val valMa = data[i]
+                            val x = i * stepX
+                            val normalized = (-valMa / maxAbs).coerceIn(-1f, 1f)
+                            val currPoint = Offset(x, zeroY - (normalized * zeroY))
+
+                            if ((prevVal <= 0f && valMa <= 0f) || (prevVal >= 0f && valMa >= 0f)) {
+                                val targetPath = if (prevVal <= 0f) chargePath else dischargePath
+                                targetPath.moveTo(prevPoint.x, prevPoint.y)
+                                targetPath.lineTo(currPoint.x, currPoint.y)
+                            } else {
+                                val t = (zeroY - prevPoint.y) / (currPoint.y - prevPoint.y)
+                                val crossPoint = Offset(prevPoint.x + t * (currPoint.x - prevPoint.x), zeroY)
+
+                                val path1 = if (prevVal <= 0f) chargePath else dischargePath
+                                path1.moveTo(prevPoint.x, prevPoint.y)
+                                path1.lineTo(crossPoint.x, crossPoint.y)
+
+                                val path2 = if (valMa <= 0f) chargePath else dischargePath
+                                path2.moveTo(crossPoint.x, crossPoint.y)
+                                path2.lineTo(currPoint.x, currPoint.y)
+                            }
+
+                            prevPoint = currPoint
+                            prevVal = valMa
+                        }
                     }
+
+                    val strokePx = 2.dp.toPx()
+
+                    onDrawBehind {
+                        drawPath(
+                            path = chargePath,
+                            color = chargeColor,
+                            style = Stroke(width = strokePx, cap = StrokeCap.Round)
+                        )
+                        drawPath(
+                            path = dischargePath,
+                            color = dischargeColor,
+                            style = Stroke(width = strokePx, cap = StrokeCap.Round)
+                        )
+
+                        selectedIndex?.let { index ->
+                            if (index in data.indices) {
+                                val valMa = data[index]
+                                val x = index * stepX
+                                val normalized = (-valMa / maxAbs).coerceIn(-1f, 1f)
+                                val y = zeroY - (normalized * zeroY)
+                                val pointColor = if (valMa <= 0f) chargeColor else dischargeColor
+
+                                drawLine(
+                                    color = pointColor.copy(alpha = 0.7f),
+                                    start = Offset(x, 0f),
+                                    end = Offset(x, size.height),
+                                    strokeWidth = 1.dp.toPx(),
+                                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
+                                )
+
+                                drawCircle(
+                                    color = Color.White,
+                                    radius = 5.dp.toPx(),
+                                    center = Offset(x, y)
+                                )
+                                drawCircle(
+                                    color = pointColor,
+                                    radius = 3.5.dp.toPx(),
+                                    center = Offset(x, y)
+                                )
+                            }
+                        }
+                    }
+                }
+        )
+
+        selectedIndex?.let { index ->
+            if (index in data.indices && data.size >= 2) {
+                val currentMa = data[index]
+                val textStr = if (currentMa < 0f) {
+                    String.format(Locale.US, "%.3f mA (充电)", abs(currentMa))
+                } else {
+                    String.format(Locale.US, "%.3f mA (放电)", currentMa)
+                }
+
+                val stepX = widthPx / (data.size - 1)
+                val xPx = stepX * index
+
+                val zeroY = heightPx / 2f
+                val normalized = (-currentMa / maxAbs).coerceIn(-1f, 1f)
+                val yPx = zeroY - (normalized * zeroY)
+
+                val xDp = with(density) { xPx.toDp() }
+                val yDp = with(density) { yPx.toDp() }
+
+                Surface(
+                    color = MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.9f),
+                    shape = RoundedCornerShape(6.dp),
+                    shadowElevation = 4.dp,
+                    modifier = Modifier
+                        .offset(
+                            x = (xDp - 40.dp).coerceIn(0.dp, (maxWidth - 80.dp).coerceAtLeast(0.dp)),
+                            y = (yDp - 32.dp).coerceAtLeast((-12).dp)
+                        )
+                ) {
+                    Text(
+                        text = textStr,
+                        color = MaterialTheme.colorScheme.inverseOnSurface,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
                 }
             }
         }
