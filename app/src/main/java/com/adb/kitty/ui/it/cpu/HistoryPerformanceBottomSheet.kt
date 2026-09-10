@@ -790,7 +790,7 @@ fun FastMetricLineChart(
                     }
 
                     val strokePx = 1.5.dp.toPx()
-                    val dashHeightPx = 42.dp.toPx()
+                    val dashHeightPx = 70.dp.toPx()
 
                     onDrawBehind {
                         if (data.size >= 2) {
@@ -865,7 +865,7 @@ fun FastMetricLineChart(
                 }
 
                 Surface(
-                    color = Color.White,
+                    color = Color.White.copy(alpha = 0.85f),
                     shape = RoundedCornerShape(6.dp),
                     shadowElevation = 3.dp,
                     modifier = Modifier.offset(
@@ -1208,7 +1208,7 @@ fun BiDirectionalMetricChart(
                     }
 
                     val strokePx = 2.dp.toPx()
-                    val dashHeightPx = 42.dp.toPx()
+                    val dashHeightPx = 70.dp.toPx()
 
                     onDrawBehind {
                         // 绘制充电区域虚色填充
@@ -1294,7 +1294,7 @@ fun BiDirectionalMetricChart(
                 }
 
                 Surface(
-                    color = Color.White,
+                    color = Color.White.copy(alpha = 0.85f),
                     shape = RoundedCornerShape(6.dp),
                     shadowElevation = 3.dp,
                     modifier = Modifier.offset(
