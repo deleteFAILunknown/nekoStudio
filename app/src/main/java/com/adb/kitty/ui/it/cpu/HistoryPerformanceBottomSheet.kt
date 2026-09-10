@@ -790,7 +790,7 @@ fun FastMetricLineChart(
                     }
 
                     val strokePx = 1.5.dp.toPx()
-                    val dashHeightPx = 70.dp.toPx()
+                    val dashHeightPx = 106.dp.toPx()
 
                     onDrawBehind {
                         if (data.size >= 2) {
@@ -815,7 +815,7 @@ fun FastMetricLineChart(
                             )
                         }
 
-                        // 触摸时的 42dp 虚线准星与锚点
+                        // 触摸时 虚线准星与锚点
                         selectedIndex?.let { index ->
                             if (index in data.indices) {
                                 val rawVal = data[index]
@@ -865,7 +865,7 @@ fun FastMetricLineChart(
                 }
 
                 Surface(
-                    color = Color.White.copy(alpha = 0.85f),
+                    color = Color.White.copy(alpha = 0.90f),
                     shape = RoundedCornerShape(6.dp),
                     shadowElevation = 3.dp,
                     modifier = Modifier.offset(
@@ -1208,7 +1208,7 @@ fun BiDirectionalMetricChart(
                     }
 
                     val strokePx = 2.dp.toPx()
-                    val dashHeightPx = 70.dp.toPx()
+                    val dashHeightPx = 106.dp.toPx()
 
                     onDrawBehind {
                         // 绘制充电区域虚色填充
@@ -1294,7 +1294,7 @@ fun BiDirectionalMetricChart(
                 }
 
                 Surface(
-                    color = Color.White.copy(alpha = 0.85f),
+                    color = Color.White.copy(alpha = 0.90f),
                     shape = RoundedCornerShape(6.dp),
                     shadowElevation = 3.dp,
                     modifier = Modifier.offset(
