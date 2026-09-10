@@ -347,8 +347,8 @@ private fun HistoryGraphView(history: HistoryRecording) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     SummaryItem(
-                        label = "时长",
-                        value = "${history.durationSeconds} s"
+                        label = "csv数据点",
+                        value = "${history.durationSeconds}"
                     )
                     SummaryItem(
                         label = "最高帧率",
@@ -790,7 +790,7 @@ fun FastMetricLineChart(
                     }
 
                     val strokePx = 1.5.dp.toPx()
-                    val dashHeightPx = 106.dp.toPx()
+                    val dashHeightPx = 120.dp.toPx()
 
                     onDrawBehind {
                         if (data.size >= 2) {
@@ -1107,6 +1107,14 @@ fun BiDirectionalCurrentCard(
                 Text("0 mA 基准线", fontSize = 10.sp, color = Color.Gray)
                 Text("▼ 放电 (+mA)", fontSize = 10.sp, color = Color(0xFFFF5722), fontWeight = FontWeight.Bold)
             }
+  
+            Text(
+                text = "💡 提示：拔插充电器瞬间电流硬件节点可能会来不及刷新，从而导致最高放电显示异常，如果你想要准确的参数，就只能选择充电或不充电的情况下录制",
+                fontSize = 10.sp,
+                lineHeight = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                modifier = Modifier.padding(top = 2.dp)
+            )
         }
     }
 }
@@ -1208,7 +1216,7 @@ fun BiDirectionalMetricChart(
                     }
 
                     val strokePx = 2.dp.toPx()
-                    val dashHeightPx = 106.dp.toPx()
+                    val dashHeightPx = 120.dp.toPx()
 
                     onDrawBehind {
                         // 绘制充电区域虚色填充

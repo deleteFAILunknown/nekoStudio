@@ -1,5 +1,7 @@
 package com.adb.kitty.ui.it.cpu
 
+import com.adb.kitty.service.AdbSessionService
+
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -371,7 +373,13 @@ class PerformanceViewModel : ViewModel() {
     }
 
     // 手动点击：开始录制
-    fun startRecording() {
+    fun startRecording(context: Context) {
+        // 持有 WakeLock
+        val intent = Intent(context, AdbSessionService::class.java).apply {
+            action = AdbSessionService.ACTION_START_RECORDING
+        }
+        context.startService(intent)
+
         recordingStartTimeMs = System.currentTimeMillis()
         val (curCell, curWlan) = readProcNetDev()
         recBaseCellRaw = curCell
@@ -390,7 +398,13 @@ class PerformanceViewModel : ViewModel() {
     }
 
     // 点击停止录制
-    fun stopRecording() {
+    fun stopRecording(context: Context) {
+        // 释放 WakeLock
+        val intent = Intent(context, AdbSessionService::class.java).apply {
+            action = AdbSessionService.ACTION_STOP_RECORDING
+        }
+        context.startService(intent)
+
         val csv = generateCsvData()
         recBaseCellRaw = null
         recBaseWlanRaw = null
@@ -740,7 +754,7 @@ class PerformanceViewModel : ViewModel() {
                 exportCsvContent = csv 
             ) 
         }
-        
+
         if (csv.isEmpty()) return null
 
         return try {

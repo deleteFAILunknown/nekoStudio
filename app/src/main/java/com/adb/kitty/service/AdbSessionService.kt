@@ -70,6 +70,8 @@ class AdbSessionService : Service() {
     
     companion object {
         private const val ACTION_REPLY_COMMAND = "com.adb.kitty.ACTION_REPLY_COMMAND"
+        const val ACTION_START_RECORDING = "com.adb.kitty.ACTION_START_RECORDING"
+        const val ACTION_STOP_RECORDING = "com.adb.kitty.ACTION_STOP_RECORDING"
         private const val KEY_REPLY_INPUT = "key_reply_input"
     }
     
@@ -202,10 +204,14 @@ class AdbSessionService : Service() {
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
     }
-    
+
+    private var wakeLock: PowerManager.WakeLock? = null
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_REPLY_COMMAND) {
-            handleNotificationInput(intent)
+        when (intent?.action) {
+            ACTION_REPLY_COMMAND -> handleNotificationInput(intent)
+            ACTION_START_RECORDING -> acquireWakeLock()
+            ACTION_STOP_RECORDING -> releaseWakeLock()
         }
         return START_STICKY
     }
@@ -226,7 +232,28 @@ class AdbSessionService : Service() {
             logToNotification("📡 已发送: $inputText")
         }
     }
-    
+
+    private fun acquireWakeLock() {
+        if (wakeLock == null || wakeLock?.isHeld == false) {
+            val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+            wakeLock = pm.newWakeLock(
+                PowerManager.PARTIAL_WAKE_LOCK,
+                "NekoStudio:RecordingWakeLock"
+            ).apply {
+                acquire()
+            }
+        }
+    }
+
+    private fun releaseWakeLock() {
+        wakeLock?.let {
+            if (it.isHeld) {
+                it.release()
+            }
+        }
+        wakeLock = null
+    }
+
     private var totalSeconds = 0
     private fun startNotificationTicker() {
         refreshJob?.cancel()
@@ -931,6 +958,7 @@ class AdbSessionService : Service() {
     
     override fun onDestroy() {
         serviceScope.cancel()
+        releaseWakeLock()
         terminateCurrentCommand()
         runCatching { unregisterReceiver(shellCmdReceiver) }
         kadbInstancePool.forEach { (_, instance) -> runCatching { instance.close() } }
