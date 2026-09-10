@@ -736,12 +736,10 @@ fun FastMetricLineChart(
 
     BoxWithConstraints(modifier = modifier) {
         val widthPx = constraints.maxWidth.toFloat()
-        val heightPx = constraints.maxHeight.toFloat()
 
         Spacer(
             modifier = Modifier
                 .fillMaxSize()
-                // 手势监听：划动时捕获选中的数组索引
                 .pointerInput(data) {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
@@ -763,11 +761,12 @@ fun FastMetricLineChart(
                                 }
                             }
                         } while (event.changes.any { it.pressed })
-                        selectedIndex = null // 手指离开时隐藏高亮
+                        selectedIndex = null
                     }
                 }
                 .drawWithCache {
-                    val path = Path()
+                    val linePath = Path()
+                    val fillPath = Path()
                     val effectiveMax = if (maxVal <= 0f) 1f else maxVal
                     val stepX = if (data.size >= 2) size.width / (data.size - 1) else 0f
 
@@ -775,22 +774,47 @@ fun FastMetricLineChart(
                         data.forEachIndexed { i, value ->
                             val x = i * stepX
                             val y = size.height - ((value / effectiveMax).coerceIn(0f, 1f) * size.height)
-                            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                            if (i == 0) {
+                                linePath.moveTo(x, y)
+                                fillPath.moveTo(x, y)
+                            } else {
+                                linePath.lineTo(x, y)
+                                fillPath.lineTo(x, y)
+                            }
                         }
+                        // 将填充路径封闭至图表底部
+                        fillPath.lineTo(size.width, size.height)
+                        fillPath.lineTo(0f, size.height)
+                        fillPath.close()
                     }
+
                     val strokePx = 1.5.dp.toPx()
+                    val dashHeightPx = 42.dp.toPx()
 
                     onDrawBehind {
-                        // 1. 绘制折线
                         if (data.size >= 2) {
+                            // 绘制折线下方的虚色/渐变阴影背景
                             drawPath(
-                                path = path,
+                                path = fillPath,
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(
+                                        lineColor.copy(alpha = 0.35f), // 顶部较高不透明度
+                                        lineColor.copy(alpha = 0.02f)  // 底部趋于透明
+                                    ),
+                                    startY = 0f,
+                                    endY = size.height
+                                )
+                            )
+
+                            // 绘制折线主体
+                            drawPath(
+                                path = linePath,
                                 color = lineColor,
                                 style = Stroke(width = strokePx, cap = StrokeCap.Round)
                             )
                         }
 
-                        // 2. 绘制选中位置的准星竖线与焦点高亮圆点
+                        // 触摸时的 42dp 虚线准星与锚点
                         selectedIndex?.let { index ->
                             if (index in data.indices) {
                                 val rawVal = data[index]
@@ -800,7 +824,7 @@ fun FastMetricLineChart(
                                 drawLine(
                                     color = lineColor.copy(alpha = 0.7f),
                                     start = Offset(x, 0f),
-                                    end = Offset(x, size.height),
+                                    end = Offset(x, dashHeightPx),
                                     strokeWidth = 1.dp.toPx(),
                                     pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
                                 )
@@ -821,7 +845,7 @@ fun FastMetricLineChart(
                 }
         )
 
-        // 3. 在触控数据点上方悬浮绘制纯数据气泡
+        // 白底黑字数据气泡：挂载在虚线顶点的左侧或右侧
         selectedIndex?.let { index ->
             if (index in data.indices && data.size >= 2) {
                 val realVal = data[index] + valueOffset
@@ -829,29 +853,28 @@ fun FastMetricLineChart(
                 val textStr = if (unit.isNotEmpty()) "$formattedVal $unit" else formattedVal
 
                 val stepX = widthPx / (data.size - 1)
-                val xPx = stepX * index
+                val xDp = with(density) { (stepX * index).toDp() }
 
-                val effectiveMax = if (maxVal <= 0f) 1f else maxVal
-                val rawVal = data[index]
-                val yPx = heightPx - ((rawVal / effectiveMax).coerceIn(0f, 1f) * heightPx)
-
-                // 转换像素为 dp 坐标
-                val xDp = with(density) { xPx.toDp() }
-                val yDp = with(density) { yPx.toDp() }
+                val isRightHalf = index > (data.size - 1) / 2
+                val bubbleEstimatedWidth = 85.dp
+                val targetX = if (isRightHalf) {
+                    (xDp - bubbleEstimatedWidth).coerceAtLeast(0.dp)
+                } else {
+                    xDp.coerceAtMost(maxWidth - bubbleEstimatedWidth)
+                }
 
                 Surface(
-                    color = MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.9f),
+                    color = Color.White,
                     shape = RoundedCornerShape(6.dp),
-                    shadowElevation = 4.dp,
-                    modifier = Modifier
-                        .offset(
-                            x = (xDp - 35.dp).coerceIn(0.dp, (maxWidth - 70.dp).coerceAtLeast(0.dp)),
-                            y = (yDp - 32.dp).coerceAtLeast((-12).dp) // 高空悬浮：位于选中锚点上方 32dp
-                        )
+                    shadowElevation = 3.dp,
+                    modifier = Modifier.offset(
+                        x = targetX,
+                        y = 0.dp
+                    )
                 ) {
                     Text(
                         text = textStr,
-                        color = MaterialTheme.colorScheme.inverseOnSurface,
+                        color = Color.Black,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -1100,7 +1123,6 @@ fun BiDirectionalMetricChart(
 
     BoxWithConstraints(modifier = modifier) {
         val widthPx = constraints.maxWidth.toFloat()
-        val heightPx = constraints.maxHeight.toFloat()
 
         Spacer(
             modifier = Modifier
@@ -1128,6 +1150,8 @@ fun BiDirectionalMetricChart(
                 .drawWithCache {
                     val chargePath = Path()
                     val dischargePath = Path()
+                    val chargeFillPath = Path()
+                    val dischargeFillPath = Path()
 
                     val stepX = if (data.size >= 2) size.width / (data.size - 1) else 0f
                     val zeroY = size.height / 2f
@@ -1139,6 +1163,9 @@ fun BiDirectionalMetricChart(
                         )
                         var prevVal = data[0]
 
+                        chargeFillPath.moveTo(0f, zeroY)
+                        dischargeFillPath.moveTo(0f, zeroY)
+
                         for (i in 1 until data.size) {
                             val valMa = data[i]
                             val x = i * stepX
@@ -1147,29 +1174,61 @@ fun BiDirectionalMetricChart(
 
                             if ((prevVal <= 0f && valMa <= 0f) || (prevVal >= 0f && valMa >= 0f)) {
                                 val targetPath = if (prevVal <= 0f) chargePath else dischargePath
+                                val targetFill = if (prevVal <= 0f) chargeFillPath else dischargeFillPath
                                 targetPath.moveTo(prevPoint.x, prevPoint.y)
                                 targetPath.lineTo(currPoint.x, currPoint.y)
+                                targetFill.lineTo(currPoint.x, currPoint.y)
                             } else {
                                 val t = (zeroY - prevPoint.y) / (currPoint.y - prevPoint.y)
                                 val crossPoint = Offset(prevPoint.x + t * (currPoint.x - prevPoint.x), zeroY)
 
                                 val path1 = if (prevVal <= 0f) chargePath else dischargePath
+                                val fill1 = if (prevVal <= 0f) chargeFillPath else dischargeFillPath
                                 path1.moveTo(prevPoint.x, prevPoint.y)
                                 path1.lineTo(crossPoint.x, crossPoint.y)
+                                fill1.lineTo(crossPoint.x, crossPoint.y)
 
                                 val path2 = if (valMa <= 0f) chargePath else dischargePath
+                                val fill2 = if (valMa <= 0f) chargeFillPath else dischargeFillPath
                                 path2.moveTo(crossPoint.x, crossPoint.y)
                                 path2.lineTo(currPoint.x, currPoint.y)
+                                fill2.lineTo(currPoint.x, currPoint.y)
                             }
 
                             prevPoint = currPoint
                             prevVal = valMa
                         }
+
+                        chargeFillPath.lineTo(size.width, zeroY)
+                        chargeFillPath.close()
+
+                        dischargeFillPath.lineTo(size.width, zeroY)
+                        dischargeFillPath.close()
                     }
 
                     val strokePx = 2.dp.toPx()
+                    val dashHeightPx = 42.dp.toPx()
 
                     onDrawBehind {
+                        // 绘制充电区域虚色填充
+                        drawPath(
+                            path = chargeFillPath,
+                            brush = Brush.verticalGradient(
+                                colors = listOf(chargeColor.copy(alpha = 0.35f), Color.Transparent),
+                                startY = 0f,
+                                endY = zeroY
+                            )
+                        )
+                        // 绘制放电区域虚色填充
+                        drawPath(
+                            path = dischargeFillPath,
+                            brush = Brush.verticalGradient(
+                                colors = listOf(Color.Transparent, dischargeColor.copy(alpha = 0.35f)),
+                                startY = zeroY,
+                                endY = size.height
+                            )
+                        )
+
                         drawPath(
                             path = chargePath,
                             color = chargeColor,
@@ -1192,7 +1251,7 @@ fun BiDirectionalMetricChart(
                                 drawLine(
                                     color = pointColor.copy(alpha = 0.7f),
                                     start = Offset(x, 0f),
-                                    end = Offset(x, size.height),
+                                    end = Offset(x, dashHeightPx),
                                     strokeWidth = 1.dp.toPx(),
                                     pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
                                 )
@@ -1223,28 +1282,28 @@ fun BiDirectionalMetricChart(
                 }
 
                 val stepX = widthPx / (data.size - 1)
-                val xPx = stepX * index
+                val xDp = with(density) { (stepX * index).toDp() }
 
-                val zeroY = heightPx / 2f
-                val normalized = (-currentMa / maxAbs).coerceIn(-1f, 1f)
-                val yPx = zeroY - (normalized * zeroY)
-
-                val xDp = with(density) { xPx.toDp() }
-                val yDp = with(density) { yPx.toDp() }
+                val isRightHalf = index > (data.size - 1) / 2
+                val bubbleEstimatedWidth = 95.dp
+                val targetX = if (isRightHalf) {
+                    (xDp - bubbleEstimatedWidth).coerceAtLeast(0.dp)
+                } else {
+                    xDp.coerceAtMost(maxWidth - bubbleEstimatedWidth)
+                }
 
                 Surface(
-                    color = MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.9f),
+                    color = Color.White,
                     shape = RoundedCornerShape(6.dp),
-                    shadowElevation = 4.dp,
-                    modifier = Modifier
-                        .offset(
-                            x = (xDp - 40.dp).coerceIn(0.dp, (maxWidth - 80.dp).coerceAtLeast(0.dp)),
-                            y = (yDp - 32.dp).coerceAtLeast((-12).dp)
-                        )
+                    shadowElevation = 3.dp,
+                    modifier = Modifier.offset(
+                        x = targetX,
+                        y = 0.dp
+                    )
                 ) {
                     Text(
                         text = textStr,
-                        color = MaterialTheme.colorScheme.inverseOnSurface,
+                        color = Color.Black,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
