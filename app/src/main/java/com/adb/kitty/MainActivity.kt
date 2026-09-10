@@ -491,7 +491,7 @@ class MainActivity : ComponentActivity() {
                     CompletePerformanceMonitorBottomSheet(
                         uiState = puiState,
                         onIntervalSelected = { pviewModel.setSampleInterval(it) },
-                        onStartRecording = { pviewModel.startRecording() },
+                        onStartRecording = { pviewModel.startRecording(this@MainActivity) },
                         onStopRecording = { 
                             // 停止录制并自动在 getExternalFilesDir/cpu/ 目录下生成 CSV 文件
                             val savedFile = pviewModel.stopRecordingAndSave(context)
