@@ -696,6 +696,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(100.dp)
+                            .padding(top = 30.dp)
                     )
                 }
             }
@@ -790,7 +791,7 @@ fun FastMetricLineChart(
                     }
 
                     val strokePx = 1.5.dp.toPx()
-                    val dashHeightPx = 120.dp.toPx()
+                    val dashHeightPx = 110.dp.toPx()
 
                     onDrawBehind {
                         if (data.size >= 2) {
