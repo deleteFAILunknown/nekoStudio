@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import java.io.File
 import java.util.Locale
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 data class DynamicCpuCoreModel(
     val coreIndex: Int,
