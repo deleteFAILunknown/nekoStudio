@@ -397,26 +397,6 @@ class PerformanceViewModel : ViewModel() {
         }
     }
 
-    // 点击停止录制
-    fun stopRecording(context: Context) {
-        // 释放 WakeLock
-        val intent = Intent(context, AdbSessionService::class.java).apply {
-            action = AdbSessionService.ACTION_STOP_RECORDING
-        }
-        context.startService(intent)
-
-        val csv = generateCsvData()
-        recBaseCellRaw = null
-        recBaseWlanRaw = null
-        _uiState.update {
-            it.copy(
-                isRecording = false,
-                recordedDurationSeconds = 0,
-                exportCsvContent = csv
-            )
-        }
-    }
-
     fun clearExportData() {
         _uiState.update { it.copy(exportCsvContent = null) }
     }
@@ -746,6 +726,12 @@ class PerformanceViewModel : ViewModel() {
 
     // 停止录制并自动保存到 cpu 目录
     fun stopRecordingAndSave(context: Context): File? {
+        // 释放 WakeLock
+        val intent = Intent(context, AdbSessionService::class.java).apply {
+            action = AdbSessionService.ACTION_STOP_RECORDING
+        }
+        context.startService(intent)
+
         val csv = generateCsvData()
         _uiState.update { 
             it.copy(
