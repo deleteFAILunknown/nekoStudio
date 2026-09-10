@@ -233,6 +233,7 @@ class AdbSessionService : Service() {
         }
     }
 
+    @SuppressLint("WakelockTimeout")
     private fun acquireWakeLock() {
         if (wakeLock == null || wakeLock?.isHeld == false) {
             val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
