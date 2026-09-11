@@ -352,8 +352,8 @@ private fun HistoryGraphView(history: HistoryRecording) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     SummaryItem(
-                        label = "csv数据点",
-                        value = "${history.durationSeconds}"
+                        label = "时长",
+                        value = "${history.durationSeconds} s"
                     )
                     SummaryItem(
                         label = "最高帧率",
@@ -704,7 +704,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
                         lineColor = coreColor,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(150.dp)
+                            .height(180.dp)
                     )
                 }
             }
@@ -798,7 +798,7 @@ fun FastMetricLineChart(
                     }
 
                     val strokePx = 1.5.dp.toPx()
-                    val dashHeightPx = 150.dp.toPx()
+                    val dashHeightPx = 185.dp.toPx()
 
                     onDrawBehind {
                         if (data.size >= 2) {
@@ -859,42 +859,62 @@ fun FastMetricLineChart(
                 val textStr = if (unit.isNotEmpty()) "$formattedVal $unit" else formattedVal
 
                 val stepX = widthPx / (data.size - 1)
-                val xDp = with(density) { (stepX * index).toDp() }
+                val lineXPx = (stepX * index).roundToInt()
+                val lineXDp = with(density) { lineXPx.toDp() }
 
                 val isRightHalf = index > (data.size - 1) / 2
-                val bubbleEstimatedWidth = 85.dp
-                val targetX = if (isRightHalf) {
-                    (xDp - bubbleEstimatedWidth).coerceAtLeast(0.dp)
-                } else {
-                    xDp.coerceAtMost(maxWidth - bubbleEstimatedWidth)
-                }
-
-                // 转换像素坐标，y 轴设置为 -28dp 实现悬浮在图表上方
-                val xPx = with(density) { targetX.roundToPx() }
                 val yPx = with(density) { (-28).dp.roundToPx() }
 
-                Popup(
-                    alignment = Alignment.TopStart,
-                    offset = IntOffset(x = xPx, y = yPx),
-                    properties = PopupProperties(
-                        focusable = false,
-                        dismissOnBackPress = false,
-                        dismissOnClickOutside = false,
-                        clippingEnabled = false
-                    )
-                ) {
-                    Surface(
-                        color = Color.White.copy(alpha = 0.90f),
-                        shape = RoundedCornerShape(6.dp),
-                        shadowElevation = 3.dp
-                    ) {
-                        Text(
-                            text = textStr,
-                            color = Color.Black,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                if (isRightHalf) {
+                    val offsetFromRightPx = lineXPx - constraints.maxWidth
+                    Popup(
+                        alignment = Alignment.TopEnd,
+                        offset = IntOffset(x = offsetFromRightPx, y = yPx),
+                        properties = PopupProperties(
+                            focusable = false,
+                            dismissOnBackPress = false,
+                            dismissOnClickOutside = false,
+                            clippingEnabled = false
                         )
+                    ) {
+                        Surface(
+                            color = Color.White.copy(alpha = 0.90f),
+                            shape = RoundedCornerShape(6.dp),
+                            shadowElevation = 3.dp
+                        ) {
+                            Text(
+                                text = textStr,
+                                color = Color.Black,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                } else {
+                    Popup(
+                        alignment = Alignment.TopStart,
+                        offset = IntOffset(x = xPx, y = yPx),
+                        properties = PopupProperties(
+                            focusable = false,
+                            dismissOnBackPress = false,
+                            dismissOnClickOutside = false,
+                            clippingEnabled = false
+                        )
+                    ) {
+                        Surface(
+                            color = Color.White.copy(alpha = 0.90f),
+                            shape = RoundedCornerShape(6.dp),
+                            shadowElevation = 3.dp
+                        ) {
+                            Text(
+                                text = textStr,
+                                color = Color.Black,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -1038,7 +1058,7 @@ private fun HistoryChartCard(
                 lineColor = lineColor,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(150.dp)
+                    .height(180.dp)
             )
         }
     }
@@ -1111,7 +1131,7 @@ fun BiDirectionalCurrentCard(
                 maxAbs = maxAbs,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(150.dp)
+                    .height(180.dp)
             )
 
             Row(
@@ -1246,7 +1266,7 @@ fun BiDirectionalMetricChart(
                     }
 
                     val strokePx = 2.dp.toPx()
-                    val dashHeightPx = 150.dp.toPx()
+                    val dashHeightPx = 185.dp.toPx()
 
                     onDrawBehind {
                         drawPath(
@@ -1320,41 +1340,62 @@ fun BiDirectionalMetricChart(
                 }
 
                 val stepX = widthPx / (data.size - 1)
-                val xDp = with(density) { (stepX * index).toDp() }
+                val lineXPx = (stepX * index).roundToInt()
+                val lineXDp = with(density) { lineXPx.toDp() }
 
                 val isRightHalf = index > (data.size - 1) / 2
-                val bubbleEstimatedWidth = 95.dp
-                val targetX = if (isRightHalf) {
-                    (xDp - bubbleEstimatedWidth).coerceAtLeast(0.dp)
-                } else {
-                    xDp.coerceAtMost(maxWidth - bubbleEstimatedWidth)
-                }
-
-                val xPx = with(density) { targetX.roundToPx() }
                 val yPx = with(density) { (-28).dp.roundToPx() }
 
-                Popup(
-                    alignment = Alignment.TopStart,
-                    offset = IntOffset(x = xPx, y = yPx),
-                    properties = PopupProperties(
-                        focusable = false,
-                        dismissOnBackPress = false,
-                        dismissOnClickOutside = false,
-                        clippingEnabled = false
-                    )
-                ) {
-                    Surface(
-                        color = Color.White.copy(alpha = 0.90f),
-                        shape = RoundedCornerShape(6.dp),
-                        shadowElevation = 3.dp
-                    ) {
-                        Text(
-                            text = textStr,
-                            color = Color.Black,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                if (isRightHalf) {
+                    val offsetFromRightPx = lineXPx - constraints.maxWidth
+                    Popup(
+                        alignment = Alignment.TopEnd,
+                        offset = IntOffset(x = offsetFromRightPx, y = yPx),
+                        properties = PopupProperties(
+                            focusable = false,
+                            dismissOnBackPress = false,
+                            dismissOnClickOutside = false,
+                            clippingEnabled = false
                         )
+                    ) {
+                        Surface(
+                            color = Color.White.copy(alpha = 0.90f),
+                            shape = RoundedCornerShape(6.dp),
+                            shadowElevation = 3.dp
+                        ) {
+                            Text(
+                                text = textStr,
+                                color = Color.Black,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                } else {
+                    Popup(
+                        alignment = Alignment.TopStart,
+                        offset = IntOffset(x = xPx, y = yPx),
+                        properties = PopupProperties(
+                            focusable = false,
+                            dismissOnBackPress = false,
+                            dismissOnClickOutside = false,
+                            clippingEnabled = false
+                        )
+                    ) {
+                        Surface(
+                            color = Color.White.copy(alpha = 0.90f),
+                            shape = RoundedCornerShape(6.dp),
+                            shadowElevation = 3.dp
+                        ) {
+                            Text(
+                                text = textStr,
+                                color = Color.Black,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
                     }
                 }
             }
