@@ -798,7 +798,7 @@ fun FastMetricLineChart(
                 val lineXPx = (stepX * index).roundToInt()
 
                 val isRightHalf = index > (data.size - 1) / 2
-                val yPx = with(density) { (-60).dp.roundToPx() }
+                val yPx = with(density) { (-70).dp.roundToPx() }
 
                 if (isRightHalf) {
                     val offsetFromRightPx = lineXPx - constraints.maxWidth
@@ -814,24 +814,24 @@ fun FastMetricLineChart(
                     ) {
                         Column(
                             horizontalAlignment = Alignment.End,
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                            verticalArrangement = Arrangement.spacedBy(3.dp)
                         ) {
                             Surface(
-                                color = Color.White.copy(alpha = 0.95f),
-                                shape = RoundedCornerShape(6.dp),
+                                color = Color.White,
+                                shape = RoundedCornerShape(7.dp),
                                 shadowElevation = 3.dp
                             ) {
                                 Text(
                                     text = timeStr,
                                     color = Color.Black,
                                     fontSize = 10.sp,
-                                    fontWeight = FontWeight.Normal,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
                                 )
                             }
                             Surface(
-                                color = Color.White.copy(alpha = 0.95f),
-                                shape = RoundedCornerShape(6.dp),
+                                color = Color.White,
+                                shape = RoundedCornerShape(7.dp),
                                 shadowElevation = 3.dp
                             ) {
                                 Text(
@@ -839,7 +839,7 @@ fun FastMetricLineChart(
                                     color = Color.Black,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
                                 )
                             }
                         }
@@ -857,24 +857,24 @@ fun FastMetricLineChart(
                     ) {
                         Column(
                             horizontalAlignment = Alignment.Start,
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                            verticalArrangement = Arrangement.spacedBy(3.dp)
                         ) {
                             Surface(
-                                color = Color.White.copy(alpha = 0.95f),
-                                shape = RoundedCornerShape(6.dp),
+                                color = Color.White,
+                                shape = RoundedCornerShape(7.dp),
                                 shadowElevation = 3.dp
                             ) {
                                 Text(
                                     text = timeStr,
                                     color = Color.Black,
                                     fontSize = 10.sp,
-                                    fontWeight = FontWeight.Normal,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
                                 )
                             }
                             Surface(
-                                color = Color.White.copy(alpha = 0.95f),
-                                shape = RoundedCornerShape(6.dp),
+                                color = Color.White,
+                                shape = RoundedCornerShape(7.dp),
                                 shadowElevation = 3.dp
                             ) {
                                 Text(
@@ -882,7 +882,7 @@ fun FastMetricLineChart(
                                     color = Color.Black,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
                                 )
                             }
                         }
@@ -1286,7 +1286,7 @@ fun BiDirectionalMetricChart(
                 val lineXDp = with(density) { lineXPx.toDp() }
 
                 val isRightHalf = index > (data.size - 1) / 2
-                val yPx = with(density) { (-60).dp.roundToPx() }
+                val yPx = with(density) { (-70).dp.roundToPx() }
 
                 if (isRightHalf) {
                     val offsetFromRightPx = lineXPx - constraints.maxWidth
@@ -1302,24 +1302,24 @@ fun BiDirectionalMetricChart(
                     ) {
                         Column(
                             horizontalAlignment = Alignment.End,
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                            verticalArrangement = Arrangement.spacedBy(3.dp)
                         ) {
                             Surface(
-                                color = Color.White.copy(alpha = 0.95f),
-                                shape = RoundedCornerShape(6.dp),
+                                color = Color.White,
+                                shape = RoundedCornerShape(7.dp),
                                 shadowElevation = 3.dp
                             ) {
                                 Text(
                                     text = timeStr,
                                     color = Color.Black,
                                     fontSize = 10.sp,
-                                    fontWeight = FontWeight.Normal,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
                                 )
                             }
                             Surface(
-                                color = Color.White.copy(alpha = 0.95f),
-                                shape = RoundedCornerShape(6.dp),
+                                color = Color.White,
+                                shape = RoundedCornerShape(7.dp),
                                 shadowElevation = 3.dp
                             ) {
                                 Text(
@@ -1327,7 +1327,7 @@ fun BiDirectionalMetricChart(
                                     color = Color.Black,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
                                 )
                             }
                         }
@@ -1345,24 +1345,24 @@ fun BiDirectionalMetricChart(
                     ) {
                         Column(
                             horizontalAlignment = Alignment.Start,
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                            verticalArrangement = Arrangement.spacedBy(3.dp)
                         ) {
                             Surface(
-                                color = Color.White.copy(alpha = 0.95f),
-                                shape = RoundedCornerShape(6.dp),
+                                color = Color.White,
+                                shape = RoundedCornerShape(7.dp),
                                 shadowElevation = 3.dp
                             ) {
                                 Text(
                                     text = timeStr,
                                     color = Color.Black,
                                     fontSize = 10.sp,
-                                    fontWeight = FontWeight.Normal,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
                                 )
                             }
                             Surface(
-                                color = Color.White.copy(alpha = 0.95f),
-                                shape = RoundedCornerShape(6.dp),
+                                color = Color.White,
+                                shape = RoundedCornerShape(7.dp),
                                 shadowElevation = 3.dp
                             ) {
                                 Text(
@@ -1370,7 +1370,7 @@ fun BiDirectionalMetricChart(
                                     color = Color.Black,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
                                 )
                             }
                         }
@@ -1901,7 +1901,7 @@ private fun CategoricalStepChart(
                 val lineXPx = (stepX * index).roundToInt()
 
                 val isRightHalf = index > (stepValues.size - 1) / 2
-                val yPx = with(density) { (-60).dp.roundToPx() }
+                val yPx = with(density) { (-70).dp.roundToPx() }
 
                 if (isRightHalf) {
                     val offsetFromRightPx = lineXPx - constraints.maxWidth
@@ -1917,24 +1917,24 @@ private fun CategoricalStepChart(
                     ) {
                         Column(
                             horizontalAlignment = Alignment.End,
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                            verticalArrangement = Arrangement.spacedBy(3.dp)
                         ) {
                             Surface(
-                                color = Color.White.copy(alpha = 0.95f),
-                                shape = RoundedCornerShape(6.dp),
+                                color = Color.White,
+                                shape = RoundedCornerShape(7.dp),
                                 shadowElevation = 3.dp
                             ) {
                                 Text(
                                     text = timeStr,
                                     color = Color.Black,
                                     fontSize = 10.sp,
-                                    fontWeight = FontWeight.Normal,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
                                 )
                             }
                             Surface(
-                                color = Color.White.copy(alpha = 0.95f),
-                                shape = RoundedCornerShape(6.dp),
+                                color = Color.White,
+                                shape = RoundedCornerShape(7.dp),
                                 shadowElevation = 3.dp
                             ) {
                                 Text(
@@ -1942,7 +1942,7 @@ private fun CategoricalStepChart(
                                     color = Color.Black,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
                                 )
                             }
                         }
@@ -1960,24 +1960,24 @@ private fun CategoricalStepChart(
                     ) {
                         Column(
                             horizontalAlignment = Alignment.Start,
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                            verticalArrangement = Arrangement.spacedBy(3.dp)
                         ) {
                             Surface(
-                                color = Color.White.copy(alpha = 0.95f),
-                                shape = RoundedCornerShape(6.dp),
+                                color = Color.White,
+                                shape = RoundedCornerShape(7.dp),
                                 shadowElevation = 3.dp
                             ) {
                                 Text(
                                     text = timeStr,
                                     color = Color.Black,
                                     fontSize = 10.sp,
-                                    fontWeight = FontWeight.Normal,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
                                 )
                             }
                             Surface(
-                                color = Color.White.copy(alpha = 0.95f),
-                                shape = RoundedCornerShape(6.dp),
+                                color = Color.White,
+                                shape = RoundedCornerShape(7.dp),
                                 shadowElevation = 3.dp
                             ) {
                                 Text(
@@ -1985,7 +1985,7 @@ private fun CategoricalStepChart(
                                     color = Color.Black,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
                                 )
                             }
                         }
