@@ -17,6 +17,7 @@
 ## Shell
 - Starting from version V4.2
 - How to use shell script to call internal instructions of the application
+- This dynamic broadcast receiver is a non-system type, so no matter how other applications call it, there will be no reaction.
 - For example, calling the root-free fastboot command implemented inside the application
 ```shell
 #!/system/bin/sh
@@ -36,23 +37,23 @@ fastboot oem device-info
 - Starting from version V4.2
 ```shell
 # Flashing non-vab devices
-$su -c cat /sdcard/boot.img > /dev/block/by-name/boot
-$su -c cat /sdcard/init_boot.img > /dev/block/by-name/init_boot
+$ su -c cat /sdcard/boot.img > /dev/block/by-name/boot
+$ su -c cat /sdcard/init_boot.img > /dev/block/by-name/init_boot
 
 # Adding the -M parameter and using global root permissions to flash can solve the problem of insufficient permissions on most devices.
-$su -M -c cat /sdcard/boot.img > /dev/block/by-name/boot
-$su -M -c cat /sdcard/init_boot.img > /dev/block/by-name/init_boot
+$ su -M -c cat /sdcard/boot.img > /dev/block/by-name/boot
+$ su -M -c cat /sdcard/init_boot.img > /dev/block/by-name/init_boot
 
 # Query the currently active slot before flashing the vab device
-$getprop ro.boot.slot_suffix
+$ getprop ro.boot.slot_suffix
 
 # Flash vab device partition _a
-$su -c cat /sdcard/boot.img > /dev/block/by-name/boot_a
-$su -c cat /sdcard/init_boot.img > /dev/block/by-name/init_boot_a
+$ su -c cat /sdcard/boot.img > /dev/block/by-name/boot_a
+$ su -c cat /sdcard/init_boot.img > /dev/block/by-name/init_boot_a
 
 # Flash vab device partition _b
-$su -c cat /sdcard/boot.img > /dev/block/by-name/boot_b
-$su -c cat /sdcard/init_boot.img > /dev/block/by-name/init_boot_b
+$ su -c cat /sdcard/boot.img > /dev/block/by-name/boot_b
+$ su -c cat /sdcard/init_boot.img > /dev/block/by-name/init_boot_b
 ```
 
 ## DocumentsProvider

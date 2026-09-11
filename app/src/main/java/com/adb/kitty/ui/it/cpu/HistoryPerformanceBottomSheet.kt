@@ -511,6 +511,13 @@ private fun HistoryGraphView(history: HistoryRecording) {
         }
 
         item {
+            ChargingTypeTimelineCard(
+                title = "⚡ 充电协议与类型切换轨迹",
+                rawTypeList = data.rawChargeTypeSequence
+            )
+        }
+
+        item {
             val batCapLimitStr = if (data.summaryData.lastFullMah > 0f) {
                 String.format(
                     Locale.US, "SoH: %.1f%% | 循环: %d次 | 容量: %.0f/%.0f mAh",
@@ -1306,7 +1313,8 @@ private data class ProcessedHistoryData(
     val powerList: List<Float>,
     val gpuLoadList: List<Float>,
     val gpuFreqList: List<Float>,
-    val gpuLimitStr: String?
+    val gpuLimitStr: String?,
+    val rawChargeTypeSequence: List<String>
 )
 
 /**
@@ -1489,6 +1497,10 @@ private fun buildProcessedHistoryData(history: HistoryRecording): ProcessedHisto
     val gpuMax = samples.mapNotNull { if (it.gpuMaxFreqGhz > 0) it.gpuMaxFreqGhz else null }.firstOrNull() ?: 0f
     val gpuLimitStr = if (gpuMax > 0f) String.format(Locale.US, "Limit: %.3f - %.3f GHz", gpuMin, gpuMax) else null
 
+    val rawChargeTypeSequence = samples.map { 
+        it.batteryChargeType.ifEmpty { "None" } 
+    }
+
     return ProcessedHistoryData(
         summaryData = summaryData,
         cpuCoreModels = cpuCoreModels,
@@ -1513,7 +1525,8 @@ private fun buildProcessedHistoryData(history: HistoryRecording): ProcessedHisto
         powerList = samples.map { it.batteryPowerW }.downsample(400),
         gpuLoadList = samples.map { it.gpuLoadPercent }.downsample(400),
         gpuFreqList = samples.map { it.gpuFreqGhz }.downsample(400),
-        gpuLimitStr = gpuLimitStr
+        gpuLimitStr = gpuLimitStr,
+        rawChargeTypeSequence = rawChargeTypeSequence
     )
 }
 
@@ -1566,5 +1579,299 @@ fun autoScaleKbpsList(kbpsList: List<Float>): AutoScaledSpeedData {
             unit = "KB/s",
             valueFormat = "%.0f"
         )
+    }
+}
+
+/**
+ * 专门用于展示离散字符串状态（如充电类型、协议）随时间变化的阶梯折线图卡片
+ */
+@Composable
+fun ChargingTypeTimelineCard(
+    title: String,
+    rawTypeList: List<String>,
+    modifier: Modifier = Modifier
+) {
+    if (rawTypeList.isEmpty()) return
+
+    // 1. 提取所有不重复的状态分类集合（作为 Y 轴层级刻度）
+    val categories = remember(rawTypeList) {
+        rawTypeList.distinct()
+    }
+
+    // 2. 将原始字符串映射为层级高度索引 (0f, 1f, 2f ...)
+    val stepValues = remember(rawTypeList, categories) {
+        rawTypeList.map { str -> categories.indexOf(str).toFloat() }
+    }
+
+    val lastType = rawTypeList.lastOrNull() ?: "未知"
+
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ),
+        shape = RoundedCornerShape(10.dp),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // 头部标题与当前状态
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = title,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = RoundedCornerShape(6.dp)
+                ) {
+                    Text(
+                        text = "当前: $lastType",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
+            // 阶梯折线图核心区域
+            CategoricalStepChart(
+                stepValues = stepValues,
+                rawStrings = rawTypeList,
+                categories = categories,
+                lineColor = Color(0xFF00BCD4),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp)
+            )
+        }
+    }
+}
+
+/**
+ * 离散分类阶梯 Canvas 画板
+ */
+@Composable
+private fun CategoricalStepChart(
+    stepValues: List<Float>,
+    rawStrings: List<String>,
+    categories: List<String>,
+    lineColor: Color,
+    modifier: Modifier = Modifier
+) {
+    var selectedIndex by remember { mutableStateOf<Int?>(null) }
+    val density = LocalDensity.current
+
+    val maxLevel = (categories.size - 1).coerceAtLeast(1).toFloat()
+
+    BoxWithConstraints(modifier = modifier) {
+        val widthPx = constraints.maxWidth.toFloat()
+
+        Spacer(
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(stepValues) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        if (stepValues.size >= 2) {
+                            val stepX = size.width.toFloat() / (stepValues.size - 1)
+                            selectedIndex = (down.position.x / stepX)
+                                .roundToInt()
+                                .coerceIn(0, stepValues.indices.last)
+                        }
+                        do {
+                            val event = awaitPointerEvent()
+                            val pointer = event.changes.firstOrNull()
+                            if (pointer != null && pointer.pressed) {
+                                if (stepValues.size >= 2) {
+                                    val stepX = size.width.toFloat() / (stepValues.size - 1)
+                                    selectedIndex = (pointer.position.x / stepX)
+                                        .roundToInt()
+                                        .coerceIn(0, stepValues.indices.last)
+                                }
+                            }
+                        } while (event.changes.any { it.pressed })
+                        selectedIndex = null
+                    }
+                }
+                .drawWithCache {
+                    val stepPath = Path()
+                    val fillPath = Path()
+                    val stepX = if (stepValues.size >= 2) size.width / (stepValues.size - 1) else 0f
+                    val chartHeight = size.height - 24.dp.toPx() // 预留底部刻度空间
+                    val topPadding = 12.dp.toPx()
+
+                    // 计算每个 Y 轴层级的实际 Canvas 高度
+                    fun getY(level: Float): Float {
+                        val norm = (level / maxLevel).coerceIn(0f, 1f)
+                        return topPadding + (chartHeight - (norm * (chartHeight - topPadding)))
+                    }
+
+                    if (stepValues.size >= 2) {
+                        var prevX = 0f
+                        var prevY = getY(stepValues[0])
+
+                        stepPath.moveTo(prevX, prevY)
+                        fillPath.moveTo(prevX, chartHeight)
+                        fillPath.lineTo(prevX, prevY)
+
+                        for (i in 1 until stepValues.size) {
+                            val currX = i * stepX
+                            val currY = getY(stepValues[i])
+
+                            // 🌟 阶梯图核心绘制逻辑：先水平连线保持旧状态，再垂直跳变到新状态
+                            stepPath.lineTo(currX, prevY)
+                            stepPath.lineTo(currX, currY)
+
+                            fillPath.lineTo(currX, prevY)
+                            fillPath.lineTo(currX, currY)
+
+                            prevX = currX
+                            prevY = currY
+                        }
+
+                        fillPath.lineTo(size.width, chartHeight)
+                        fillPath.close()
+                    }
+
+                    val strokePx = 2.dp.toPx()
+
+                    onDrawBehind {
+                        // 1. 绘制各状态水平辅助基线与左侧 Y 轴标签背景刻度
+                        categories.forEachIndexed { index, catName ->
+                            val y = getY(index.toFloat())
+                            drawLine(
+                                color = Color.Gray.copy(alpha = 0.15f),
+                                start = Offset(0f, y),
+                                end = Offset(size.width, y),
+                                strokeWidth = 1.dp.toPx(),
+                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f), 0f)
+                            )
+                        }
+
+                        // 2. 绘制阶梯阴影与线条
+                        if (stepValues.size >= 2) {
+                            drawPath(
+                                path = fillPath,
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(
+                                        lineColor.copy(alpha = 0.25f),
+                                        lineColor.copy(alpha = 0.02f)
+                                    ),
+                                    startY = 0f,
+                                    endY = chartHeight
+                                )
+                            )
+
+                            drawPath(
+                                path = stepPath,
+                                color = lineColor,
+                                style = Stroke(width = strokePx, cap = StrokeCap.Square)
+                            )
+                        }
+
+                        // 3. 触摸滑动指示器
+                        selectedIndex?.let { index ->
+                            if (index in stepValues.indices) {
+                                val level = stepValues[index]
+                                val x = index * stepX
+                                val y = getY(level)
+
+                                drawLine(
+                                    color = lineColor.copy(alpha = 0.7f),
+                                    start = Offset(x, 0f),
+                                    end = Offset(x, chartHeight),
+                                    strokeWidth = 1.dp.toPx(),
+                                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
+                                )
+
+                                drawCircle(
+                                    color = Color.White,
+                                    radius = 5.dp.toPx(),
+                                    center = Offset(x, y)
+                                )
+                                drawCircle(
+                                    color = lineColor,
+                                    radius = 3.5.dp.toPx(),
+                                    center = Offset(x, y)
+                                )
+                            }
+                        }
+                    }
+                }
+        )
+
+        // 4. 悬浮数据气泡 (Popup)
+        selectedIndex?.let { index ->
+            if (index in rawStrings.indices && stepValues.size >= 2) {
+                val currentText = rawStrings[index]
+                val stepX = widthPx / (stepValues.size - 1)
+                val lineXPx = (stepX * index).roundToInt()
+
+                val isRightHalf = index > (stepValues.size - 1) / 2
+                val yPx = with(density) { (-30).dp.roundToPx() }
+
+                if (isRightHalf) {
+                    val offsetFromRightPx = lineXPx - constraints.maxWidth
+                    Popup(
+                        alignment = Alignment.TopEnd,
+                        offset = IntOffset(x = offsetFromRightPx, y = yPx),
+                        properties = PopupProperties(
+                            focusable = false,
+                            dismissOnBackPress = false,
+                            dismissOnClickOutside = false,
+                            clippingEnabled = false
+                        )
+                    ) {
+                        Surface(
+                            color = Color.White.copy(alpha = 0.92f),
+                            shape = RoundedCornerShape(6.dp),
+                            shadowElevation = 3.dp
+                        ) {
+                            Text(
+                                text = "协议: $currentText",
+                                color = Color.Black,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                } else {
+                    Popup(
+                        alignment = Alignment.TopStart,
+                        offset = IntOffset(x = lineXPx, y = yPx),
+                        properties = PopupProperties(
+                            focusable = false,
+                            dismissOnBackPress = false,
+                            dismissOnClickOutside = false,
+                            clippingEnabled = false
+                        )
+                    ) {
+                        Surface(
+                            color = Color.White.copy(alpha = 0.92f),
+                            shape = RoundedCornerShape(6.dp),
+                            shadowElevation = 3.dp
+                        ) {
+                            Text(
+                                text = "协议: $currentText",
+                                color = Color.Black,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
