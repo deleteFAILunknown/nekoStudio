@@ -876,7 +876,11 @@ private fun HistoryChartCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(title, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = title,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                     if (!limitText.isNullOrEmpty()) {
                         Text(
                             text = limitText,
@@ -1287,10 +1291,10 @@ private data class ProcessedHistoryData(
     val maxRefreshRate: Float,
     val wlanTotalStr: String,
     val cellTotalStr: String,
-    val wlanTx: ScaledSpeedData,
-    val wlanRx: ScaledSpeedData,
-    val cellTx: ScaledSpeedData,
-    val cellRx: ScaledSpeedData,
+    val wlanTx: AutoScaledSpeedData,
+    val wlanRx: AutoScaledSpeedData,
+    val cellTx: AutoScaledSpeedData,
+    val cellRx: AutoScaledSpeedData,
     val ramData: Triple<List<Float>, Float, Pair<Float, Float>>,
     val zramData: Triple<List<Float>, Float, Pair<Float, Float>>,
     val romReadList: List<Float>,

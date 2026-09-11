@@ -328,7 +328,7 @@ private fun SupportAndDependencySection() {
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "依赖信息与支持范围",
+                    text = "Application",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.secondary
                 )
