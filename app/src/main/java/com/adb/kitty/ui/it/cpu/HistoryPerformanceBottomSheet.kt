@@ -894,7 +894,7 @@ fun FastMetricLineChart(
                 } else {
                     Popup(
                         alignment = Alignment.TopStart,
-                        offset = IntOffset(x = xPx, y = yPx),
+                        offset = IntOffset(x = lineXPx, y = yPx),
                         properties = PopupProperties(
                             focusable = false,
                             dismissOnBackPress = false,
@@ -1375,7 +1375,7 @@ fun BiDirectionalMetricChart(
                 } else {
                     Popup(
                         alignment = Alignment.TopStart,
-                        offset = IntOffset(x = xPx, y = yPx),
+                        offset = IntOffset(x = lineXPx, y = yPx),
                         properties = PopupProperties(
                             focusable = false,
                             dismissOnBackPress = false,
