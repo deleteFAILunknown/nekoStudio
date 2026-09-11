@@ -629,6 +629,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
                         data = coreModel.freqs,
                         maxVal = coreModel.maxChartVal,
                         lineColor = coreColor,
+                        unit = "GHz",
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(160.dp)
