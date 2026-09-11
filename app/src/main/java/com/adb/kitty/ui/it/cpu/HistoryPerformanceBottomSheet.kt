@@ -704,7 +704,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
                         lineColor = coreColor,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(180.dp)
+                            .height(160.dp)
                     )
                 }
             }
@@ -798,7 +798,7 @@ fun FastMetricLineChart(
                     }
 
                     val strokePx = 1.5.dp.toPx()
-                    val dashHeightPx = 185.dp.toPx()
+                    val dashHeightPx = 160.dp.toPx()
 
                     onDrawBehind {
                         if (data.size >= 2) {
@@ -863,7 +863,7 @@ fun FastMetricLineChart(
                 val lineXDp = with(density) { lineXPx.toDp() }
 
                 val isRightHalf = index > (data.size - 1) / 2
-                val yPx = with(density) { (-28).dp.roundToPx() }
+                val yPx = with(density) { (-30).dp.roundToPx() }
 
                 if (isRightHalf) {
                     val offsetFromRightPx = lineXPx - constraints.maxWidth
@@ -1058,7 +1058,7 @@ private fun HistoryChartCard(
                 lineColor = lineColor,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(180.dp)
+                    .height(160.dp)
             )
         }
     }
@@ -1131,7 +1131,7 @@ fun BiDirectionalCurrentCard(
                 maxAbs = maxAbs,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(180.dp)
+                    .height(160.dp)
             )
 
             Row(
@@ -1266,7 +1266,7 @@ fun BiDirectionalMetricChart(
                     }
 
                     val strokePx = 2.dp.toPx()
-                    val dashHeightPx = 185.dp.toPx()
+                    val dashHeightPx = 160.dp.toPx()
 
                     onDrawBehind {
                         drawPath(
@@ -1344,7 +1344,7 @@ fun BiDirectionalMetricChart(
                 val lineXDp = with(density) { lineXPx.toDp() }
 
                 val isRightHalf = index > (data.size - 1) / 2
-                val yPx = with(density) { (-28).dp.roundToPx() }
+                val yPx = with(density) { (-30).dp.roundToPx() }
 
                 if (isRightHalf) {
                     val offsetFromRightPx = lineXPx - constraints.maxWidth
