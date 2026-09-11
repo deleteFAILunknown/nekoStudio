@@ -1318,44 +1318,7 @@ private data class ProcessedHistoryData(
 )
 
 /**
- * Min-Max 桶降采样：将数据分成 maxPoints/2 个区间，每个区间取最小值和最大值
- * 保证极短时间的单点突刺（Spike）和骤降（Drop）在视觉折线上 100% 留存
- */
-private fun List<Float>.downsample(maxPoints: Int = 400): List<Float> {
-    if (size <= maxPoints) return this
-    val numBuckets = maxPoints / 2
-    val bucketSize = size.toFloat() / numBuckets
-    val result = ArrayList<Float>(maxPoints)
-
-    for (i in 0 until numBuckets) {
-        val start = (i * bucketSize).toInt().coerceIn(0, lastIndex)
-        val end = ((i + 1) * bucketSize).toInt().coerceIn(start + 1, size)
-
-        var min = this[start]
-        var max = this[start]
-        var minIdx = start
-        var maxIdx = start
-
-        for (j in start until end) {
-            val v = this[j]
-            if (v < min) { min = v; minIdx = j }
-            if (v > max) { max = v; maxIdx = j }
-        }
-
-        // 按时间先后顺序加入 min 和 max，保持时间线连续
-        if (minIdx < maxIdx) {
-            result.add(min)
-            result.add(max)
-        } else {
-            result.add(max)
-            result.add(min)
-        }
-    }
-    return result
-}
-
-/**
- * 后台线程数据构建方法：避免 CPU 多核逻辑重复循环，并使用 downsample() 优化渲染性能
+ * 后台线程数据构建方法：以原始采样数据点构建模型，不做降采样处理
  */
 private fun buildProcessedHistoryData(history: HistoryRecording): ProcessedHistoryData {
     val samples = history.samples
@@ -1428,7 +1391,7 @@ private fun buildProcessedHistoryData(history: HistoryRecording): ProcessedHisto
 
         DynamicCpuCoreModel(
             coreIndex = coreIndex,
-            freqs = rawFreqs.downsample(400),
+            freqs = rawFreqs,
             minVal = minVal,
             maxValReal = maxValReal,
             avgVal = avgVal,
@@ -1437,7 +1400,7 @@ private fun buildProcessedHistoryData(history: HistoryRecording): ProcessedHisto
         )
     }
 
-    // 基础指标提取并进行 downsample
+    // 基础指标提取（直接使用原始采样序列）
     val rawFpsList = samples.map { it.fps }
     val maxFpsLimit = samples.maxOfOrNull { it.refreshRate }?.coerceAtLeast(60f) ?: 60f
 
@@ -1458,7 +1421,7 @@ private fun buildProcessedHistoryData(history: HistoryRecording): ProcessedHisto
     val ramMax = ramList.maxOrNull() ?: 0f
     val ramTotal = samples.lastOrNull()?.ramTotalGb ?: 1f
     val ramData = Triple(
-        ramList.map { it - ramMin }.downsample(400),
+        ramList.map { it - ramMin },
         (ramMax - ramMin).coerceAtLeast(0.3f),
         ramMin to ramTotal
     )
@@ -1469,7 +1432,7 @@ private fun buildProcessedHistoryData(history: HistoryRecording): ProcessedHisto
     val zramMax = zramList.maxOrNull() ?: 0f
     val zramTotal = samples.lastOrNull()?.zramTotalGb ?: 1f
     val zramData = Triple(
-        zramList.map { it - zramMin }.downsample(400),
+        zramList.map { it - zramMin },
         (zramMax - zramMin).coerceAtLeast(0.3f),
         zramMin to zramTotal
     )
@@ -1479,7 +1442,7 @@ private fun buildProcessedHistoryData(history: HistoryRecording): ProcessedHisto
     val tempMin = tempList.minOrNull() ?: 0f
     val tempMax = tempList.maxOrNull() ?: 0f
     val tempData = Pair(
-        tempList.map { it - tempMin }.downsample(400),
+        tempList.map { it - tempMin },
         (tempMax - tempMin).coerceAtLeast(1.0f) to tempMin
     )
 
@@ -1488,7 +1451,7 @@ private fun buildProcessedHistoryData(history: HistoryRecording): ProcessedHisto
     val voltMin = voltList.minOrNull() ?: 0f
     val voltMax = voltList.maxOrNull() ?: 0f
     val voltageData = Triple(
-        voltList.map { it - voltMin }.downsample(400),
+        voltList.map { it - voltMin },
         (voltMax - voltMin).coerceAtLeast(0.1f),
         voltMin to voltMax
     )
@@ -1504,27 +1467,27 @@ private fun buildProcessedHistoryData(history: HistoryRecording): ProcessedHisto
     return ProcessedHistoryData(
         summaryData = summaryData,
         cpuCoreModels = cpuCoreModels,
-        fpsList = rawFpsList.downsample(400),
+        fpsList = rawFpsList,
         maxFpsLimit = maxFpsLimit,
-        refreshRateList = rawRefreshList.downsample(400),
+        refreshRateList = rawRefreshList,
         maxRefreshRate = maxRefresh,
         wlanTotalStr = wlanTotalStr,
         cellTotalStr = cellTotalStr,
-        wlanTx = wlanTx.copy(data = wlanTx.data.downsample(400)),
-        wlanRx = wlanRx.copy(data = wlanRx.data.downsample(400)),
-        cellTx = cellTx.copy(data = cellTx.data.downsample(400)),
-        cellRx = cellRx.copy(data = cellRx.data.downsample(400)),
+        wlanTx = wlanTx,
+        wlanRx = wlanRx,
+        cellTx = cellTx,
+        cellRx = cellRx,
         ramData = ramData,
         zramData = zramData,
-        romReadList = samples.map { it.romReadSpeedMb }.downsample(400),
-        romWriteList = samples.map { it.romWriteSpeedMb }.downsample(400),
+        romReadList = samples.map { it.romReadSpeedMb },
+        romWriteList = samples.map { it.romWriteSpeedMb },
         tempData = tempData,
-        batteryLevelList = samples.map { it.batteryLevel.toFloat() }.downsample(400),
+        batteryLevelList = samples.map { it.batteryLevel.toFloat() },
         voltageData = voltageData,
-        currentList = samples.map { it.batteryCurrentMa }.downsample(400),
-        powerList = samples.map { it.batteryPowerW }.downsample(400),
-        gpuLoadList = samples.map { it.gpuLoadPercent }.downsample(400),
-        gpuFreqList = samples.map { it.gpuFreqGhz }.downsample(400),
+        currentList = samples.map { it.batteryCurrentMa },
+        powerList = samples.map { it.batteryPowerW },
+        gpuLoadList = samples.map { it.gpuLoadPercent },
+        gpuFreqList = samples.map { it.gpuFreqGhz },
         gpuLimitStr = gpuLimitStr,
         rawChargeTypeSequence = rawChargeTypeSequence
     )
