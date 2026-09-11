@@ -40,16 +40,10 @@ import java.io.File
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
-
-data class DynamicCpuCoreModel(
-    val coreIndex: Int,
-    val freqs: List<Float>,
-    val minVal: Float,
-    val maxValReal: Float,
-    val avgVal: Float,
-    val hwLimitStr: String?,
-    val maxChartVal: Float
-)
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.consumeAsFlow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -205,132 +199,56 @@ private fun HistoryFileList(
 private fun HistoryGraphView(history: HistoryRecording) {
     val samples = history.samples
     if (samples.isEmpty()) {
-        Text("文件内容为空或格式不匹配", color = Color.Red, fontSize = 12.sp)
+        Text(
+            text = "文件内容为空或格式不匹配",
+            color = Color.Red,
+            fontSize = 12.sp
+        )
         return
     }
 
-    val summaryData = remember(samples) {
-        val maxFps = samples.maxOfOrNull { it.fps } ?: 0f
-        val maxRefreshRate = samples.maxOfOrNull { it.refreshRate } ?: 0f
-        val maxTemp = samples.maxOfOrNull { it.batteryTemp } ?: 0f
-        val maxCurrent = samples.maxOfOrNull { it.batteryCurrentMa } ?: 0f
-        val maxVolt = (samples.maxOfOrNull { it.batteryVoltageMv } ?: 0f) / 1000f
-        val maxPower = samples.maxOfOrNull { it.batteryPowerW } ?: 0f
-        val lastSample = samples.lastOrNull()
+    val historyChannel = remember { Channel<HistoryRecording>(Channel.UNLIMITED) }
+    var processedData by remember { mutableStateOf<ProcessedHistoryData?>(null) }
 
-        val lastBatteryLevel = lastSample?.batteryLevel ?: 0
-        val lastStatus = lastSample?.batteryStatus ?: "Unknown"
-        val lastChargeType = lastSample?.batteryChargeType ?: "Unknown"
-        val lastHealth = lastSample?.batteryHealth ?: "Unknown"
-        val lastCycleCount = lastSample?.batteryCycleCount ?: 0
-        val lastFullMah = lastSample?.batteryFullMah ?: 0f
-        val lastDesignMah = lastSample?.batteryFullDesignMah ?: 0f
-        val lastSoh = lastSample?.batterySohPercent ?: 0f
-        val lastCellTotal = lastSample?.cellTotalMb ?: 0f
-        val lastWlanTotal = lastSample?.wlanTotalMb ?: 0f
-
-        SummaryUiModel(
-            maxFps = maxFps,
-            maxRefreshRate = maxRefreshRate,
-            maxTemp = maxTemp,
-            maxCurrent = maxCurrent,
-            maxVolt = maxVolt,
-            maxPower = maxPower,
-            lastBatteryLevel = lastBatteryLevel,
-            lastStatus = lastStatus,
-            lastChargeType = lastChargeType,
-            lastHealth = lastHealth,
-            lastCycleCount = lastCycleCount,
-            lastFullMah = lastFullMah,
-            lastDesignMah = lastDesignMah,
-            lastSoh = lastSoh,
-            lastCellTotal = lastCellTotal,
-            lastWlanTotal = lastWlanTotal
-        )
+    // 生产者：当 history 发生变化时，非阻塞地把任务推入 Channel
+    LaunchedEffect(history) {
+        historyChannel.trySend(history)
     }
 
-    val cpuCoreModels = remember(samples) {
-        val coreCount = samples.maxOfOrNull { it.cpuFreqsGhz.size } ?: 0
-        (0 until coreCount).map { coreIndex ->
-            val freqs = samples.map { it.cpuFreqsGhz.getOrNull(coreIndex) ?: 0f }
-            val limits = samples.mapNotNull { it.cpuHwLimitsGhz.getOrNull(coreIndex) }.firstOrNull()
-
-            val minVal = freqs.minOrNull() ?: 0f
-            val maxValReal = freqs.maxOrNull() ?: 0f
-            val avgVal = if (freqs.isNotEmpty()) freqs.average().toFloat() else 0f
-
-            val hwLimitStr = if (limits != null && limits.second > 0f) {
-                String.format(Locale.US, "HW: %.3f - %.3f GHz", limits.first, limits.second)
-            } else null
-
-            DynamicCpuCoreModel(
-                coreIndex = coreIndex,
-                freqs = freqs,
-                minVal = minVal,
-                maxValReal = maxValReal,
-                avgVal = avgVal,
-                hwLimitStr = hwLimitStr,
-                maxChartVal = maxValReal.coerceAtLeast(1f)
-            )
+    // 消费者：在后台协程集中消费 Channel 中的数据并进行耗时计算
+    LaunchedEffect(historyChannel) {
+        withContext(Dispatchers.Default) {
+            // 通过 consumeAsFlow 持续监听 Channel 中的数据更新
+            historyChannel.consumeAsFlow().collect { incomingHistory ->
+                val result = buildProcessedHistoryData(incomingHistory)
+                withContext(Dispatchers.Main) {
+                    processedData = result
+                }
+            }
         }
     }
 
-    val fpsList = remember(samples) { samples.map { it.fps } }
-    val maxFpsLimit = remember(samples) { samples.maxOfOrNull { it.refreshRate }?.coerceAtLeast(60f) ?: 60f }
+    val data = processedData
 
-    val refreshRateList = remember(samples) { samples.map { it.refreshRate } }
-    val maxRefreshRate = remember(refreshRateList) { refreshRateList.maxOrNull() ?: 60f }
-
-    val wlanTotalStr = remember(summaryData.lastWlanTotal) { formatMb(summaryData.lastWlanTotal) }
-    val cellTotalStr = remember(summaryData.lastCellTotal) { formatMb(summaryData.lastCellTotal) }
-
-    val wlanTx = remember(samples) { autoScaleKbpsList(samples.map { it.wlanTxSpeedKbps }) }
-    val wlanRx = remember(samples) { autoScaleKbpsList(samples.map { it.wlanRxSpeedKbps }) }
-    val cellTx = remember(samples) { autoScaleKbpsList(samples.map { it.cellTxSpeedKbps }) }
-    val cellRx = remember(samples) { autoScaleKbpsList(samples.map { it.cellRxSpeedKbps }) }
-
-    val ramData = remember(samples) {
-        val list = samples.map { it.ramAvailGb }
-        val min = list.minOrNull() ?: 0f
-        val max = list.maxOrNull() ?: 0f
-        val total = samples.lastOrNull()?.ramTotalGb ?: 1f
-        Triple(list.map { it - min }, (max - min).coerceAtLeast(0.3f), min to total)
+    if (data == null) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(32.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                CircularProgressIndicator()
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "正在解析与生成图表数据…",
+                    fontSize = 12.sp,
+                    color = Color.Gray
+                )
+            }
+        }
+        return
     }
-
-    val zramData = remember(samples) {
-        val list = samples.map { it.zramAvailGb }
-        val min = list.minOrNull() ?: 0f
-        val max = list.maxOrNull() ?: 0f
-        val total = samples.lastOrNull()?.zramTotalGb ?: 1f
-        Triple(list.map { it - min }, (max - min).coerceAtLeast(0.3f), min to total)
-    }
-
-    val romReadList = remember(samples) { samples.map { it.romReadSpeedMb } }
-    val romWriteList = remember(samples) { samples.map { it.romWriteSpeedMb } }
-
-    val tempData = remember(samples) {
-        val list = samples.map { it.batteryTemp }
-        val min = list.minOrNull() ?: 0f
-        val max = list.maxOrNull() ?: 0f
-        Pair(list.map { it - min }, (max - min).coerceAtLeast(1.0f) to min)
-    }
-
-    val batteryLevelList = remember(samples) { samples.map { it.batteryLevel.toFloat() } }
-    val voltageData = remember(samples) {
-        val list = samples.map { it.batteryVoltageMv / 1000f }
-        val min = list.minOrNull() ?: 0f
-        val max = list.maxOrNull() ?: 0f
-        Triple(list.map { it - min }, (max - min).coerceAtLeast(0.1f), min to max)
-    }
-
-    val currentList = remember(samples) { samples.map { it.batteryCurrentMa } }
-    val powerList = remember(samples) { samples.map { it.batteryPowerW } }
-
-    val gpuLoadList = remember(samples) { samples.map { it.gpuLoadPercent } }
-    val gpuFreqList = remember(samples) { samples.map { it.gpuFreqGhz } }
-    val gpuMin = remember(samples) { samples.mapNotNull { if (it.gpuMinFreqGhz > 0) it.gpuMinFreqGhz else null }.firstOrNull() ?: 0f }
-    val gpuMax = remember(samples) { samples.mapNotNull { if (it.gpuMaxFreqGhz > 0) it.gpuMaxFreqGhz else null }.firstOrNull() ?: 0f }
-    val gpuLimitStr = remember(gpuMin, gpuMax) { if (gpuMax > 0f) String.format(Locale.US, "Limit: %.3f - %.3f GHz", gpuMin, gpuMax) else null }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -357,73 +275,73 @@ private fun HistoryGraphView(history: HistoryRecording) {
                     )
                     SummaryItem(
                         label = "最高帧率",
-                        value = String.format(Locale.US, "%.2f FPS", summaryData.maxFps),
+                        value = String.format(Locale.US, "%.2f FPS", data.summaryData.maxFps),
                         valueColor = Color(0xFF4CAF50)
                     )
                     SummaryItem(
                         label = "最高刷新率",
-                        value = String.format(Locale.US, "%.2f Hz", summaryData.maxRefreshRate),
+                        value = String.format(Locale.US, "%.2f Hz", data.summaryData.maxRefreshRate),
                         valueColor = Color(0xFF00BCD4)
                     )
                     SummaryItem(
                         label = "电池电量",
-                        value = "${summaryData.lastBatteryLevel}%",
+                        value = "${data.summaryData.lastBatteryLevel}%",
                         valueColor = Color(0xFFFF5722)
                     )
                     SummaryItem(
                         label = "电池最高温度",
-                        value = "${String.format(Locale.US, "%.1f", summaryData.maxTemp)}°C",
+                        value = "${String.format(Locale.US, "%.1f", data.summaryData.maxTemp)}°C",
                         valueColor = Color(0xFFFF5722)
                     )
                     SummaryItem(
                         label = "最高放电电流",
-                        value = String.format(Locale.US, "%.0f mA", summaryData.maxCurrent),
+                        value = String.format(Locale.US, "%.0f mA", data.summaryData.maxCurrent),
                         valueColor = Color(0xFFFF9800)
                     )
                     SummaryItem(
                         label = "最高功耗",
-                        value = String.format(Locale.US, "%.2f W", summaryData.maxPower),
+                        value = String.format(Locale.US, "%.2f W", data.summaryData.maxPower),
                         valueColor = Color(0xFFE91E63)
                     )
                     SummaryItem(
                         label = "最高电压",
-                        value = String.format(Locale.US, "%.2fV", summaryData.maxVolt),
+                        value = String.format(Locale.US, "%.2fV", data.summaryData.maxVolt),
                         valueColor = Color(0xFFFFC107)
                     )
                     SummaryItem(
                         label = "电池SoH健康度",
-                        value = if (summaryData.lastSoh > 0f) String.format(Locale.US, "%.1f%%", summaryData.lastSoh) else "Unknown",
+                        value = if (data.summaryData.lastSoh > 0f) String.format(Locale.US, "%.1f%%", data.summaryData.lastSoh) else "Unknown",
                         valueColor = Color(0xFF4CAF50)
                     )
                     SummaryItem(
                         label = "循环次数",
-                        value = if (summaryData.lastCycleCount > 0) "${summaryData.lastCycleCount} 次" else "未知",
+                        value = if (data.summaryData.lastCycleCount > 0) "${data.summaryData.lastCycleCount} 次" else "未知",
                         valueColor = Color(0xFF00BCD4)
                     )
                     SummaryItem(
                         label = "电池状态",
-                        value = summaryData.lastStatus
+                        value = data.summaryData.lastStatus
                     )
                     SummaryItem(
                         label = "充电类型",
-                        value = summaryData.lastChargeType
+                        value = data.summaryData.lastChargeType
                     )
                     SummaryItem(
                         label = "健康状况",
-                        value = summaryData.lastHealth
+                        value = data.summaryData.lastHealth
                     )
                     SummaryItem(
                         label = "满电/设计容量",
-                        value = String.format(Locale.US, "%.0f / %.0f mAh", summaryData.lastFullMah, summaryData.lastDesignMah)
+                        value = String.format(Locale.US, "%.0f / %.0f mAh", data.summaryData.lastFullMah, data.summaryData.lastDesignMah)
                     )
                     SummaryItem(
                         label = "WLAN流量",
-                        value = wlanTotalStr,
+                        value = data.wlanTotalStr,
                         valueColor = Color(0xFF00BCD4)
                     )
                     SummaryItem(
                         label = "蜂窝流量",
-                        value = cellTotalStr,
+                        value = data.cellTotalStr,
                         valueColor = Color(0xFF00BCD4)
                     )
                 }
@@ -433,8 +351,8 @@ private fun HistoryGraphView(history: HistoryRecording) {
         item {
             HistoryChartCard(
                 title = "帧率波动 (FPS)",
-                data = fpsList,
-                maxVal = maxFpsLimit,
+                data = data.fpsList,
+                maxVal = data.maxFpsLimit,
                 lineColor = Color(0xFF4CAF50),
                 unit = "FPS"
             )
@@ -443,9 +361,9 @@ private fun HistoryGraphView(history: HistoryRecording) {
         item {
             HistoryChartCard(
                 title = "屏幕刷新率 (Hz)",
-                limitText = String.format(Locale.US, "档位区间: %.0f Hz - %.0f Hz", refreshRateList.minOrNull() ?: 0f, maxRefreshRate),
-                data = refreshRateList,
-                maxVal = maxRefreshRate,
+                limitText = String.format(Locale.US, "档位区间: %.0f Hz - %.0f Hz", data.refreshRateList.minOrNull() ?: 0f, data.maxRefreshRate),
+                data = data.refreshRateList,
+                maxVal = data.maxRefreshRate,
                 lineColor = Color(0xFF00BCD4),
                 unit = "Hz",
                 valueFormat = "%.0f"
@@ -454,83 +372,83 @@ private fun HistoryGraphView(history: HistoryRecording) {
 
         item {
             HistoryChartCard(
-                title = "WLAN 上传网速 (${wlanTx.unit})",
-                limitText = String.format(Locale.US, "录制总流量: %s | 丢包率: %.2f%%", wlanTotalStr, samples.lastOrNull()?.wlanLossRate ?: 0f),
-                data = wlanTx.data,
-                maxVal = wlanTx.maxVal,
+                title = "WLAN 上传网速 (${data.wlanTx.unit})",
+                limitText = String.format(Locale.US, "录制总流量: %s | 丢包率: %.2f%%", data.wlanTotalStr, samples.lastOrNull()?.wlanLossRate ?: 0f),
+                data = data.wlanTx.data,
+                maxVal = data.wlanTx.maxVal,
                 lineColor = Color(0xFF0288D1),
-                unit = wlanTx.unit,
-                valueFormat = wlanTx.valueFormat
+                unit = data.wlanTx.unit,
+                valueFormat = data.wlanTx.valueFormat
             )
         }
 
         item {
             HistoryChartCard(
-                title = "WLAN 下载网速 (${wlanRx.unit})",
-                limitText = String.format(Locale.US, "录制总流量: %s | 丢包率: %.2f%%", wlanTotalStr, samples.lastOrNull()?.wlanLossRate ?: 0f),
-                data = wlanRx.data,
-                maxVal = wlanRx.maxVal,
+                title = "WLAN 下载网速 (${data.wlanRx.unit})",
+                limitText = String.format(Locale.US, "录制总流量: %s | 丢包率: %.2f%%", data.wlanTotalStr, samples.lastOrNull()?.wlanLossRate ?: 0f),
+                data = data.wlanRx.data,
+                maxVal = data.wlanRx.maxVal,
                 lineColor = Color(0xFF00BCD4),
-                unit = wlanRx.unit,
-                valueFormat = wlanRx.valueFormat
+                unit = data.wlanRx.unit,
+                valueFormat = data.wlanRx.valueFormat
             )
         }
 
         item {
             HistoryChartCard(
-                title = "蜂窝网络上传网速 (${cellTx.unit})",
-                limitText = String.format(Locale.US, "录制总流量: %s | 丢包率: %.2f%%", cellTotalStr, samples.lastOrNull()?.cellLossRate ?: 0f),
-                data = cellTx.data,
-                maxVal = cellTx.maxVal,
+                title = "蜂窝网络上传网速 (${data.cellTx.unit})",
+                limitText = String.format(Locale.US, "录制总流量: %s | 丢包率: %.2f%%", data.cellTotalStr, samples.lastOrNull()?.cellLossRate ?: 0f),
+                data = data.cellTx.data,
+                maxVal = data.cellTx.maxVal,
                 lineColor = Color(0xFFC2185B),
-                unit = cellTx.unit,
-                valueFormat = cellTx.valueFormat
+                unit = data.cellTx.unit,
+                valueFormat = data.cellTx.valueFormat
             )
         }
 
         item {
             HistoryChartCard(
-                title = "蜂窝网络下载网速 (${cellRx.unit})",
-                limitText = String.format(Locale.US, "录制总流量: %s | 丢包率: %.2f%%", cellTotalStr, samples.lastOrNull()?.cellLossRate ?: 0f),
-                data = cellRx.data,
-                maxVal = cellRx.maxVal,
+                title = "蜂窝网络下载网速 (${data.cellRx.unit})",
+                limitText = String.format(Locale.US, "录制总流量: %s | 丢包率: %.2f%%", data.cellTotalStr, samples.lastOrNull()?.cellLossRate ?: 0f),
+                data = data.cellRx.data,
+                maxVal = data.cellRx.maxVal,
                 lineColor = Color(0xFFE91E63),
-                unit = cellRx.unit,
-                valueFormat = cellRx.valueFormat
+                unit = data.cellRx.unit,
+                valueFormat = data.cellRx.valueFormat
             )
         }
 
         item {
             HistoryChartCard(
                 title = "RAM 可用内存 (GB)",
-                limitText = String.format(Locale.US, "RAM 总量: %.3f GB", ramData.third.second),
-                data = ramData.first,
-                maxVal = ramData.second,
+                limitText = String.format(Locale.US, "RAM 总量: %.3f GB", data.ramData.third.second),
+                data = data.ramData.first,
+                maxVal = data.ramData.second,
                 lineColor = Color(0xFF2196F3),
                 unit = "GB",
                 valueFormat = "%.3f",
-                valueOffset = ramData.third.first
+                valueOffset = data.ramData.third.first
             )
         }
 
         item {
             HistoryChartCard(
                 title = "ZRAM 可用内存 (GB)",
-                limitText = String.format(Locale.US, "ZRAM 总量: %.3f GB", zramData.third.second),
-                data = zramData.first,
-                maxVal = zramData.second,
+                limitText = String.format(Locale.US, "ZRAM 总量: %.3f GB", data.zramData.third.second),
+                data = data.zramData.first,
+                maxVal = data.zramData.second,
                 lineColor = Color(0xFF00BCD4),
                 unit = "GB",
                 valueFormat = "%.3f",
-                valueOffset = zramData.third.first
+                valueOffset = data.zramData.third.first
             )
         }
 
         item {
             HistoryChartCard(
                 title = "ROM 读取速度 (MB/s)",
-                data = romReadList,
-                maxVal = (romReadList.maxOrNull() ?: 10f).coerceAtLeast(5f),
+                data = data.romReadList,
+                maxVal = (data.romReadList.maxOrNull() ?: 10f).coerceAtLeast(5f),
                 lineColor = Color(0xFF3F51B5),
                 unit = "MB/s",
                 valueFormat = "%.2f"
@@ -540,8 +458,8 @@ private fun HistoryGraphView(history: HistoryRecording) {
         item {
             HistoryChartCard(
                 title = "ROM 写入速度 (MB/s)",
-                data = romWriteList,
-                maxVal = (romWriteList.maxOrNull() ?: 10f).coerceAtLeast(5f),
+                data = data.romWriteList,
+                maxVal = (data.romWriteList.maxOrNull() ?: 10f).coerceAtLeast(5f),
                 lineColor = Color(0xFF673AB7),
                 unit = "MB/s",
                 valueFormat = "%.2f"
@@ -551,12 +469,12 @@ private fun HistoryGraphView(history: HistoryRecording) {
         item {
             HistoryChartCard(
                 title = "电池温度 (°C)",
-                data = tempData.first,
-                maxVal = tempData.second.first,
+                data = data.tempData.first,
+                maxVal = data.tempData.second.first,
                 lineColor = Color(0xFFFF5722),
                 unit = "°C",
                 valueFormat = "%.1f",
-                valueOffset = tempData.second.second
+                valueOffset = data.tempData.second.second
             )
         }
 
@@ -565,9 +483,9 @@ private fun HistoryGraphView(history: HistoryRecording) {
                 title = "电池电量 (%)",
                 limitText = String.format(
                     Locale.US, "变化区间: %.0f%% - %.0f%% | 最终电量: %d%%",
-                    batteryLevelList.minOrNull() ?: 0f, batteryLevelList.maxOrNull() ?: 0f, summaryData.lastBatteryLevel
+                    data.batteryLevelList.minOrNull() ?: 0f, data.batteryLevelList.maxOrNull() ?: 0f, data.summaryData.lastBatteryLevel
                 ),
-                data = batteryLevelList,
+                data = data.batteryLevelList,
                 maxVal = 100f,
                 lineColor = Color(0xFFFF5722),
                 unit = "%",
@@ -578,33 +496,33 @@ private fun HistoryGraphView(history: HistoryRecording) {
         item {
             HistoryChartCard(
                 title = "电池电压 (V)",
-                limitText = String.format(Locale.US, "范围: %.2f V - %.2f V", voltageData.third.first, voltageData.third.second),
-                data = voltageData.first,
-                maxVal = voltageData.second,
+                limitText = String.format(Locale.US, "范围: %.2f V - %.2f V", data.voltageData.third.first, data.voltageData.third.second),
+                data = data.voltageData.first,
+                maxVal = data.voltageData.second,
                 lineColor = Color(0xFFFBBC02),
                 unit = "V",
                 valueFormat = "%.2f",
-                valueOffset = voltageData.third.first
+                valueOffset = data.voltageData.third.first
             )
         }
 
         item {
-            BiDirectionalCurrentCard(currentData = currentList)
+            BiDirectionalCurrentCard(currentData = data.currentList)
         }
 
         item {
-            val batCapLimitStr = if (summaryData.lastFullMah > 0f) {
+            val batCapLimitStr = if (data.summaryData.lastFullMah > 0f) {
                 String.format(
                     Locale.US, "SoH: %.1f%% | 循环: %d次 | 容量: %.0f/%.0f mAh",
-                    summaryData.lastSoh, summaryData.lastCycleCount, summaryData.lastFullMah, summaryData.lastDesignMah
+                    data.summaryData.lastSoh, data.summaryData.lastCycleCount, data.summaryData.lastFullMah, data.summaryData.lastDesignMah
                 )
             } else null
 
             HistoryChartCard(
                 title = "电池实时功率/功耗 (W)",
                 limitText = batCapLimitStr,
-                data = powerList,
-                maxVal = (powerList.maxOrNull() ?: 5f).coerceAtLeast(1f),
+                data = data.powerList,
+                maxVal = (data.powerList.maxOrNull() ?: 5f).coerceAtLeast(1f),
                 lineColor = Color(0xFFE91E63),
                 unit = "W",
                 valueFormat = "%.2f"
@@ -614,8 +532,8 @@ private fun HistoryGraphView(history: HistoryRecording) {
         item {
             HistoryChartCard(
                 title = "GPU 负载率 (%)",
-                limitText = gpuLimitStr,
-                data = gpuLoadList,
+                limitText = data.gpuLimitStr,
+                data = data.gpuLoadList,
                 maxVal = 100f,
                 lineColor = Color(0xFF9C27B0),
                 unit = "%"
@@ -625,16 +543,15 @@ private fun HistoryGraphView(history: HistoryRecording) {
         item {
             HistoryChartCard(
                 title = "GPU 运行频率 (GHz)",
-                limitText = gpuLimitStr,
-                data = gpuFreqList,
-                maxVal = (gpuFreqList.maxOrNull() ?: 1f).coerceAtLeast(0.5f),
+                limitText = data.gpuLimitStr,
+                data = data.gpuFreqList,
+                maxVal = (data.gpuFreqList.maxOrNull() ?: 1f).coerceAtLeast(0.5f),
                 lineColor = Color(0xFFAB47BC),
                 unit = "GHz",
                 valueFormat = "%.3f"
             )
         }
 
-        // CPU 标题栏
         item {
             Text(
                 text = "CPU 核心频率轨迹 (GHz)",
@@ -645,7 +562,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
         }
 
         items(
-            items = cpuCoreModels,
+            items = data.cpuCoreModels,
             key = { it.coreIndex }
         ) { coreModel ->
             val coreColor = CoreColors.getOrElse(coreModel.coreIndex) { Color.Gray }
@@ -711,25 +628,6 @@ private fun HistoryGraphView(history: HistoryRecording) {
         }
     }
 }
-
-private data class SummaryUiModel(
-    val maxFps: Float,
-    val maxRefreshRate: Float,
-    val maxTemp: Float,
-    val maxCurrent: Float,
-    val maxVolt: Float,
-    val maxPower: Float,
-    val lastBatteryLevel: Int,
-    val lastStatus: String,
-    val lastChargeType: String,
-    val lastHealth: String,
-    val lastCycleCount: Int,
-    val lastFullMah: Float,
-    val lastDesignMah: Float,
-    val lastSoh: Float,
-    val lastCellTotal: Float,
-    val lastWlanTotal: Float
-)
 
 @Composable
 fun FastMetricLineChart(
@@ -919,48 +817,6 @@ fun FastMetricLineChart(
                 }
             }
         }
-    }
-}
-
-data class AutoScaledSpeedData(
-    val data: List<Float>,
-    val maxVal: Float,
-    val unit: String,
-    val valueFormat: String
-)
-
-fun formatKbps(kbps: Float): String {
-    return when {
-        kbps >= 1024f * 1024f -> String.format(Locale.US, "%.2f GB/s", kbps / (1024f * 1024f))
-        kbps >= 1024f -> String.format(Locale.US, "%.2f MB/s", kbps / 1024f)
-        else -> String.format(Locale.US, "%.0f KB/s", kbps)
-    }
-}
-
-fun autoScaleKbpsList(kbpsList: List<Float>): AutoScaledSpeedData {
-    val maxKbps = kbpsList.maxOrNull() ?: 0f
-    return when {
-        // 大于等于 1 GB/s (1,048,576 KB/s)
-        maxKbps >= 1024f * 1024f -> AutoScaledSpeedData(
-            data = kbpsList.map { it / (1024f * 1024f) },
-            maxVal = (maxKbps / (1024f * 1024f)).coerceAtLeast(0.1f),
-            unit = "GB/s",
-            valueFormat = "%.2f"
-        )
-        // 大于等于 1 MB/s (1,024 KB/s)
-        maxKbps >= 1024f -> AutoScaledSpeedData(
-            data = kbpsList.map { it / 1024f },
-            maxVal = (maxKbps / 1024f).coerceAtLeast(0.5f),
-            unit = "MB/s",
-            valueFormat = "%.2f"
-        )
-        // 保持 KB/s
-        else -> AutoScaledSpeedData(
-            data = kbpsList,
-            maxVal = maxKbps.coerceAtLeast(50f),
-            unit = "KB/s",
-            valueFormat = "%.0f"
-        )
     }
 }
 
@@ -1400,5 +1256,311 @@ fun BiDirectionalMetricChart(
                 }
             }
         }
+    }
+}
+
+private data class SummaryUiModel(
+    val maxFps: Float,
+    val maxRefreshRate: Float,
+    val maxTemp: Float,
+    val maxCurrent: Float,
+    val maxVolt: Float,
+    val maxPower: Float,
+    val lastBatteryLevel: Int,
+    val lastStatus: String,
+    val lastChargeType: String,
+    val lastHealth: String,
+    val lastCycleCount: Int,
+    val lastFullMah: Float,
+    val lastDesignMah: Float,
+    val lastSoh: Float,
+    val lastCellTotal: Float,
+    val lastWlanTotal: Float
+)
+
+private data class ProcessedHistoryData(
+    val summaryData: SummaryUiModel,
+    val cpuCoreModels: List<DynamicCpuCoreModel>,
+    val fpsList: List<Float>,
+    val maxFpsLimit: Float,
+    val refreshRateList: List<Float>,
+    val maxRefreshRate: Float,
+    val wlanTotalStr: String,
+    val cellTotalStr: String,
+    val wlanTx: ScaledSpeedData,
+    val wlanRx: ScaledSpeedData,
+    val cellTx: ScaledSpeedData,
+    val cellRx: ScaledSpeedData,
+    val ramData: Triple<List<Float>, Float, Pair<Float, Float>>,
+    val zramData: Triple<List<Float>, Float, Pair<Float, Float>>,
+    val romReadList: List<Float>,
+    val romWriteList: List<Float>,
+    val tempData: Pair<List<Float>, Pair<Float, Float>>,
+    val batteryLevelList: List<Float>,
+    val voltageData: Triple<List<Float>, Float, Pair<Float, Float>>,
+    val currentList: List<Float>,
+    val powerList: List<Float>,
+    val gpuLoadList: List<Float>,
+    val gpuFreqList: List<Float>,
+    val gpuLimitStr: String?
+)
+
+/**
+ * Min-Max 桶降采样：将数据分成 maxPoints/2 个区间，每个区间取最小值和最大值
+ * 保证极短时间的单点突刺（Spike）和骤降（Drop）在视觉折线上 100% 留存
+ */
+private fun List<Float>.downsample(maxPoints: Int = 400): List<Float> {
+    if (size <= maxPoints) return this
+    val numBuckets = maxPoints / 2
+    val bucketSize = size.toFloat() / numBuckets
+    val result = ArrayList<Float>(maxPoints)
+
+    for (i in 0 until numBuckets) {
+        val start = (i * bucketSize).toInt().coerceIn(0, lastIndex)
+        val end = ((i + 1) * bucketSize).toInt().coerceIn(start + 1, size)
+
+        var min = this[start]
+        var max = this[start]
+        var minIdx = start
+        var maxIdx = start
+
+        for (j in start until end) {
+            val v = this[j]
+            if (v < min) { min = v; minIdx = j }
+            if (v > max) { max = v; maxIdx = j }
+        }
+
+        // 按时间先后顺序加入 min 和 max，保持时间线连续
+        if (minIdx < maxIdx) {
+            result.add(min)
+            result.add(max)
+        } else {
+            result.add(max)
+            result.add(min)
+        }
+    }
+    return result
+}
+
+/**
+ * 后台线程数据构建方法：避免 CPU 多核逻辑重复循环，并使用 downsample() 优化渲染性能
+ */
+private fun buildProcessedHistoryData(history: HistoryRecording): ProcessedHistoryData {
+    val samples = history.samples
+
+    var maxFps = 0f
+    var maxRefreshRate = 0f
+    var maxTemp = 0f
+    var maxCurrent = 0f
+    var maxVolt = 0f
+    var maxPower = 0f
+
+    samples.forEach { s ->
+        if (s.fps > maxFps) maxFps = s.fps
+        if (s.refreshRate > maxRefreshRate) maxRefreshRate = s.refreshRate
+        if (s.batteryTemp > maxTemp) maxTemp = s.batteryTemp
+        if (s.batteryCurrentMa > maxCurrent) maxCurrent = s.batteryCurrentMa
+        val voltSec = s.batteryVoltageMv / 1000f
+        if (voltSec > maxVolt) maxVolt = voltSec
+        if (s.batteryPowerW > maxPower) maxPower = s.batteryPowerW
+    }
+
+    val lastSample = samples.lastOrNull()
+    val summaryData = SummaryUiModel(
+        maxFps = maxFps,
+        maxRefreshRate = maxRefreshRate,
+        maxTemp = maxTemp,
+        maxCurrent = maxCurrent,
+        maxVolt = maxVolt,
+        maxPower = maxPower,
+        lastBatteryLevel = lastSample?.batteryLevel ?: 0,
+        lastStatus = lastSample?.batteryStatus ?: "Unknown",
+        lastChargeType = lastSample?.batteryChargeType ?: "Unknown",
+        lastHealth = lastSample?.batteryHealth ?: "Unknown",
+        lastCycleCount = lastSample?.batteryCycleCount ?: 0,
+        lastFullMah = lastSample?.batteryFullMah ?: 0f,
+        lastDesignMah = lastSample?.batteryFullDesignMah ?: 0f,
+        lastSoh = lastSample?.batterySohPercent ?: 0f,
+        lastCellTotal = lastSample?.cellTotalMb ?: 0f,
+        lastWlanTotal = lastSample?.wlanTotalMb ?: 0f
+    )
+
+    // CPU 多核数据解析优化：仅进行一次转置
+    val coreCount = samples.maxOfOrNull { it.cpuFreqsGhz.size } ?: 0
+    val rawCpuFreqs = List(coreCount) { ArrayList<Float>(samples.size) }
+    val limitsMap = HashMap<Int, Pair<Float, Float>>()
+
+    samples.forEach { sample ->
+        for (c in 0 until coreCount) {
+            val freq = sample.cpuFreqsGhz.getOrNull(c) ?: 0f
+            rawCpuFreqs[c].add(freq)
+
+            if (!limitsMap.containsKey(c)) {
+                sample.cpuHwLimitsGhz.getOrNull(c)?.let {
+                    if (it.second > 0f) limitsMap[c] = it
+                }
+            }
+        }
+    }
+
+    val cpuCoreModels = (0 until coreCount).map { coreIndex ->
+        val rawFreqs = rawCpuFreqs[coreIndex]
+        val minVal = rawFreqs.minOrNull() ?: 0f
+        val maxValReal = rawFreqs.maxOrNull() ?: 0f
+        val avgVal = if (rawFreqs.isNotEmpty()) rawFreqs.average().toFloat() else 0f
+
+        val limits = limitsMap[coreIndex]
+        val hwLimitStr = if (limits != null && limits.second > 0f) {
+            String.format(Locale.US, "HW: %.3f - %.3f GHz", limits.first, limits.second)
+        } else null
+
+        DynamicCpuCoreModel(
+            coreIndex = coreIndex,
+            freqs = rawFreqs.downsample(400),
+            minVal = minVal,
+            maxValReal = maxValReal,
+            avgVal = avgVal,
+            hwLimitStr = hwLimitStr,
+            maxChartVal = maxValReal.coerceAtLeast(1f)
+        )
+    }
+
+    // 基础指标提取并进行 downsample
+    val rawFpsList = samples.map { it.fps }
+    val maxFpsLimit = samples.maxOfOrNull { it.refreshRate }?.coerceAtLeast(60f) ?: 60f
+
+    val rawRefreshList = samples.map { it.refreshRate }
+    val maxRefresh = rawRefreshList.maxOrNull() ?: 60f
+
+    val wlanTotalStr = formatMb(summaryData.lastWlanTotal)
+    val cellTotalStr = formatMb(summaryData.lastCellTotal)
+
+    val wlanTx = autoScaleKbpsList(samples.map { it.wlanTxSpeedKbps })
+    val wlanRx = autoScaleKbpsList(samples.map { it.wlanRxSpeedKbps })
+    val cellTx = autoScaleKbpsList(samples.map { it.cellTxSpeedKbps })
+    val cellRx = autoScaleKbpsList(samples.map { it.cellRxSpeedKbps })
+
+    // RAM 数据
+    val ramList = samples.map { it.ramAvailGb }
+    val ramMin = ramList.minOrNull() ?: 0f
+    val ramMax = ramList.maxOrNull() ?: 0f
+    val ramTotal = samples.lastOrNull()?.ramTotalGb ?: 1f
+    val ramData = Triple(
+        ramList.map { it - ramMin }.downsample(400),
+        (ramMax - ramMin).coerceAtLeast(0.3f),
+        ramMin to ramTotal
+    )
+
+    // ZRAM 数据
+    val zramList = samples.map { it.zramAvailGb }
+    val zramMin = zramList.minOrNull() ?: 0f
+    val zramMax = zramList.maxOrNull() ?: 0f
+    val zramTotal = samples.lastOrNull()?.zramTotalGb ?: 1f
+    val zramData = Triple(
+        zramList.map { it - zramMin }.downsample(400),
+        (zramMax - zramMin).coerceAtLeast(0.3f),
+        zramMin to zramTotal
+    )
+
+    // 温度数据
+    val tempList = samples.map { it.batteryTemp }
+    val tempMin = tempList.minOrNull() ?: 0f
+    val tempMax = tempList.maxOrNull() ?: 0f
+    val tempData = Pair(
+        tempList.map { it - tempMin }.downsample(400),
+        (tempMax - tempMin).coerceAtLeast(1.0f) to tempMin
+    )
+
+    // 电压数据
+    val voltList = samples.map { it.batteryVoltageMv / 1000f }
+    val voltMin = voltList.minOrNull() ?: 0f
+    val voltMax = voltList.maxOrNull() ?: 0f
+    val voltageData = Triple(
+        voltList.map { it - voltMin }.downsample(400),
+        (voltMax - voltMin).coerceAtLeast(0.1f),
+        voltMin to voltMax
+    )
+
+    val gpuMin = samples.mapNotNull { if (it.gpuMinFreqGhz > 0) it.gpuMinFreqGhz else null }.firstOrNull() ?: 0f
+    val gpuMax = samples.mapNotNull { if (it.gpuMaxFreqGhz > 0) it.gpuMaxFreqGhz else null }.firstOrNull() ?: 0f
+    val gpuLimitStr = if (gpuMax > 0f) String.format(Locale.US, "Limit: %.3f - %.3f GHz", gpuMin, gpuMax) else null
+
+    return ProcessedHistoryData(
+        summaryData = summaryData,
+        cpuCoreModels = cpuCoreModels,
+        fpsList = rawFpsList.downsample(400),
+        maxFpsLimit = maxFpsLimit,
+        refreshRateList = rawRefreshList.downsample(400),
+        maxRefreshRate = maxRefresh,
+        wlanTotalStr = wlanTotalStr,
+        cellTotalStr = cellTotalStr,
+        wlanTx = wlanTx.copy(data = wlanTx.data.downsample(400)),
+        wlanRx = wlanRx.copy(data = wlanRx.data.downsample(400)),
+        cellTx = cellTx.copy(data = cellTx.data.downsample(400)),
+        cellRx = cellRx.copy(data = cellRx.data.downsample(400)),
+        ramData = ramData,
+        zramData = zramData,
+        romReadList = samples.map { it.romReadSpeedMb }.downsample(400),
+        romWriteList = samples.map { it.romWriteSpeedMb }.downsample(400),
+        tempData = tempData,
+        batteryLevelList = samples.map { it.batteryLevel.toFloat() }.downsample(400),
+        voltageData = voltageData,
+        currentList = samples.map { it.batteryCurrentMa }.downsample(400),
+        powerList = samples.map { it.batteryPowerW }.downsample(400),
+        gpuLoadList = samples.map { it.gpuLoadPercent }.downsample(400),
+        gpuFreqList = samples.map { it.gpuFreqGhz }.downsample(400),
+        gpuLimitStr = gpuLimitStr
+    )
+}
+
+data class DynamicCpuCoreModel(
+    val coreIndex: Int,
+    val freqs: List<Float>,
+    val minVal: Float,
+    val maxValReal: Float,
+    val avgVal: Float,
+    val hwLimitStr: String?,
+    val maxChartVal: Float
+)
+
+data class AutoScaledSpeedData(
+    val data: List<Float>,
+    val maxVal: Float,
+    val unit: String,
+    val valueFormat: String
+)
+
+fun formatKbps(kbps: Float): String {
+    return when {
+        kbps >= 1024f * 1024f -> String.format(Locale.US, "%.2f GB/s", kbps / (1024f * 1024f))
+        kbps >= 1024f -> String.format(Locale.US, "%.2f MB/s", kbps / 1024f)
+        else -> String.format(Locale.US, "%.0f KB/s", kbps)
+    }
+}
+
+fun autoScaleKbpsList(kbpsList: List<Float>): AutoScaledSpeedData {
+    val maxKbps = kbpsList.maxOrNull() ?: 0f
+    return when {
+        // 大于等于 1 GB/s (1,048,576 KB/s)
+        maxKbps >= 1024f * 1024f -> AutoScaledSpeedData(
+            data = kbpsList.map { it / (1024f * 1024f) },
+            maxVal = (maxKbps / (1024f * 1024f)).coerceAtLeast(0.1f),
+            unit = "GB/s",
+            valueFormat = "%.2f"
+        )
+        // 大于等于 1 MB/s (1,024 KB/s)
+        maxKbps >= 1024f -> AutoScaledSpeedData(
+            data = kbpsList.map { it / 1024f },
+            maxVal = (maxKbps / 1024f).coerceAtLeast(0.5f),
+            unit = "MB/s",
+            valueFormat = "%.2f"
+        )
+        // 保持 KB/s
+        else -> AutoScaledSpeedData(
+            data = kbpsList,
+            maxVal = maxKbps.coerceAtLeast(50f),
+            unit = "KB/s",
+            valueFormat = "%.0f"
+        )
     }
 }
