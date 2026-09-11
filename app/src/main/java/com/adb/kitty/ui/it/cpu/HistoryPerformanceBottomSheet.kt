@@ -812,31 +812,36 @@ fun FastMetricLineChart(
                             clippingEnabled = false
                         )
                     ) {
-                        Surface(
-                            color = Color.White.copy(alpha = 0.90f),
-                            shape = RoundedCornerShape(4.dp),
-                            shadowElevation = 2.dp
+                        Column(
+                            horizontalAlignment = Alignment.End,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Text(
-                                text = timeStr,
-                                color = Color.DarkGray,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Normal,
-                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
-                            )
-                        }
-                        Surface(
-                            color = Color.White.copy(alpha = 0.90f),
-                            shape = RoundedCornerShape(6.dp),
-                            shadowElevation = 3.dp
-                        ) {
-                            Text(
-                                text = textStr,
-                                color = Color.Black,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
+                            Surface(
+                                color = Color.White.copy(alpha = 0.90f),
+                                shape = RoundedCornerShape(4.dp),
+                                shadowElevation = 2.dp
+                            ) {
+                                Text(
+                                    text = timeStr,
+                                    color = Color.DarkGray,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Normal,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                )
+                            }
+                            Surface(
+                                color = Color.White.copy(alpha = 0.90f),
+                                shape = RoundedCornerShape(6.dp),
+                                shadowElevation = 3.dp
+                            ) {
+                                Text(
+                                    text = textStr,
+                                    color = Color.Black,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
                         }
                     }
                 } else {
@@ -850,31 +855,36 @@ fun FastMetricLineChart(
                             clippingEnabled = false
                         )
                     ) {
-                        Surface(
-                            color = Color.White.copy(alpha = 0.90f),
-                            shape = RoundedCornerShape(4.dp),
-                            shadowElevation = 2.dp
+                        Column(
+                            horizontalAlignment = Alignment.Start,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Text(
-                                text = timeStr,
-                                color = Color.DarkGray,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Normal,
-                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
-                            )
-                        }
-                        Surface(
-                            color = Color.White.copy(alpha = 0.90f),
-                            shape = RoundedCornerShape(6.dp),
-                            shadowElevation = 3.dp
-                        ) {
-                            Text(
-                                text = textStr,
-                                color = Color.Black,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
+                            Surface(
+                                color = Color.White.copy(alpha = 0.90f),
+                                shape = RoundedCornerShape(4.dp),
+                                shadowElevation = 2.dp
+                            ) {
+                                Text(
+                                    text = timeStr,
+                                    color = Color.DarkGray,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Normal,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                )
+                            }
+                            Surface(
+                                color = Color.White.copy(alpha = 0.90f),
+                                shape = RoundedCornerShape(6.dp),
+                                shadowElevation = 3.dp
+                            ) {
+                                Text(
+                                    text = textStr,
+                                    color = Color.Black,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -1290,31 +1300,36 @@ fun BiDirectionalMetricChart(
                             clippingEnabled = false
                         )
                     ) {
-                        Surface(
-                            color = Color.White.copy(alpha = 0.90f),
-                            shape = RoundedCornerShape(4.dp),
-                            shadowElevation = 2.dp
+                        Column(
+                            horizontalAlignment = Alignment.End,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Text(
-                                text = timeStr,
-                                color = Color.DarkGray,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Normal,
-                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
-                            )
-                        }
-                        Surface(
-                            color = Color.White.copy(alpha = 0.90f),
-                            shape = RoundedCornerShape(6.dp),
-                            shadowElevation = 3.dp
-                        ) {
-                            Text(
-                                text = textStr,
-                                color = Color.Black,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
+                            Surface(
+                                color = Color.White.copy(alpha = 0.90f),
+                                shape = RoundedCornerShape(4.dp),
+                                shadowElevation = 2.dp
+                            ) {
+                                Text(
+                                    text = timeStr,
+                                    color = Color.DarkGray,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Normal,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                )
+                            }
+                            Surface(
+                                color = Color.White.copy(alpha = 0.90f),
+                                shape = RoundedCornerShape(6.dp),
+                                shadowElevation = 3.dp
+                            ) {
+                                Text(
+                                    text = textStr,
+                                    color = Color.Black,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
                         }
                     }
                 } else {
@@ -1328,31 +1343,36 @@ fun BiDirectionalMetricChart(
                             clippingEnabled = false
                         )
                     ) {
-                        Surface(
-                            color = Color.White.copy(alpha = 0.90f),
-                            shape = RoundedCornerShape(4.dp),
-                            shadowElevation = 2.dp
+                        Column(
+                            horizontalAlignment = Alignment.Start,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Text(
-                                text = timeStr,
-                                color = Color.DarkGray,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Normal,
-                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
-                            )
-                        }
-                        Surface(
-                            color = Color.White.copy(alpha = 0.90f),
-                            shape = RoundedCornerShape(6.dp),
-                            shadowElevation = 3.dp
-                        ) {
-                            Text(
-                                text = textStr,
-                                color = Color.Black,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
+                            Surface(
+                                color = Color.White.copy(alpha = 0.90f),
+                                shape = RoundedCornerShape(4.dp),
+                                shadowElevation = 2.dp
+                            ) {
+                                Text(
+                                    text = timeStr,
+                                    color = Color.DarkGray,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Normal,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                )
+                            }
+                            Surface(
+                                color = Color.White.copy(alpha = 0.90f),
+                                shape = RoundedCornerShape(6.dp),
+                                shadowElevation = 3.dp
+                            ) {
+                                Text(
+                                    text = textStr,
+                                    color = Color.Black,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -1895,31 +1915,36 @@ private fun CategoricalStepChart(
                             clippingEnabled = false
                         )
                     ) {
-                        Surface(
-                            color = Color.White.copy(alpha = 0.90f),
-                            shape = RoundedCornerShape(4.dp),
-                            shadowElevation = 2.dp
+                        Column(
+                            horizontalAlignment = Alignment.End,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Text(
-                                text = timeStr,
-                                color = Color.DarkGray,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Normal,
-                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
-                            )
-                        }
-                        Surface(
-                            color = Color.White.copy(alpha = 0.92f),
-                            shape = RoundedCornerShape(6.dp),
-                            shadowElevation = 3.dp
-                        ) {
-                            Text(
-                                text = "协议: $currentText",
-                                color = Color.Black,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
+                            Surface(
+                                color = Color.White.copy(alpha = 0.90f),
+                                shape = RoundedCornerShape(4.dp),
+                                shadowElevation = 2.dp
+                            ) {
+                                Text(
+                                    text = timeStr,
+                                    color = Color.DarkGray,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Normal,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                )
+                            }
+                            Surface(
+                                color = Color.White.copy(alpha = 0.90f),
+                                shape = RoundedCornerShape(6.dp),
+                                shadowElevation = 3.dp
+                            ) {
+                                Text(
+                                    text = "协议: $currentText",
+                                    color = Color.Black,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
                         }
                     }
                 } else {
@@ -1933,31 +1958,36 @@ private fun CategoricalStepChart(
                             clippingEnabled = false
                         )
                     ) {
-                        Surface(
-                            color = Color.White.copy(alpha = 0.90f),
-                            shape = RoundedCornerShape(4.dp),
-                            shadowElevation = 2.dp
+                        Column(
+                            horizontalAlignment = Alignment.Start,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Text(
-                                text = timeStr,
-                                color = Color.DarkGray,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Normal,
-                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
-                            )
-                        }
-                        Surface(
-                            color = Color.White.copy(alpha = 0.92f),
-                            shape = RoundedCornerShape(6.dp),
-                            shadowElevation = 3.dp
-                        ) {
-                            Text(
-                                text = "协议: $currentText",
-                                color = Color.Black,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
+                            Surface(
+                                color = Color.White.copy(alpha = 0.90f),
+                                shape = RoundedCornerShape(4.dp),
+                                shadowElevation = 2.dp
+                            ) {
+                                Text(
+                                    text = timeStr,
+                                    color = Color.DarkGray,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Normal,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                )
+                            }
+                            Surface(
+                                color = Color.White.copy(alpha = 0.90f),
+                                shape = RoundedCornerShape(6.dp),
+                                shadowElevation = 3.dp
+                            ) {
+                                Text(
+                                    text = "协议: $currentText",
+                                    color = Color.Black,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
                         }
                     }
                 }
