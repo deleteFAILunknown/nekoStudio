@@ -218,7 +218,6 @@ private fun HistoryGraphView(history: HistoryRecording) {
     // 消费者：在后台协程集中消费 Channel 中的数据并进行耗时计算
     LaunchedEffect(historyChannel) {
         withContext(Dispatchers.Default) {
-            // 通过 consumeAsFlow 持续监听 Channel 中的数据更新
             historyChannel.consumeAsFlow().collect { incomingHistory ->
                 val result = buildProcessedHistoryData(incomingHistory)
                 withContext(Dispatchers.Main) {
@@ -419,28 +418,30 @@ private fun HistoryGraphView(history: HistoryRecording) {
         }
 
         item {
+            val chartMax = if (data.ramMax - data.ramMin < 0.3f) data.ramMin + 0.3f else data.ramMax
             HistoryChartCard(
                 title = "RAM 可用内存 (GB)",
-                limitText = String.format(Locale.US, "RAM 总量: %.3f GB", data.ramData.third.second),
-                data = data.ramData.first,
-                maxVal = data.ramData.second,
+                limitText = String.format(Locale.US, "RAM 总量: %.3f GB", data.ramTotalGb),
+                data = data.ramList,
+                minVal = data.ramMin,
+                maxVal = chartMax,
                 lineColor = Color(0xFF2196F3),
                 unit = "GB",
-                valueFormat = "%.3f",
-                valueOffset = data.ramData.third.first
+                valueFormat = "%.3f"
             )
         }
 
         item {
+            val chartMax = if (data.zramMax - data.zramMin < 0.3f) data.zramMin + 0.3f else data.zramMax
             HistoryChartCard(
                 title = "ZRAM 可用内存 (GB)",
-                limitText = String.format(Locale.US, "ZRAM 总量: %.3f GB", data.zramData.third.second),
-                data = data.zramData.first,
-                maxVal = data.zramData.second,
+                limitText = String.format(Locale.US, "ZRAM 总量: %.3f GB", data.zramTotalGb),
+                data = data.zramList,
+                minVal = data.zramMin,
+                maxVal = chartMax,
                 lineColor = Color(0xFF00BCD4),
                 unit = "GB",
-                valueFormat = "%.3f",
-                valueOffset = data.zramData.third.first
+                valueFormat = "%.3f"
             )
         }
 
@@ -467,14 +468,15 @@ private fun HistoryGraphView(history: HistoryRecording) {
         }
 
         item {
+            val chartMax = if (data.tempMax - data.tempMin < 1.0f) data.tempMin + 1.0f else data.tempMax
             HistoryChartCard(
                 title = "电池温度 (°C)",
-                data = data.tempData.first,
-                maxVal = data.tempData.second.first,
+                data = data.tempList,
+                minVal = data.tempMin,
+                maxVal = chartMax,
                 lineColor = Color(0xFFFF5722),
                 unit = "°C",
-                valueFormat = "%.1f",
-                valueOffset = data.tempData.second.second
+                valueFormat = "%.1f"
             )
         }
 
@@ -494,15 +496,16 @@ private fun HistoryGraphView(history: HistoryRecording) {
         }
 
         item {
+            val chartMax = if (data.voltMax - data.voltMin < 0.1f) data.voltMin + 0.1f else data.voltMax
             HistoryChartCard(
                 title = "电池电压 (V)",
-                limitText = String.format(Locale.US, "范围: %.2f V - %.2f V", data.voltageData.third.first, data.voltageData.third.second),
-                data = data.voltageData.first,
-                maxVal = data.voltageData.second,
+                limitText = String.format(Locale.US, "范围: %.2f V - %.2f V", data.voltMin, data.voltMax),
+                data = data.voltList,
+                minVal = data.voltMin,
+                maxVal = chartMax,
                 lineColor = Color(0xFFFBBC02),
                 unit = "V",
-                valueFormat = "%.2f",
-                valueOffset = data.voltageData.third.first
+                valueFormat = "%.2f"
             )
         }
 
@@ -644,7 +647,7 @@ fun FastMetricLineChart(
     modifier: Modifier = Modifier,
     unit: String = "",
     valueFormat: String = "%.3f",
-    valueOffset: Float = 0f
+    minVal: Float = 0f
 ) {
     var selectedIndex by remember { mutableStateOf<Int?>(null) }
     val density = LocalDensity.current
@@ -682,13 +685,14 @@ fun FastMetricLineChart(
                 .drawWithCache {
                     val linePath = Path()
                     val fillPath = Path()
-                    val effectiveMax = if (maxVal <= 0f) 1f else maxVal
+                    val range = (maxVal - minVal).let { if (it <= 0f) 1f else it }
                     val stepX = if (data.size >= 2) size.width / (data.size - 1) else 0f
 
                     if (data.size >= 2) {
                         data.forEachIndexed { i, value ->
                             val x = i * stepX
-                            val y = size.height - ((value / effectiveMax).coerceIn(0f, 1f) * size.height)
+                            val normalized = ((value - minVal) / range).coerceIn(0f, 1f)
+                            val y = size.height - (normalized * size.height)
                             if (i == 0) {
                                 linePath.moveTo(x, y)
                                 fillPath.moveTo(x, y)
@@ -730,7 +734,8 @@ fun FastMetricLineChart(
                             if (index in data.indices) {
                                 val rawVal = data[index]
                                 val x = index * stepX
-                                val y = size.height - ((rawVal / effectiveMax).coerceIn(0f, 1f) * size.height)
+                                val normalized = ((rawVal - minVal) / range).coerceIn(0f, 1f)
+                                val y = size.height - (normalized * size.height)
 
                                 drawLine(
                                     color = lineColor.copy(alpha = 0.7f),
@@ -759,13 +764,12 @@ fun FastMetricLineChart(
         // 使用 Popup 浮层挂载数据气泡
         selectedIndex?.let { index ->
             if (index in data.indices && data.size >= 2) {
-                val realVal = data[index] + valueOffset
+                val realVal = data[index]
                 val formattedVal = String.format(Locale.US, valueFormat, realVal)
                 val textStr = if (unit.isNotEmpty()) "$formattedVal $unit" else formattedVal
 
                 val stepX = widthPx / (data.size - 1)
                 val lineXPx = (stepX * index).roundToInt()
-                val lineXDp = with(density) { lineXPx.toDp() }
 
                 val isRightHalf = index > (data.size - 1) / 2
                 val yPx = with(density) { (-30).dp.roundToPx() }
@@ -855,20 +859,20 @@ private fun HistoryChartCard(
     title: String,
     limitText: String? = null,
     data: List<Float>,
+    minVal: Float? = null,
     maxVal: Float,
     lineColor: Color,
     unit: String,
-    valueFormat: String = "%.2f",
-    valueOffset: Float = 0f
+    valueFormat: String = "%.2f"
 ) {
-    val minVal = remember(data, valueOffset) {
-        (if (data.isNotEmpty()) data.minOrNull() ?: 0f else 0f) + valueOffset
+    val realMinVal = remember(data) {
+        if (data.isNotEmpty()) data.minOrNull() ?: 0f else 0f
     }
-    val maxValReal = remember(data, valueOffset) {
-        (if (data.isNotEmpty()) data.maxOrNull() ?: 0f else 0f) + valueOffset
+    val realMaxVal = remember(data) {
+        if (data.isNotEmpty()) data.maxOrNull() ?: 0f else 0f
     }
-    val avgVal = remember(data, valueOffset) {
-        (if (data.isNotEmpty()) data.average().toFloat() else 0f) + valueOffset
+    val avgVal = remember(data) {
+        if (data.isNotEmpty()) data.average().toFloat() else 0f
     }
 
     Card(
@@ -899,7 +903,7 @@ private fun HistoryChartCard(
                 Spacer(modifier = Modifier.width(8.dp))
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = String.format(Locale.US, "最高: $valueFormat %s", maxValReal, unit),
+                        text = String.format(Locale.US, "最高: $valueFormat %s", realMaxVal, unit),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         color = lineColor
@@ -911,7 +915,7 @@ private fun HistoryChartCard(
                         color = lineColor
                     )
                     Text(
-                        text = String.format(Locale.US, "最低: $valueFormat %s", minVal, unit),
+                        text = String.format(Locale.US, "最低: $valueFormat %s", realMinVal, unit),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         color = lineColor
@@ -921,11 +925,14 @@ private fun HistoryChartCard(
             Spacer(modifier = Modifier.height(6.dp))
             FastMetricLineChart(
                 data = data,
+                minVal = minVal ?: 0f,
                 maxVal = maxVal,
                 lineColor = lineColor,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(160.dp)
+                    .height(160.dp),
+                unit = unit,
+                valueFormat = valueFormat
             )
         }
     }
@@ -1302,13 +1309,23 @@ private data class ProcessedHistoryData(
     val wlanRx: AutoScaledSpeedData,
     val cellTx: AutoScaledSpeedData,
     val cellRx: AutoScaledSpeedData,
-    val ramData: Triple<List<Float>, Float, Pair<Float, Float>>,
-    val zramData: Triple<List<Float>, Float, Pair<Float, Float>>,
+    val ramList: List<Float>,
+    val ramMin: Float,
+    val ramMax: Float,
+    val ramTotalGb: Float,
+    val zramList: List<Float>,
+    val zramMin: Float,
+    val zramMax: Float,
+    val zramTotalGb: Float,
     val romReadList: List<Float>,
     val romWriteList: List<Float>,
-    val tempData: Pair<List<Float>, Pair<Float, Float>>,
+    val tempList: List<Float>,
+    val tempMin: Float,
+    val tempMax: Float,
     val batteryLevelList: List<Float>,
-    val voltageData: Triple<List<Float>, Float, Pair<Float, Float>>,
+    val voltList: List<Float>,
+    val voltMin: Float,
+    val voltMax: Float,
     val currentList: List<Float>,
     val powerList: List<Float>,
     val gpuLoadList: List<Float>,
@@ -1415,46 +1432,27 @@ private fun buildProcessedHistoryData(history: HistoryRecording): ProcessedHisto
     val cellTx = autoScaleKbpsList(samples.map { it.cellTxSpeedKbps })
     val cellRx = autoScaleKbpsList(samples.map { it.cellRxSpeedKbps })
 
-    // RAM 数据
+    // RAM 数据 (保留原始 GB 数据)
     val ramList = samples.map { it.ramAvailGb }
     val ramMin = ramList.minOrNull() ?: 0f
     val ramMax = ramList.maxOrNull() ?: 0f
-    val ramTotal = samples.lastOrNull()?.ramTotalGb ?: 1f
-    val ramData = Triple(
-        ramList.map { it - ramMin },
-        (ramMax - ramMin).coerceAtLeast(0.3f),
-        ramMin to ramTotal
-    )
+    val ramTotalGb = samples.lastOrNull()?.ramTotalGb ?: 1f
 
-    // ZRAM 数据
+    // ZRAM 数据 (保留原始 GB 数据)
     val zramList = samples.map { it.zramAvailGb }
     val zramMin = zramList.minOrNull() ?: 0f
     val zramMax = zramList.maxOrNull() ?: 0f
-    val zramTotal = samples.lastOrNull()?.zramTotalGb ?: 1f
-    val zramData = Triple(
-        zramList.map { it - zramMin },
-        (zramMax - zramMin).coerceAtLeast(0.3f),
-        zramMin to zramTotal
-    )
+    val zramTotalGb = samples.lastOrNull()?.zramTotalGb ?: 1f
 
-    // 温度数据
+    // 温度数据 (保留原始 °C 数据)
     val tempList = samples.map { it.batteryTemp }
     val tempMin = tempList.minOrNull() ?: 0f
     val tempMax = tempList.maxOrNull() ?: 0f
-    val tempData = Pair(
-        tempList.map { it - tempMin },
-        (tempMax - tempMin).coerceAtLeast(1.0f) to tempMin
-    )
 
-    // 电压数据
+    // 电压数据 (保留原始 V 数据)
     val voltList = samples.map { it.batteryVoltageMv / 1000f }
     val voltMin = voltList.minOrNull() ?: 0f
     val voltMax = voltList.maxOrNull() ?: 0f
-    val voltageData = Triple(
-        voltList.map { it - voltMin },
-        (voltMax - voltMin).coerceAtLeast(0.1f),
-        voltMin to voltMax
-    )
 
     val gpuMin = samples.mapNotNull { if (it.gpuMinFreqGhz > 0) it.gpuMinFreqGhz else null }.firstOrNull() ?: 0f
     val gpuMax = samples.mapNotNull { if (it.gpuMaxFreqGhz > 0) it.gpuMaxFreqGhz else null }.firstOrNull() ?: 0f
@@ -1477,13 +1475,23 @@ private fun buildProcessedHistoryData(history: HistoryRecording): ProcessedHisto
         wlanRx = wlanRx,
         cellTx = cellTx,
         cellRx = cellRx,
-        ramData = ramData,
-        zramData = zramData,
+        ramList = ramList,
+        ramMin = ramMin,
+        ramMax = ramMax,
+        ramTotalGb = ramTotalGb,
+        zramList = zramList,
+        zramMin = zramMin,
+        zramMax = zramMax,
+        zramTotalGb = zramTotalGb,
         romReadList = samples.map { it.romReadSpeedMb },
         romWriteList = samples.map { it.romWriteSpeedMb },
-        tempData = tempData,
+        tempList = tempList,
+        tempMin = tempMin,
+        tempMax = tempMax,
         batteryLevelList = samples.map { it.batteryLevel.toFloat() },
-        voltageData = voltageData,
+        voltList = voltList,
+        voltMin = voltMin,
+        voltMax = voltMax,
         currentList = samples.map { it.batteryCurrentMa },
         powerList = samples.map { it.batteryPowerW },
         gpuLoadList = samples.map { it.gpuLoadPercent },
