@@ -1498,7 +1498,7 @@ private fun buildProcessedHistoryData(history: HistoryRecording): ProcessedHisto
     val gpuLimitStr = if (gpuMax > 0f) String.format(Locale.US, "Limit: %.3f - %.3f GHz", gpuMin, gpuMax) else null
 
     val rawChargeTypeSequence = samples.map { 
-        it.batteryChargeType.ifEmpty { "None" } 
+        it.batteryChargeType.ifEmpty { "Unknown" } 
     }
 
     return ProcessedHistoryData(
@@ -1603,7 +1603,7 @@ fun ChargingTypeTimelineCard(
         rawTypeList.map { str -> categories.indexOf(str).toFloat() }
     }
 
-    val lastType = rawTypeList.lastOrNull() ?: "未知"
+    val lastType = rawTypeList.lastOrNull() ?: "Unknown"
 
     Card(
         colors = CardDefaults.cardColors(
@@ -1650,7 +1650,7 @@ fun ChargingTypeTimelineCard(
                 lineColor = Color(0xFF00BCD4),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(180.dp)
+                    .height(160.dp)
             )
         }
     }

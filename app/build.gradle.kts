@@ -39,7 +39,7 @@ android {
     compileSdk = propCompileSdk
     buildToolsVersion = "$propBuildTools"
     ndkVersion = "$propNdk"
-    
+
     packaging {
         dex {
             useLegacyPackaging = true
@@ -51,20 +51,20 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
-    
+
     androidResources {
         generateLocaleConfig = true
     }
-    
+
     defaultConfig {
         applicationId = "com.adb.kitty"
         minSdk = propMinSdk
         targetSdk = propTargetSdk
         versionCode = propVersionCode
         versionName = "$versionPrefix-$buildDate"
-        
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        
+
         vectorDrawables { 
             useSupportLibrary = true
         }
@@ -77,13 +77,13 @@ android {
             }
         }
     }
-    
+
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_25
         targetCompatibility = JavaVersion.VERSION_25
     }
-    
+
     kotlin {
         compilerOptions {
             languageVersion = KotlinVersion.KOTLIN_2_4
@@ -91,14 +91,14 @@ android {
             jvmTarget = JvmTarget.JVM_25
         }
     }
-    
+
     externalNativeBuild {
         cmake {
             path("src/main/cpp/CMakeLists.txt")
             version = "$propCmake"
         }
     }
-    
+
     bundle {
         language {
             enableSplit = true
@@ -110,7 +110,7 @@ android {
             enableSplit = true
         }
     }
-    
+
     signingConfigs {
         create("adb") {
         // keystore file，.bks & .jks & .p12
@@ -125,8 +125,7 @@ android {
             enableV4Signing = true
         }
     }
-    
-    testBuildType = "debug"
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -157,12 +156,12 @@ android {
         compose = true
         prefab = true
     }
-    
+
     lint {
         checkDependencies = false
       //  abortOnError = false
     }
-    
+
     dependenciesInfo {
         includeInApk = false
         includeInBundle = false
@@ -202,39 +201,24 @@ abstract class GenerateKotlinMetadataTask : DefaultTask() {
     @get:Input abstract val zxingCodeVersion: Property<String>
     @get:Input abstract val androidxMaterial3Version: Property<String>
     @get:Input abstract val libsuVersion: Property<String>
-    
+
     @get:Input abstract val sourceCompatibility: Property<String>
     @get:Input abstract val targetCompatibility: Property<String>
     @get:Input abstract val kotlinLanguageVersion: Property<String>
     @get:Input abstract val kotlinApiVersion: Property<String>
     @get:Input abstract val kotlinJvmTarget: Property<String>
 
-    @get:Input abstract val hmppEnabled: Property<Boolean>
-    @get:Input abstract val compatibilityMetadataVariantEnabled: Property<Boolean>
-    @get:Input abstract val kpmEnabled: Property<Boolean>
-
     @TaskAction
     fun run() {
-        val dynamicSchemaVersion = try {
-            val metadataClass = Class.forName("org.jetbrains.kotlin.tooling.KotlinToolingMetadata")
-            metadataClass.getField("SCHEMA_VERSION").get(null) as? String ?: "1.1.0"
-        } catch (e: Exception) {
-            "1.1.0"
-        }
-
         val currentGradleVersion = GradleVersion.current().version
 
         val jsonContent = """
         {
-          "schemaVersion": "$dynamicSchemaVersion",
           "buildSystem": "Gradle",
           "buildSystemVersion": "$currentGradleVersion", 
           "buildPlugin": "org.jetbrains.kotlin.gradle.plugin.KotlinAndroidPluginWrapper",
           "buildPluginVersion": "${kotlinVersion.get()}",
           "projectSettings": {
-            "isHmppEnabled": ${hmppEnabled.get()},
-            "isCompatibilityMetadataVariantEnabled": ${compatibilityMetadataVariantEnabled.get()},
-            "isKPMEnabled": ${kpmEnabled.get()},
             "androidGradlePluginVersion": "${agpVersion.get()}",
             "kotlinxCoroutinesVersion": "${kotlinxCoroutinesVersion.get()}",
             "androidxLifecycleVersion": "${lifecycleVersion.get()}",
@@ -288,23 +272,10 @@ val injectKotlinMetadataToRoot = tasks.register<GenerateKotlinMetadataTask>("inj
 
     sourceCompatibility.set(providers.provider { android.compileOptions.sourceCompatibility.toString() })
     targetCompatibility.set(providers.provider { android.compileOptions.targetCompatibility.toString() })
-    
+
     kotlinLanguageVersion.set(kotlin.compilerOptions.languageVersion.map { it.version })
     kotlinApiVersion.set(kotlin.compilerOptions.apiVersion.map { it.version })
     kotlinJvmTarget.set(kotlin.compilerOptions.jvmTarget.map { it.target })
-
-    hmppEnabled.set(providers.provider {
-        val explicitFlag = providers.gradleProperty("kotlin.mpp.enableGranularMetadataCompilation").orNull?.toBoolean()
-        explicitFlag ?: plugins.hasPlugin("org.jetbrains.kotlin.multiplatform") || true
-    })
-
-    compatibilityMetadataVariantEnabled.set(
-        providers.gradleProperty("kotlin.mpp.enableCompatibilityMetadataVariant").map { it.toBoolean() }.orElse(false)
-    )
-
-    kpmEnabled.set(
-        providers.gradleProperty("kotlin.experimental.kpm.enabled").map { it.toBoolean() }.orElse(false)
-    )
 }
 
 androidComponents {
