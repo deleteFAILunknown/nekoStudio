@@ -27,8 +27,8 @@ import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -200,12 +200,12 @@ private fun HistoryGraphView(history: HistoryRecording) {
     }
 
     val density = LocalDensity.current
-    val configuration = LocalConfiguration.current
+    val windowInfo = LocalWindowInfo.current
 
-    val chartWidthPx = with(density) { (configuration.screenWidthDp.dp - 32.dp).toPx() }
+    val paddingPx = with(density) { 32.dp.toPx() }
+    val chartWidthPx = (windowInfo.containerSize.width.toFloat() - paddingPx).coerceAtLeast(1f)
     val chartHeightPx = with(density) { 100.dp.toPx() }
 
-    // 在后台协程调度器（Dispatchers.Default）中全量计算所有 18+ 图表的折线路径和统计数值
     val precomputedGraphState by produceState<PrecomputedGraphState?>(initialValue = null, history, chartWidthPx) {
         value = withContext(Dispatchers.Default) {
             val lastSample = samples.lastOrNull()
