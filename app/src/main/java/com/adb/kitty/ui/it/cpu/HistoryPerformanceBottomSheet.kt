@@ -37,6 +37,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -351,6 +353,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
             HistoryChartCard(
                 title = "帧率波动 (FPS)",
                 data = data.fpsList,
+                timestamps = data.timestamps,
                 maxVal = data.maxFpsLimit,
                 lineColor = Color(0xFF4CAF50),
                 unit = "FPS"
@@ -362,6 +365,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
                 title = "屏幕刷新率 (Hz)",
                 limitText = String.format(Locale.US, "档位区间: %.2f Hz - %.2f Hz", data.refreshRateList.minOrNull() ?: 0f, data.maxRefreshRate),
                 data = data.refreshRateList,
+                timestamps = data.timestamps,
                 maxVal = data.maxRefreshRate,
                 lineColor = Color(0xFF00BCD4),
                 unit = "Hz",
@@ -374,6 +378,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
                 title = "WLAN 上传网速 (${data.wlanTx.unit})",
                 limitText = String.format(Locale.US, "录制总流量: %s | 丢包率: %.2f%%", data.wlanTotalStr, samples.lastOrNull()?.wlanLossRate ?: 0f),
                 data = data.wlanTx.data,
+                timestamps = data.timestamps,
                 maxVal = data.wlanTx.maxVal,
                 lineColor = Color(0xFF0288D1),
                 unit = data.wlanTx.unit,
@@ -386,6 +391,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
                 title = "WLAN 下载网速 (${data.wlanRx.unit})",
                 limitText = String.format(Locale.US, "录制总流量: %s | 丢包率: %.2f%%", data.wlanTotalStr, samples.lastOrNull()?.wlanLossRate ?: 0f),
                 data = data.wlanRx.data,
+                timestamps = data.timestamps,
                 maxVal = data.wlanRx.maxVal,
                 lineColor = Color(0xFF00BCD4),
                 unit = data.wlanRx.unit,
@@ -398,6 +404,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
                 title = "蜂窝网络上传网速 (${data.cellTx.unit})",
                 limitText = String.format(Locale.US, "录制总流量: %s | 丢包率: %.2f%%", data.cellTotalStr, samples.lastOrNull()?.cellLossRate ?: 0f),
                 data = data.cellTx.data,
+                timestamps = data.timestamps,
                 maxVal = data.cellTx.maxVal,
                 lineColor = Color(0xFFC2185B),
                 unit = data.cellTx.unit,
@@ -410,6 +417,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
                 title = "蜂窝网络下载网速 (${data.cellRx.unit})",
                 limitText = String.format(Locale.US, "录制总流量: %s | 丢包率: %.2f%%", data.cellTotalStr, samples.lastOrNull()?.cellLossRate ?: 0f),
                 data = data.cellRx.data,
+                timestamps = data.timestamps,
                 maxVal = data.cellRx.maxVal,
                 lineColor = Color(0xFFE91E63),
                 unit = data.cellRx.unit,
@@ -423,6 +431,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
                 title = "RAM 可用内存 (GB)",
                 limitText = String.format(Locale.US, "RAM 总量: %.3f GB", data.ramTotalGb),
                 data = data.ramList,
+                timestamps = data.timestamps,
                 minVal = data.ramMin,
                 maxVal = chartMax,
                 lineColor = Color(0xFF2196F3),
@@ -437,6 +446,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
                 title = "ZRAM 可用内存 (GB)",
                 limitText = String.format(Locale.US, "ZRAM 总量: %.3f GB", data.zramTotalGb),
                 data = data.zramList,
+                timestamps = data.timestamps,
                 minVal = data.zramMin,
                 maxVal = chartMax,
                 lineColor = Color(0xFF00BCD4),
@@ -449,6 +459,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
             HistoryChartCard(
                 title = "ROM 读取速度 (MB/s)",
                 data = data.romReadList,
+                timestamps = data.timestamps,
                 maxVal = (data.romReadList.maxOrNull() ?: 10f).coerceAtLeast(5f),
                 lineColor = Color(0xFF3F51B5),
                 unit = "MB/s",
@@ -460,6 +471,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
             HistoryChartCard(
                 title = "ROM 写入速度 (MB/s)",
                 data = data.romWriteList,
+                timestamps = data.timestamps,
                 maxVal = (data.romWriteList.maxOrNull() ?: 10f).coerceAtLeast(5f),
                 lineColor = Color(0xFF673AB7),
                 unit = "MB/s",
@@ -472,6 +484,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
             HistoryChartCard(
                 title = "电池温度 (°C)",
                 data = data.tempList,
+                timestamps = data.timestamps,
                 minVal = data.tempMin,
                 maxVal = chartMax,
                 lineColor = Color(0xFFFF5722),
@@ -488,6 +501,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
                     data.batteryLevelList.minOrNull() ?: 0f, data.batteryLevelList.maxOrNull() ?: 0f, data.summaryData.lastBatteryLevel
                 ),
                 data = data.batteryLevelList,
+                timestamps = data.timestamps,
                 maxVal = 100f,
                 lineColor = Color(0xFFFF5722),
                 unit = "%",
@@ -501,6 +515,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
                 title = "电池电压 (V)",
                 limitText = String.format(Locale.US, "范围: %.2f V - %.2f V", data.voltMin, data.voltMax),
                 data = data.voltList,
+                timestamps = data.timestamps,
                 minVal = data.voltMin,
                 maxVal = chartMax,
                 lineColor = Color(0xFFFBBC02),
@@ -510,13 +525,17 @@ private fun HistoryGraphView(history: HistoryRecording) {
         }
 
         item {
-            BiDirectionalCurrentCard(currentData = data.currentList)
+            BiDirectionalCurrentCard(
+                currentData = data.currentList,
+                timestamps = data.timestamps
+            )
         }
 
         item {
             ChargingTypeTimelineCard(
                 title = "⚡ 充电协议与类型切换轨迹",
-                rawTypeList = data.rawChargeTypeSequence
+                rawTypeList = data.rawChargeTypeSequence,
+                timestamps = data.timestamps
             )
         }
 
@@ -532,6 +551,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
                 title = "电池实时功率/功耗 (W)",
                 limitText = batCapLimitStr,
                 data = data.powerList,
+                timestamps = data.timestamps,
                 maxVal = (data.powerList.maxOrNull() ?: 5f).coerceAtLeast(1f),
                 lineColor = Color(0xFFE91E63),
                 unit = "W",
@@ -544,6 +564,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
                 title = "GPU 负载率 (%)",
                 limitText = data.gpuLimitStr,
                 data = data.gpuLoadList,
+                timestamps = data.timestamps,
                 maxVal = 100f,
                 lineColor = Color(0xFF9C27B0),
                 unit = "%"
@@ -555,6 +576,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
                 title = "GPU 运行频率 (GHz)",
                 limitText = data.gpuLimitStr,
                 data = data.gpuFreqList,
+                timestamps = data.timestamps,
                 maxVal = (data.gpuFreqList.maxOrNull() ?: 1f).coerceAtLeast(0.5f),
                 lineColor = Color(0xFFAB47BC),
                 unit = "GHz",
@@ -627,6 +649,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
 
                     FastMetricLineChart(
                         data = coreModel.freqs,
+                        timestamps = data.timestamps,
                         maxVal = coreModel.maxChartVal,
                         lineColor = coreColor,
                         unit = "GHz",
@@ -643,6 +666,7 @@ private fun HistoryGraphView(history: HistoryRecording) {
 @Composable
 fun FastMetricLineChart(
     data: List<Float>,
+    timestamps: List<String>,
     maxVal: Float,
     lineColor: Color,
     modifier: Modifier = Modifier,
@@ -768,12 +792,13 @@ fun FastMetricLineChart(
                 val realVal = data[index]
                 val formattedVal = String.format(Locale.US, valueFormat, realVal)
                 val textStr = if (unit.isNotEmpty()) "$formattedVal $unit" else formattedVal
+                val timeStr = timestamps.getOrElse(index) { "" }
 
                 val stepX = widthPx / (data.size - 1)
                 val lineXPx = (stepX * index).roundToInt()
 
                 val isRightHalf = index > (data.size - 1) / 2
-                val yPx = with(density) { (-30).dp.roundToPx() }
+                val yPx = with(density) { (-60).dp.roundToPx() }
 
                 if (isRightHalf) {
                     val offsetFromRightPx = lineXPx - constraints.maxWidth
@@ -787,6 +812,19 @@ fun FastMetricLineChart(
                             clippingEnabled = false
                         )
                     ) {
+                        Surface(
+                            color = Color.White.copy(alpha = 0.90f),
+                            shape = RoundedCornerShape(4.dp),
+                            shadowElevation = 2.dp
+                        ) {
+                            Text(
+                                text = timeStr,
+                                color = Color.DarkGray,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Normal,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                            )
+                        }
                         Surface(
                             color = Color.White.copy(alpha = 0.90f),
                             shape = RoundedCornerShape(6.dp),
@@ -812,6 +850,19 @@ fun FastMetricLineChart(
                             clippingEnabled = false
                         )
                     ) {
+                        Surface(
+                            color = Color.White.copy(alpha = 0.90f),
+                            shape = RoundedCornerShape(4.dp),
+                            shadowElevation = 2.dp
+                        ) {
+                            Text(
+                                text = timeStr,
+                                color = Color.DarkGray,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Normal,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                            )
+                        }
                         Surface(
                             color = Color.White.copy(alpha = 0.90f),
                             shape = RoundedCornerShape(6.dp),
@@ -860,6 +911,7 @@ private fun HistoryChartCard(
     title: String,
     limitText: String? = null,
     data: List<Float>,
+    timestamps: List<String>,
     minVal: Float? = null,
     maxVal: Float,
     lineColor: Color,
@@ -926,6 +978,7 @@ private fun HistoryChartCard(
             Spacer(modifier = Modifier.height(6.dp))
             FastMetricLineChart(
                 data = data,
+                timestamps = timestamps,
                 minVal = minVal ?: 0f,
                 maxVal = maxVal,
                 lineColor = lineColor,
@@ -941,7 +994,8 @@ private fun HistoryChartCard(
 
 @Composable
 fun BiDirectionalCurrentCard(
-    currentData: List<Float>
+    currentData: List<Float>,
+    timestamps: List<String>
 ) {
     val chargeList = remember(currentData) { currentData.filter { it < 0f }.map { abs(it) } }
     val maxCharge = remember(chargeList) { chargeList.maxOrNull() ?: 0f }
@@ -1003,6 +1057,7 @@ fun BiDirectionalCurrentCard(
 
             BiDirectionalMetricChart(
                 data = currentData,
+                timestamps = timestamps,
                 maxAbs = maxAbs,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1047,6 +1102,7 @@ fun BiDirectionalCurrentCard(
 @Composable
 fun BiDirectionalMetricChart(
     data: List<Float>,
+    timestamps: List<String>,
     maxAbs: Float,
     modifier: Modifier = Modifier,
     chargeColor: Color = Color(0xFF4CAF50),
@@ -1213,13 +1269,14 @@ fun BiDirectionalMetricChart(
                 } else {
                     String.format(Locale.US, "%.3f mA (放电)", currentMa)
                 }
+                val timeStr = timestamps.getOrElse(index) { "" }
 
                 val stepX = widthPx / (data.size - 1)
                 val lineXPx = (stepX * index).roundToInt()
                 val lineXDp = with(density) { lineXPx.toDp() }
 
                 val isRightHalf = index > (data.size - 1) / 2
-                val yPx = with(density) { (-30).dp.roundToPx() }
+                val yPx = with(density) { (-60).dp.roundToPx() }
 
                 if (isRightHalf) {
                     val offsetFromRightPx = lineXPx - constraints.maxWidth
@@ -1233,6 +1290,19 @@ fun BiDirectionalMetricChart(
                             clippingEnabled = false
                         )
                     ) {
+                        Surface(
+                            color = Color.White.copy(alpha = 0.90f),
+                            shape = RoundedCornerShape(4.dp),
+                            shadowElevation = 2.dp
+                        ) {
+                            Text(
+                                text = timeStr,
+                                color = Color.DarkGray,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Normal,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                            )
+                        }
                         Surface(
                             color = Color.White.copy(alpha = 0.90f),
                             shape = RoundedCornerShape(6.dp),
@@ -1258,6 +1328,19 @@ fun BiDirectionalMetricChart(
                             clippingEnabled = false
                         )
                     ) {
+                        Surface(
+                            color = Color.White.copy(alpha = 0.90f),
+                            shape = RoundedCornerShape(4.dp),
+                            shadowElevation = 2.dp
+                        ) {
+                            Text(
+                                text = timeStr,
+                                color = Color.DarkGray,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Normal,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                            )
+                        }
                         Surface(
                             color = Color.White.copy(alpha = 0.90f),
                             shape = RoundedCornerShape(6.dp),
@@ -1299,6 +1382,7 @@ private data class SummaryUiModel(
 
 private data class ProcessedHistoryData(
     val summaryData: SummaryUiModel,
+    val timestamps: List<String>,
     val cpuCoreModels: List<DynamicCpuCoreModel>,
     val fpsList: List<Float>,
     val maxFpsLimit: Float,
@@ -1340,6 +1424,9 @@ private data class ProcessedHistoryData(
  */
 private fun buildProcessedHistoryData(history: HistoryRecording): ProcessedHistoryData {
     val samples = history.samples
+
+    val timeFormatter = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+    val timestamps = samples.map { timeFormatter.format(Date(it.timestampMs)) }
 
     var maxFps = 0f
     var maxRefreshRate = 0f
@@ -1465,6 +1552,7 @@ private fun buildProcessedHistoryData(history: HistoryRecording): ProcessedHisto
 
     return ProcessedHistoryData(
         summaryData = summaryData,
+        timestamps = timestamps,
         cpuCoreModels = cpuCoreModels,
         fpsList = rawFpsList,
         maxFpsLimit = maxFpsLimit,
@@ -1561,6 +1649,7 @@ fun autoScaleKbpsList(kbpsList: List<Float>): AutoScaledSpeedData {
 fun ChargingTypeTimelineCard(
     title: String,
     rawTypeList: List<String>,
+    timestamps: List<String>,
     modifier: Modifier = Modifier
 ) {
     if (rawTypeList.isEmpty()) return
@@ -1618,6 +1707,7 @@ fun ChargingTypeTimelineCard(
             CategoricalStepChart(
                 stepValues = stepValues,
                 rawStrings = rawTypeList,
+                timestamps = timestamps,
                 categories = categories,
                 lineColor = Color(0xFF00BCD4),
                 modifier = Modifier
@@ -1635,6 +1725,7 @@ fun ChargingTypeTimelineCard(
 private fun CategoricalStepChart(
     stepValues: List<Float>,
     rawStrings: List<String>,
+    timestamps: List<String>,
     categories: List<String>,
     lineColor: Color,
     modifier: Modifier = Modifier
@@ -1785,11 +1876,12 @@ private fun CategoricalStepChart(
         selectedIndex?.let { index ->
             if (index in rawStrings.indices && stepValues.size >= 2) {
                 val currentText = rawStrings[index]
+                val timeStr = timestamps.getOrElse(index) { "" }
                 val stepX = widthPx / (stepValues.size - 1)
                 val lineXPx = (stepX * index).roundToInt()
 
                 val isRightHalf = index > (stepValues.size - 1) / 2
-                val yPx = with(density) { (-30).dp.roundToPx() }
+                val yPx = with(density) { (-60).dp.roundToPx() }
 
                 if (isRightHalf) {
                     val offsetFromRightPx = lineXPx - constraints.maxWidth
@@ -1803,6 +1895,19 @@ private fun CategoricalStepChart(
                             clippingEnabled = false
                         )
                     ) {
+                        Surface(
+                            color = Color.White.copy(alpha = 0.90f),
+                            shape = RoundedCornerShape(4.dp),
+                            shadowElevation = 2.dp
+                        ) {
+                            Text(
+                                text = timeStr,
+                                color = Color.DarkGray,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Normal,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                            )
+                        }
                         Surface(
                             color = Color.White.copy(alpha = 0.92f),
                             shape = RoundedCornerShape(6.dp),
@@ -1828,6 +1933,19 @@ private fun CategoricalStepChart(
                             clippingEnabled = false
                         )
                     ) {
+                        Surface(
+                            color = Color.White.copy(alpha = 0.90f),
+                            shape = RoundedCornerShape(4.dp),
+                            shadowElevation = 2.dp
+                        ) {
+                            Text(
+                                text = timeStr,
+                                color = Color.DarkGray,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Normal,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                            )
+                        }
                         Surface(
                             color = Color.White.copy(alpha = 0.92f),
                             shape = RoundedCornerShape(6.dp),
