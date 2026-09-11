@@ -817,20 +817,20 @@ fun FastMetricLineChart(
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Surface(
-                                color = Color.White.copy(alpha = 0.90f),
-                                shape = RoundedCornerShape(4.dp),
-                                shadowElevation = 2.dp
+                                color = Color.White.copy(alpha = 0.95f),
+                                shape = RoundedCornerShape(6.dp),
+                                shadowElevation = 3.dp
                             ) {
                                 Text(
                                     text = timeStr,
-                                    color = Color.DarkGray,
-                                    fontSize = 9.sp,
+                                    color = Color.Black,
+                                    fontSize = 10.sp,
                                     fontWeight = FontWeight.Normal,
-                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                 )
                             }
                             Surface(
-                                color = Color.White.copy(alpha = 0.90f),
+                                color = Color.White.copy(alpha = 0.95f),
                                 shape = RoundedCornerShape(6.dp),
                                 shadowElevation = 3.dp
                             ) {
@@ -860,20 +860,20 @@ fun FastMetricLineChart(
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Surface(
-                                color = Color.White.copy(alpha = 0.90f),
-                                shape = RoundedCornerShape(4.dp),
-                                shadowElevation = 2.dp
+                                color = Color.White.copy(alpha = 0.95f),
+                                shape = RoundedCornerShape(6.dp),
+                                shadowElevation = 3.dp
                             ) {
                                 Text(
                                     text = timeStr,
-                                    color = Color.DarkGray,
-                                    fontSize = 9.sp,
+                                    color = Color.Black,
+                                    fontSize = 10.sp,
                                     fontWeight = FontWeight.Normal,
-                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                 )
                             }
                             Surface(
-                                color = Color.White.copy(alpha = 0.90f),
+                                color = Color.White.copy(alpha = 0.95f),
                                 shape = RoundedCornerShape(6.dp),
                                 shadowElevation = 3.dp
                             ) {
@@ -1305,20 +1305,20 @@ fun BiDirectionalMetricChart(
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Surface(
-                                color = Color.White.copy(alpha = 0.90f),
-                                shape = RoundedCornerShape(4.dp),
-                                shadowElevation = 2.dp
+                                color = Color.White.copy(alpha = 0.95f),
+                                shape = RoundedCornerShape(6.dp),
+                                shadowElevation = 3.dp
                             ) {
                                 Text(
                                     text = timeStr,
-                                    color = Color.DarkGray,
-                                    fontSize = 9.sp,
+                                    color = Color.Black,
+                                    fontSize = 10.sp,
                                     fontWeight = FontWeight.Normal,
-                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                 )
                             }
                             Surface(
-                                color = Color.White.copy(alpha = 0.90f),
+                                color = Color.White.copy(alpha = 0.95f),
                                 shape = RoundedCornerShape(6.dp),
                                 shadowElevation = 3.dp
                             ) {
@@ -1348,20 +1348,20 @@ fun BiDirectionalMetricChart(
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Surface(
-                                color = Color.White.copy(alpha = 0.90f),
-                                shape = RoundedCornerShape(4.dp),
-                                shadowElevation = 2.dp
+                                color = Color.White.copy(alpha = 0.95f),
+                                shape = RoundedCornerShape(6.dp),
+                                shadowElevation = 3.dp
                             ) {
                                 Text(
                                     text = timeStr,
-                                    color = Color.DarkGray,
-                                    fontSize = 9.sp,
+                                    color = Color.Black,
+                                    fontSize = 10.sp,
                                     fontWeight = FontWeight.Normal,
-                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                 )
                             }
                             Surface(
-                                color = Color.White.copy(alpha = 0.90f),
+                                color = Color.White.copy(alpha = 0.95f),
                                 shape = RoundedCornerShape(6.dp),
                                 shadowElevation = 3.dp
                             ) {
@@ -1920,20 +1920,20 @@ private fun CategoricalStepChart(
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Surface(
-                                color = Color.White.copy(alpha = 0.90f),
-                                shape = RoundedCornerShape(4.dp),
-                                shadowElevation = 2.dp
+                                color = Color.White.copy(alpha = 0.95f),
+                                shape = RoundedCornerShape(6.dp),
+                                shadowElevation = 3.dp
                             ) {
                                 Text(
                                     text = timeStr,
-                                    color = Color.DarkGray,
-                                    fontSize = 9.sp,
+                                    color = Color.Black,
+                                    fontSize = 10.sp,
                                     fontWeight = FontWeight.Normal,
-                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                 )
                             }
                             Surface(
-                                color = Color.White.copy(alpha = 0.90f),
+                                color = Color.White.copy(alpha = 0.95f),
                                 shape = RoundedCornerShape(6.dp),
                                 shadowElevation = 3.dp
                             ) {
@@ -1963,20 +1963,20 @@ private fun CategoricalStepChart(
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Surface(
-                                color = Color.White.copy(alpha = 0.90f),
-                                shape = RoundedCornerShape(4.dp),
-                                shadowElevation = 2.dp
+                                color = Color.White.copy(alpha = 0.95f),
+                                shape = RoundedCornerShape(6.dp),
+                                shadowElevation = 3.dp
                             ) {
                                 Text(
                                     text = timeStr,
-                                    color = Color.DarkGray,
-                                    fontSize = 9.sp,
+                                    color = Color.Black,
+                                    fontSize = 10.sp,
                                     fontWeight = FontWeight.Normal,
-                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                 )
                             }
                             Surface(
-                                color = Color.White.copy(alpha = 0.90f),
+                                color = Color.White.copy(alpha = 0.95f),
                                 shape = RoundedCornerShape(6.dp),
                                 shadowElevation = 3.dp
                             ) {
