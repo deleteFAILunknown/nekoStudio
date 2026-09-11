@@ -360,12 +360,12 @@ private fun HistoryGraphView(history: HistoryRecording) {
         item {
             HistoryChartCard(
                 title = "屏幕刷新率 (Hz)",
-                limitText = String.format(Locale.US, "档位区间: %.0f Hz - %.0f Hz", data.refreshRateList.minOrNull() ?: 0f, data.maxRefreshRate),
+                limitText = String.format(Locale.US, "档位区间: %.2f Hz - %.2f Hz", data.refreshRateList.minOrNull() ?: 0f, data.maxRefreshRate),
                 data = data.refreshRateList,
                 maxVal = data.maxRefreshRate,
                 lineColor = Color(0xFF00BCD4),
                 unit = "Hz",
-                valueFormat = "%.0f"
+                valueFormat = "%.2f"
             )
         }
 
@@ -1522,7 +1522,7 @@ fun formatKbps(kbps: Float): String {
     return when {
         kbps >= 1024f * 1024f -> String.format(Locale.US, "%.2f GB/s", kbps / (1024f * 1024f))
         kbps >= 1024f -> String.format(Locale.US, "%.2f MB/s", kbps / 1024f)
-        else -> String.format(Locale.US, "%.0f KB/s", kbps)
+        else -> String.format(Locale.US, "%.2f KB/s", kbps)
     }
 }
 
@@ -1548,7 +1548,7 @@ fun autoScaleKbpsList(kbpsList: List<Float>): AutoScaledSpeedData {
             data = kbpsList,
             maxVal = maxKbps.coerceAtLeast(50f),
             unit = "KB/s",
-            valueFormat = "%.0f"
+            valueFormat = "%.2f"
         )
     }
 }
