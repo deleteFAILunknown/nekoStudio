@@ -619,6 +619,32 @@ class MainActivity : ComponentActivity() {
         )
     }
 
+    fun startWakeLock() {
+        // 持有 WakeLock
+        val intent = Intent(this, AdbSessionService::class.java).apply {
+            action = AdbSessionService.ACTION_START_RECORDING
+        }
+        startService(intent)
+    }
+
+    fun stopWakeLock() {
+        // 释放 WakeLock
+        val intent = Intent(this, AdbSessionService::class.java).apply {
+            action = AdbSessionService.ACTION_STOP_RECORDING
+        }
+        startService(intent)
+    }
+
+    fun addFlagSecure() {
+        // 添加 FLAG_SECURE 窗口安全保护
+        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    }
+
+    fun clearFlagSecure() {
+        // 清除 FLAG_SECURE 窗口安全保护
+        window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    }
+
     fun stopAdbService() {
         val intent = Intent(this, AdbSessionService::class.java)
         stopService(intent)

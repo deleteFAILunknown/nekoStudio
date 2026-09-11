@@ -32,7 +32,7 @@ class PerformanceTurbo(private val context: Context) {
                     hintSession?.reportActualWorkDuration(800_000L) 
                     
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(context.applicationContext, "🚀 狂暴性能策略已激活！", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context.applicationContext, "✅ PerformanceHintManager", Toast.LENGTH_SHORT).show()
                     }
                 }
             } catch (e: Exception) {
@@ -47,7 +47,7 @@ class PerformanceTurbo(private val context: Context) {
             hintSession = null
             
             withContext(Dispatchers.Main) {
-                Toast.makeText(context.applicationContext, "🍃 性能策略已恢复省电模式", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context.applicationContext, "❌ PerformanceHintManager", Toast.LENGTH_SHORT).show()
             }
         }
     }

@@ -399,6 +399,79 @@ fun CenterAlignedTopAppBarExample(
                             DropdownMenuItem(
                                 text = {
                                     Text(
+                                        stringResource(R.string.action_menu_shell_stop)
+                                    )
+                                },
+                                leadingIcon = { Icon(Icons.Outlined.Cancel, null) },
+                                onClick = {
+                                    showMenu = false
+                                    activity.stopCurrentCommand()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        stringResource(R.string.action_menu_neko_shell_stop)
+                                    )
+                                },
+                                leadingIcon = { Icon(Icons.Outlined.Cancel, null) },
+                                onClick = {
+                                    showMenu = false
+                                    activity.onUserClickStopCommand()
+                                }
+                            )
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        stringResource(R.string.action_menu_wakelock)
+                                    )
+                                },
+                                leadingIcon = { Icon(Icons.Outlined.Speed, null) },
+                                onClick = {
+                                    showMenu = false
+                                    activity.startWakeLock()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        stringResource(R.string.action_menu_wakelock_stop)
+                                    )
+                                },
+                                leadingIcon = { Icon(Icons.Outlined.SettingsBackupRestore, null) },
+                                onClick = {
+                                    showMenu = false
+                                    activity.stopWakeLock()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        stringResource(R.string.action_menu_add_flagsecure)
+                                    )
+                                },
+                                leadingIcon = { Icon(Icons.Outlined.Speed, null) },
+                                onClick = {
+                                    showMenu = false
+                                    activity.addFlagSecure()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        stringResource(R.string.action_menu_clear_flagsecure)
+                                    )
+                                },
+                                leadingIcon = { Icon(Icons.Outlined.SettingsBackupRestore, null) },
+                                onClick = {
+                                    showMenu = false
+                                    activity.clearFlagSecure()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
                                         stringResource(R.string.action_menu_turbo)
                                     )
                                 },
@@ -422,31 +495,6 @@ fun CenterAlignedTopAppBarExample(
                                     activity.lifecycleScope.launch(Dispatchers.IO) {
                                         activity.turbo.exitTurboMode()
                                     }
-                                }
-                            )
-                            HorizontalDivider()
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        stringResource(R.string.action_menu_shell_stop)
-                                    )
-                                },
-                                leadingIcon = { Icon(Icons.Outlined.Cancel, null) },
-                                onClick = {
-                                    showMenu = false
-                                    activity.stopCurrentCommand()
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        stringResource(R.string.action_menu_neko_shell_stop)
-                                    )
-                                },
-                                leadingIcon = { Icon(Icons.Outlined.Cancel, null) },
-                                onClick = {
-                                    showMenu = false
-                                    activity.onUserClickStopCommand()
                                 }
                             )
                         }

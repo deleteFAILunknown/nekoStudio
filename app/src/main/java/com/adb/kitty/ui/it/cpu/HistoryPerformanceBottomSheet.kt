@@ -696,7 +696,6 @@ private fun HistoryGraphView(history: HistoryRecording) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(100.dp)
-                            .padding(top = 30.dp)
                     )
                 }
             }
