@@ -1,12 +1,5 @@
 package com.adb.kitty.receiver
 
-import com.adb.kitty.ui.theme.*
-import com.adb.kitty.ui.viewmodel.*
-import com.adb.kitty.ui.it.*
-import com.adb.kitty.data.*
-import com.adb.kitty.R
-import com.adb.kitty.*
-
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
