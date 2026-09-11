@@ -14,6 +14,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
@@ -28,9 +30,12 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import java.io.File
 import java.util.Locale
 import kotlin.math.abs
@@ -787,31 +792,28 @@ fun FastMetricLineChart(
                                 fillPath.lineTo(x, y)
                             }
                         }
-                        // 将填充路径封闭至图表底部
                         fillPath.lineTo(size.width, size.height)
                         fillPath.lineTo(0f, size.height)
                         fillPath.close()
                     }
 
                     val strokePx = 1.5.dp.toPx()
-                    val dashHeightPx = 110.dp.toPx()
+                    val dashHeightPx = 150.dp.toPx()
 
                     onDrawBehind {
                         if (data.size >= 2) {
-                            // 绘制折线下方的虚色/渐变阴影背景
                             drawPath(
                                 path = fillPath,
                                 brush = Brush.verticalGradient(
                                     colors = listOf(
-                                        lineColor.copy(alpha = 0.35f), // 顶部较高不透明度
-                                        lineColor.copy(alpha = 0.02f)  // 底部趋于透明
+                                        lineColor.copy(alpha = 0.35f),
+                                        lineColor.copy(alpha = 0.02f)
                                     ),
                                     startY = 0f,
                                     endY = size.height
                                 )
                             )
 
-                            // 绘制折线主体
                             drawPath(
                                 path = linePath,
                                 color = lineColor,
@@ -819,7 +821,6 @@ fun FastMetricLineChart(
                             )
                         }
 
-                        // 触摸时 虚线准星与锚点
                         selectedIndex?.let { index ->
                             if (index in data.indices) {
                                 val rawVal = data[index]
@@ -850,7 +851,7 @@ fun FastMetricLineChart(
                 }
         )
 
-        // 白底黑字数据气泡：挂载在虚线顶点的左侧或右侧
+        // 使用 Popup 浮层挂载数据气泡
         selectedIndex?.let { index ->
             if (index in data.indices && data.size >= 2) {
                 val realVal = data[index] + valueOffset
@@ -868,22 +869,33 @@ fun FastMetricLineChart(
                     xDp.coerceAtMost(maxWidth - bubbleEstimatedWidth)
                 }
 
-                Surface(
-                    color = Color.White.copy(alpha = 0.90f),
-                    shape = RoundedCornerShape(6.dp),
-                    shadowElevation = 3.dp,
-                    modifier = Modifier.offset(
-                        x = targetX,
-                        y = 0.dp
+                // 转换像素坐标，y 轴设置为 -28dp 实现悬浮在图表上方
+                val xPx = with(density) { targetX.roundToPx() }
+                val yPx = with(density) { (-28).dp.roundToPx() }
+
+                Popup(
+                    alignment = Alignment.TopStart,
+                    offset = IntOffset(x = xPx, y = yPx),
+                    properties = PopupProperties(
+                        focusable = false,
+                        dismissOnBackPress = false,
+                        dismissOnClickOutside = false,
+                        clippingEnabled = false
                     )
                 ) {
-                    Text(
-                        text = textStr,
-                        color = Color.Black,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                    )
+                    Surface(
+                        color = Color.White.copy(alpha = 0.90f),
+                        shape = RoundedCornerShape(6.dp),
+                        shadowElevation = 3.dp
+                    ) {
+                        Text(
+                            text = textStr,
+                            color = Color.Black,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
                 }
             }
         }
@@ -1234,10 +1246,9 @@ fun BiDirectionalMetricChart(
                     }
 
                     val strokePx = 2.dp.toPx()
-                    val dashHeightPx = 120.dp.toPx()
+                    val dashHeightPx = 150.dp.toPx()
 
                     onDrawBehind {
-                        // 绘制充电区域虚色填充
                         drawPath(
                             path = chargeFillPath,
                             brush = Brush.verticalGradient(
@@ -1246,7 +1257,6 @@ fun BiDirectionalMetricChart(
                                 endY = zeroY
                             )
                         )
-                        // 绘制放电区域虚色填充
                         drawPath(
                             path = dischargeFillPath,
                             brush = Brush.verticalGradient(
@@ -1299,6 +1309,7 @@ fun BiDirectionalMetricChart(
                 }
         )
 
+        // 使用 Popup 浮层挂载数据气泡
         selectedIndex?.let { index ->
             if (index in data.indices && data.size >= 2) {
                 val currentMa = data[index]
@@ -1319,22 +1330,32 @@ fun BiDirectionalMetricChart(
                     xDp.coerceAtMost(maxWidth - bubbleEstimatedWidth)
                 }
 
-                Surface(
-                    color = Color.White.copy(alpha = 0.90f),
-                    shape = RoundedCornerShape(6.dp),
-                    shadowElevation = 3.dp,
-                    modifier = Modifier.offset(
-                        x = targetX,
-                        y = 0.dp
+                val xPx = with(density) { targetX.roundToPx() }
+                val yPx = with(density) { (-28).dp.roundToPx() }
+
+                Popup(
+                    alignment = Alignment.TopStart,
+                    offset = IntOffset(x = xPx, y = yPx),
+                    properties = PopupProperties(
+                        focusable = false,
+                        dismissOnBackPress = false,
+                        dismissOnClickOutside = false,
+                        clippingEnabled = false
                     )
                 ) {
-                    Text(
-                        text = textStr,
-                        color = Color.Black,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                    )
+                    Surface(
+                        color = Color.White.copy(alpha = 0.90f),
+                        shape = RoundedCornerShape(6.dp),
+                        shadowElevation = 3.dp
+                    ) {
+                        Text(
+                            text = textStr,
+                            color = Color.Black,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
                 }
             }
         }
