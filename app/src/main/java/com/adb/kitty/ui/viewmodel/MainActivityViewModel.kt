@@ -425,6 +425,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         AdbCommand("查看CPU/GPU电池的硬件温度限制", "dumpsys hardware_properties"),
         AdbCommand("清除 SurfaceFlinger 历史缓存", "dumpsys SurfaceFlinger --latency-clear"),
         AdbCommand("查看 WakeLock 泄露情况", "dumpsys power | grep -i NekoStudio:RecordingWakeLock"),
+        AdbCommand("查看前台服务类型注册情况", "dumpsys activity services com.adb.kitty"),
         AdbCommand("查看当前屏幕分辨率", "wm size"),
         AdbCommand("查看当前屏幕DPI", "wm density"),
         AdbCommand("杀死所有后台进程", "am kill-all"),

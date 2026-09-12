@@ -9,7 +9,6 @@
     <!-- I don't accept your suggestion -->
     <issue id="DiscouragedPrivateApi">
         <ignore path="**/AdbSessionService.kt" />
-        <ignore path="**/IdentityFooterSection.kt" />
     </issue>
 
     <!-- Optional: If you use regular Java reflection elsewhere with HiddenApiBypass -->

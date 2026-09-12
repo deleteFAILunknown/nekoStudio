@@ -233,6 +233,8 @@
     <uses-permission android:name="android.permission.ACCESS_ADSERVICES_ATTRIBUTION" />
     <!-- 访问 Topics API -->
     <uses-permission android:name="android.permission.ACCESS_ADSERVICES_TOPICS" />
+    <!-- 运行用户发起的作业 API -->
+    <uses-permission android:name="android.permission.RUN_USER_INITIATED_JOBS" />
     <!-- 声明查询全局已安装应用权限 -->
     <uses-permission
         android:name="android.permission.QUERY_ALL_PACKAGES"
@@ -637,15 +639,16 @@
                  android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED"
                  android:resource="@xml/accessory_filter" />
         </activity>
+        <!-- Service type: 连接设备、远程消息、特殊用途、健康、相机、位置、媒体、媒体投屏、麦克风 -->
         <service 
             android:name=".service.AdbSessionService"
-            android:foregroundServiceType="connectedDevice|remoteMessaging|specialUse"
+            android:foregroundServiceType="connectedDevice|remoteMessaging|specialUse|health|camera|location|mediaPlayback|mediaProjection|microphone"
             android:exported="true"
             android:directBootAware="true"
             android:permission="com.adb.kitty.USE_PRIVATE_API" >
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Terminal shell execution service for local developer tool" />
+                android:value="Terminal or Shell or AppOps" />
         </service>
         <provider
             android:name=".provider.AppDataFilesProvider"

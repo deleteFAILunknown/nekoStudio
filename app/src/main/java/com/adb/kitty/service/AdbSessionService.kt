@@ -76,13 +76,13 @@ class AdbSessionService : Service() {
         const val ACTION_STOP_RECORDING = "com.adb.kitty.ACTION_STOP_RECORDING"
         private const val KEY_REPLY_INPUT = "key_reply_input"
     }
-    
+
     private var lastCommand: String? = null
     private var cachedCircularIcon: IconCompat? = null
     var onCommandReceivedListener: ((String) -> Unit)? = null
 
     private val kadbInstancePool = ConcurrentHashMap<String, Kadb>()
-    
+
     @Volatile
     private var currentWorkingDirectory: File = Environment.getExternalStorageDirectory()
 
@@ -91,7 +91,7 @@ class AdbSessionService : Service() {
 
     @Volatile
     private var currentTaskKey: String? = null
-    
+
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var refreshJob: Job? = null
 
@@ -102,13 +102,13 @@ class AdbSessionService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder = binder
-    
+
     private val _currentDeviceId = MutableStateFlow<String?>(null)
     val currentDeviceIdState = _currentDeviceId.asStateFlow()
 
     private val _connectedDevices = MutableStateFlow<List<String>>(emptyList())
     val connectedDevicesState = _connectedDevices.asStateFlow()
-    
+
     var currentDeviceId: String?
         get() = _currentDeviceId.value
         set(value) {
@@ -127,25 +127,25 @@ class AdbSessionService : Service() {
                 notifyDeviceDataChanged()
             }
         }
-        
+
     private fun notifyDeviceDataChanged() {
         _connectedDevices.value = kadbInstancePool.keys().toList()
     }
-        
+
     fun registerUsbDevice(serialNumber: String, instance: Kadb) {
         val key = "USB_$serialNumber"
         kadbInstancePool[key] = instance
         if (currentDeviceId == null) currentDeviceId = key
         notifyDeviceDataChanged()
     }
-    
+
     fun registerWifiDevice(ipAndPort: String, instance: Kadb) {
         val key = "WIFI_$ipAndPort"
         kadbInstancePool[key] = instance
         if (currentDeviceId == null) currentDeviceId = key
         notifyDeviceDataChanged()
     }
-    
+
     fun unregisterDevice(deviceId: String) {
         kadbInstancePool.remove(deviceId)?.let { runCatching { it.close() } }
         if (currentDeviceId == deviceId) {
@@ -153,7 +153,7 @@ class AdbSessionService : Service() {
         }
         notifyDeviceDataChanged()
     }
-    
+
     fun getConnectedDeviceIds(): List<String> = kadbInstancePool.keys().toList()
     
     fun logToNotification(log: String) {
@@ -165,7 +165,8 @@ class AdbSessionService : Service() {
         }
         triggerTickerRefreshImmediate()
     }
-    
+
+    // 实验性 API，虽然已通过测试，但它依然是一个稳定性未知的 API
     private val shellCmdReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == "com.adb.kitty.MY_CMD") {
@@ -177,53 +178,16 @@ class AdbSessionService : Service() {
         }
     }
 
+    private var currentText: String = "00:00:00"
+    // 记录已注册的前台服务类型集合
+    private var activeForegroundTypes: Int = 0
+
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        // 1. 初始状态闪击启动前台服务
-        val initialText = "00:00:00"
 
-        // Android 14+ (API 34+) 安全变量
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            var finalTypes = ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or 
-                             ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING
-
-            // 3. 动态检查 Appops 状态
-            val appOpsManager = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
-            val mode = appOpsManager.checkOpNoThrow(
-                "android:foreground_service_special_use", 
-                android.os.Process.myUid(), 
-                packageName
-            )
-
-            // 4. 满足条件则叠加特殊用途
-            if (mode == AppOpsManager.MODE_ALLOWED) {
-                finalTypes = finalTypes or ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-            }
-
-            try {
-                startForeground(
-                    NOTIFICATION_ID, 
-                    buildNotification(initialText),
-                    finalTypes
-                )
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        } else {
-            // 5. Android 10 (API 29) ~ Android 13 (API 33) 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                // Android 10 ~ 13 中不存在 REMOTE_MESSAGING 类型前台服务
-                startForeground(
-                    NOTIFICATION_ID, 
-                    buildNotification(initialText),
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
-                )
-            } else {
-                // Android 7.0 (API 24) ~ Android 9 (API 28)
-                startForeground(NOTIFICATION_ID, buildNotification(initialText))
-            }
-        }
+        // 1. 初始注册前台服务（传入默认 0 增量）
+        updateForegroundType()
 
         // 运行前台服务被要求在 1秒或者2秒 内发送通知，必需发送通知，哪怕用户没有授予通知权限，也是可以正常运行的，通知并不会影响到前台服务，唯一受影响的只有视觉上
         updateShortcutIfNeeded()
@@ -235,6 +199,80 @@ class AdbSessionService : Service() {
             IntentFilter("com.adb.kitty.MY_CMD"),
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
+    }
+
+/*
+*  增量追加某种类型，前提是已经在清单中声明了该类型
+*  updateForegroundType(
+*    addTypes = ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+*  )
+*
+*  增量移除某种类型，请务必等任务圆满完成之后再移除，否则将抛出权限崩溃异常，直接关闭整个 Service 或 Activity
+*  updateForegroundType(
+*    removeTypes = ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+*  )
+*
+*  同时追加与移除前台服务类型
+*  updateForegroundType(
+*      addTypes = ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE,
+*      removeTypes = ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+*  )
+*/
+
+    /**
+     * 动态更新前台服务类型（支持增量追加和增量移除）
+     * @param addTypes 需要新增的 ServiceInfo.FOREGROUND_SERVICE_TYPE_* 掩码
+     * @param removeTypes 需要移除的 ServiceInfo.FOREGROUND_SERVICE_TYPE_* 掩码
+     */
+    fun updateForegroundType(addTypes: Int = 0, removeTypes: Int = 0) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            startForeground(NOTIFICATION_ID, buildNotification(currentText))
+            return
+        }
+
+        // 1. 如果尚未初始化基础类型，先计算基础类型
+        if (activeForegroundTypes == 0) {
+            activeForegroundTypes = getBaseForegroundTypes()
+        }
+
+        // 2. 增量追加 + 增量移除（按位与取反）
+        activeForegroundTypes = (activeForegroundTypes or addTypes) and removeTypes.inv()
+
+        // 3. 提交更新到系统
+        try {
+            startForeground(
+                NOTIFICATION_ID,
+                buildNotification(currentText),
+                activeForegroundTypes
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    /**
+     * 封装获取应用基础必备类型
+     */
+    private fun getBaseForegroundTypes(): Int {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            var types = ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING
+
+            val appOpsManager = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+            val mode = appOpsManager.checkOpNoThrow(
+                "android:foreground_service_special_use",
+                android.os.Process.myUid(),
+                packageName
+            )
+
+            if (mode == AppOpsManager.MODE_ALLOWED) {
+                types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            }
+            return types
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            return ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+        }
+        return 0
     }
 
     private var wakeLock: PowerManager.WakeLock? = null
