@@ -190,7 +190,7 @@ class AdbSessionService : Service() {
 
             // 3. 动态检查 Appops 状态
             val appOpsManager = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
-            val mode = appOpsManager.unsafeCheckOpNoThrow(
+            val mode = appOpsManager.checkOpNoThrow(
                 "android:foreground_service_special_use", 
                 android.os.Process.myUid(), 
                 packageName
