@@ -639,7 +639,7 @@
         </activity>
         <service 
             android:name=".service.AdbSessionService"
-            android:foregroundServiceType="connectedDevice|specialUse"
+            android:foregroundServiceType="connectedDevice|mediaPlayback|remoteMessaging|specialUse"
             android:exported="true"
             android:directBootAware="true"
             android:permission="com.adb.kitty.USE_PRIVATE_API" >

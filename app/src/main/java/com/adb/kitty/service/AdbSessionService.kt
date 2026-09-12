@@ -16,6 +16,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.app.ActivityOptions
+import android.app.AppOpsManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -27,6 +28,7 @@ import android.os.Binder
 import android.os.Build
 import android.os.Environment
 import android.os.IBinder
+import android.os.Process
 import android.os.ParcelFileDescriptor
 import android.os.PowerManager
 import android.system.Os
@@ -67,7 +69,11 @@ class AdbSessionService : Service() {
     private val GROUP_ID = "com.adb.kitty.core_service_group"
     private val MAX_LOG_COUNT = 1
     private val notificationLogs = mutableListOf<String>()
-    
+
+    private val baseServiceTypes = ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or 
+                                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK or 
+                                    ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING
+
     companion object {
         private const val ACTION_REPLY_COMMAND = "com.adb.kitty.ACTION_REPLY_COMMAND"
         const val ACTION_START_RECORDING = "com.adb.kitty.ACTION_START_RECORDING"
@@ -178,25 +184,45 @@ class AdbSessionService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        updateShortcutIfNeeded()
-        
         // 1. 初始状态闪击启动前台服务
         val initialText = "00:00:00"
-        
-        // 因为 minSdk >= 29，我们只需要专门针对 Android 14 (API 34) 以上进行安全常量绑定即可
+
+        // Android 14+ (API 34+) 安全变量
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(
-                NOTIFICATION_ID, 
-                buildNotification(initialText),
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            // 2. 动态计算最终要传给系统的类型
+            var finalTypes = baseServiceTypes
+
+            // 3. 动态检查 Appops 状态
+            val appOpsManager = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+            val mode = appOpsManager.unsafeCheckOpNoThrow(
+                "android:foreground_service_special_use", // 对应 Appops 中的操作名
+                android.os.Process.myUid(), 
+                packageName
             )
+
+            // 4. 只有在真正被授予（手动开启）的情况下，才利用 or 叠加特殊用途类型
+            if (mode == AppOpsManager.MODE_ALLOWED) {
+                finalTypes = finalTypes or ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            }
+
+            // 5. 此时启动是绝对安全的，没授权时会自动降级为前三种类型运行
+            try {
+                startForeground(
+                    NOTIFICATION_ID, 
+                    buildNotification(initialText),
+                    finalTypes
+                )
+            } catch (e: Exception) {
+                // 最后的防线：如果因为系统突发其他策略拦截，捕获异常防止闪退
+                e.printStackTrace()
+            }
         } else {
-            // Android 10 ~ Android 13，直接启动即可
+            // Android 10 ~ Android 13
             startForeground(NOTIFICATION_ID, buildNotification(initialText))
         }
-
+        updateShortcutIfNeeded()
         startNotificationTicker()
-        
+
         ContextCompat.registerReceiver(
             this,
             shellCmdReceiver,
