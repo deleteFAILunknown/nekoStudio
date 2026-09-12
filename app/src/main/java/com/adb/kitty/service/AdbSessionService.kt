@@ -71,7 +71,6 @@ class AdbSessionService : Service() {
     private val notificationLogs = mutableListOf<String>()
 
     private val baseServiceTypes = ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or 
-                                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK or 
                                     ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING
 
     companion object {
