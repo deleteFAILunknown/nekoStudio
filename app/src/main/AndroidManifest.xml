@@ -434,21 +434,31 @@
     <uses-permission android:name="android.permission.GET_PACKAGE_SIZE" />
 
     <!-- 访问环境光传感器统计数据 -->
-    <uses-permission android:name="android.permission.ACCESS_AMBIENT_LIGHT_STATS" />
+    <uses-permission 
+        android:name="android.permission.ACCESS_AMBIENT_LIGHT_STATS"
+        tools:ignore="ProtectedPermissions" />
     <!-- 允许接受来自其他应用的呼叫转移/接力 -->
     <uses-permission android:name="android.permission.ACCEPT_HANDOVER" />
     <!-- 亮度调节 -->
-    <uses-permission android:name="android.permission.BRIGHTNESS_SLIDER_USAGE" />
+    <uses-permission 
+        android:name="android.permission.BRIGHTNESS_SLIDER_USAGE"
+        tools:ignore="ProtectedPermissions" />
     <!-- 亮度分析 -->
-    <uses-permission android:name="android.permission.CONFIGURE_DISPLAY_BRIGHTNESS" />
+    <uses-permission 
+        android:name="android.permission.CONFIGURE_DISPLAY_BRIGHTNESS"
+        tools:ignore="ProtectedPermissions" />
     <!-- 允许修改系统语言、屏幕旋转等全局配置 -->
     <uses-permission android:name="android.permission.CHANGE_CONFIGURATION" />
     <!-- 控制 UI 性能追踪调试 -->
-    <uses-permission android:name="android.permission.CONTROL_UI_TRACING" />
+    <uses-permission 
+        android:name="android.permission.CONTROL_UI_TRACING"
+        tools:ignore="ProtectedPermissions" />
     <!-- 获取手机系统账户列表 -->
     <uses-permission android:name="android.permission.GET_ACCOUNTS" />
     <!-- 获取进程状态和进程被杀评分 -->
-    <uses-permission android:name="android.permission.GET_PROCESS_STATE_AND_OOM_SCORE" />
+    <uses-permission 
+        android:name="android.permission.GET_PROCESS_STATE_AND_OOM_SCORE"
+        tools:ignore="ProtectedPermissions" />
     <!-- 读取心率 -->
     <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
     <!-- 读取血氧饱合度 -->
@@ -458,7 +468,9 @@
     <!-- 免安装应用启动前台服务 -->
     <uses-permission android:name="android.permission.INSTANT_APP_FOREGROUND_SERVICE" />
     <!-- 允许在手机的“工作资料/双开应用”和“主空间”之间交互 -->
-    <uses-permission android:name="android.permission.INTERACT_ACROSS_PROFILES" />
+    <uses-permission 
+        android:name="android.permission.INTERACT_ACROSS_PROFILES"
+        tools:ignore="ProtectedPermissions" />
     <!-- 类加载器使用统计 -->
     <uses-permission android:name="android.permission.LOADER_USAGE_STATS" />
     <!-- 使用网络电话 -->
@@ -470,9 +482,13 @@
     <!-- 设置选择调试应用 -->
     <uses-permission android:name="android.permission.SET_DEBUG_APP" />
     <!-- 监听长按音量键 -->
-    <uses-permission android:name="android.permission.SET_VOLUME_KEY_LONG_PRESS_LISTENER" />
+    <uses-permission 
+        android:name="android.permission.SET_VOLUME_KEY_LONG_PRESS_LISTENER"
+        tools:ignore="ProtectedPermissions" />
     <!-- 监听媒体键 -->
-    <uses-permission android:name="android.permission.SET_MEDIA_KEY_LISTENER" />
+    <uses-permission 
+        android:name="android.permission.SET_MEDIA_KEY_LISTENER"
+        tools:ignore="ProtectedPermissions" />
     <!-- 调节窗口/过渡动画速度 -->
     <uses-permission android:name="android.permission.SET_ANIMATION_SCALE" />
     <!-- 限制后台最大进程数 -->
@@ -490,7 +506,9 @@
     <!-- 修改系统偏好设置 -->
     <uses-permission android:name="android.permission.WRITE_SYSTEM_PREFERENCES" />
     <!-- 下载和管理 eSIM 电子卡配置文件 -->
-    <uses-permission android:name="android.permission.WRITE_EMBEDDED_SUBSCRIPTIONS" />
+    <uses-permission 
+        android:name="android.permission.WRITE_EMBEDDED_SUBSCRIPTIONS"
+        tools:ignore="ProtectedPermissions" />
     <!-- 沙盒音频触发接收 -->
     <uses-permission android:name="android.permission.RECEIVE_SANDBOX_TRIGGER_AUDIO" />
     <!-- 允许应用设置精准到秒的闹钟 -->
@@ -500,7 +518,9 @@
     <!-- 控制媒体音频流向哪个设备 -->
     <uses-permission android:name="android.permission.MEDIA_ROUTING_CONTROL" />
     <!-- 修改工作资料的静音模式 -->
-    <uses-permission android:name="android.permission.MODIFY_QUIET_MODE" />
+    <uses-permission 
+        android:name="android.permission.MODIFY_QUIET_MODE"
+        tools:ignore="ProtectedPermissions" />
     <!-- 允许写入联系人 -->
     <uses-permission android:name="android.permission.WRITE_CONTACTS" />
     <!-- 允许读取联系人 -->
