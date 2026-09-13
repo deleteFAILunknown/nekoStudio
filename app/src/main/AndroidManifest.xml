@@ -222,7 +222,7 @@
     <uses-feature 
           android:name="android.hardware.camera.flash"
           android:required="false" />
-    
+
     <!-- 虚拟机超级用户权限 superuser -->
     <uses-permission
         android:name="android.permission.ACCESS_SUPERUSER"
@@ -331,6 +331,10 @@
     <uses-permission 
         android:name="android.permission.BATTERY_STATS"
         tools:ignore="ProtectedPermissions" />
+    <!-- AppOps get -->
+    <uses-permission 
+        android:name="android.permission.GET_APP_OPS_STATS"
+        tools:ignore="ProtectedPermissions" />
     <!-- 允许应用阻止非系统覆盖窗口绘制在其上方 -->
     <uses-permission android:name="android.permission.HIDE_OVERLAY_WINDOWS" />
     <!-- Android 17+ 局域网附近设备 -->
@@ -428,7 +432,102 @@
     <uses-permission android:name="android.permission.DETECT_SCREEN_RECORDING" />
     <!-- 计算应用存储空间 -->
     <uses-permission android:name="android.permission.GET_PACKAGE_SIZE" />
-    
+
+    <!-- 访问环境光传感器统计数据 -->
+    <uses-permission android:name="android.permission.ACCESS_AMBIENT_LIGHT_STATS" />
+    <!-- 允许接受来自其他应用的呼叫转移/接力 -->
+    <uses-permission android:name="android.permission.ACCEPT_HANDOVER" />
+    <!-- 亮度调节 -->
+    <uses-permission android:name="android.permission.BRIGHTNESS_SLIDER_USAGE" />
+    <!-- 亮度分析 -->
+    <uses-permission android:name="android.permission.CONFIGURE_DISPLAY_BRIGHTNESS" />
+    <!-- 允许修改系统语言、屏幕旋转等全局配置 -->
+    <uses-permission android:name="android.permission.CHANGE_CONFIGURATION" />
+    <!-- 控制 UI 性能追踪调试 -->
+    <uses-permission android:name="android.permission.CONTROL_UI_TRACING" />
+    <!-- 获取手机系统账户列表 -->
+    <uses-permission android:name="android.permission.GET_ACCOUNTS" />
+    <!-- 获取进程状态和进程被杀评分 -->
+    <uses-permission android:name="android.permission.GET_PROCESS_STATE_AND_OOM_SCORE" />
+    <!-- 读取心率 -->
+    <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
+    <!-- 读取血氧饱合度 -->
+    <uses-permission android:name="android.permission.health.READ_OXYGEN_SATURATION" />
+    <!-- 读取皮肤温度 -->
+    <uses-permission android:name="android.permission.health.READ_SKIN_TEMPERATURE" />
+    <!-- 免安装应用启动前台服务 -->
+    <uses-permission android:name="android.permission.INSTANT_APP_FOREGROUND_SERVICE" />
+    <!-- 允许在手机的“工作资料/双开应用”和“主空间”之间交互 -->
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_PROFILES" />
+    <!-- 类加载器使用统计 -->
+    <uses-permission android:name="android.permission.LOADER_USAGE_STATS" />
+    <!-- 使用网络电话 -->
+    <uses-permission android:name="android.permission.USE_SIP" />
+    <!-- 添加语音邮箱 -->
+    <uses-permission android:name="com.android.voicemail.permission.ADD_VOICEMAIL" />
+    <!-- 超宽带测距 -->
+    <uses-permission android:name="android.permission.UWB_RANGING" />
+    <!-- 设置选择调试应用 -->
+    <uses-permission android:name="android.permission.SET_DEBUG_APP" />
+    <!-- 监听长按音量键 -->
+    <uses-permission android:name="android.permission.SET_VOLUME_KEY_LONG_PRESS_LISTENER" />
+    <!-- 监听媒体键 -->
+    <uses-permission android:name="android.permission.SET_MEDIA_KEY_LISTENER" />
+    <!-- 调节窗口/过渡动画速度 -->
+    <uses-permission android:name="android.permission.SET_ANIMATION_SCALE" />
+    <!-- 限制后台最大进程数 -->
+    <uses-permission android:name="android.permission.SET_PROCESS_LIMIT" />
+    <!-- 对应开发者选项中的不保留 Activity -->
+    <uses-permission android:name="android.permission.SET_ALWAYS_FINISH" />
+    <!-- 向常驻进程发送信号 -->
+    <uses-permission android:name="android.permission.SIGNAL_PERSISTENT_PROCESSES" />
+    <!-- 允许应用创建自定义虚拟机 -->
+    <uses-permission android:name="android.permission.USE_CUSTOM_VIRTUAL_MACHINE" />
+    <!-- 允许应用管理自定义虚拟机 -->
+    <uses-permission android:name="android.permission.MANAGE_VIRTUAL_MACHINE" />
+    <!-- 无线电测距 -->
+    <uses-permission android:name="android.permission.RANGING" />
+    <!-- 修改系统偏好设置 -->
+    <uses-permission android:name="android.permission.WRITE_SYSTEM_PREFERENCES" />
+    <!-- 下载和管理 eSIM 电子卡配置文件 -->
+    <uses-permission android:name="android.permission.WRITE_EMBEDDED_SUBSCRIPTIONS" />
+    <!-- 沙盒音频触发接收 -->
+    <uses-permission android:name="android.permission.RECEIVE_SANDBOX_TRIGGER_AUDIO" />
+    <!-- 允许应用设置精准到秒的闹钟 -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- 全屏通知权限 -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <!-- 控制媒体音频流向哪个设备 -->
+    <uses-permission android:name="android.permission.MEDIA_ROUTING_CONTROL" />
+    <!-- 修改工作资料的静音模式 -->
+    <uses-permission android:name="android.permission.MODIFY_QUIET_MODE" />
+    <!-- 允许写入联系人 -->
+    <uses-permission android:name="android.permission.WRITE_CONTACTS" />
+    <!-- 允许读取联系人 -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- 允许写入通话记录 -->
+    <uses-permission android:name="android.permission.WRITE_CALL_LOG" />
+    <!-- 允许读取通话记录 -->
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <!-- 允许写入日历 -->
+    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
+    <!-- 读取手机识别码/IMEI -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <!-- 读取手机号 -->
+    <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
+    <!-- 接收短信/彩信 WAP 推送 -->
+    <uses-permission android:name="android.permission.RECEIVE_WAP_PUSH" />
+    <!-- 读取短信 -->
+    <uses-permission android:name="android.permission.READ_SMS" />
+    <!-- 接收短信 -->
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <!-- 发短信 -->
+    <uses-permission android:name="android.permission.SEND_SMS" />
+    <!-- 接收彩信 -->
+    <uses-permission android:name="android.permission.RECEIVE_MMS" />
+    <!-- 读取小区广播 -->
+    <uses-permission android:name="android.permission.READ_CELL_BROADCASTS" />
+
     <!-- Application 私有 API -->
     <uses-permission android:name="com.adb.kitty.USE_PRIVATE_API" />
     <permission
@@ -437,7 +536,7 @@
         android:icon="@drawable/ic_launcher_foreground"
         android:label="@string/permission_label"
         android:protectionLevel="signature" />
-    
+
     <queries>
         <package android:name="com.adb.kitty" />
         <package android:name="com.android.browser" />
