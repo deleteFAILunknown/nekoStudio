@@ -85,7 +85,7 @@ import com.adb.kitty.ui.it.*
 
 @Keep
 class MainActivityViewModel(application: Application) : AndroidViewModel(application) {
-    
+
     private val sharedPrefs = application.getSharedPreferences(
         "user_color_settings", 
         Context.MODE_PRIVATE
@@ -103,7 +103,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
             putBoolean(KEY_USE_DYNAMIC_COLOR, enabled)
         }
     }
-    
+
     /**
      * 判断当前 Native 堆外日志缓冲区是否为空
      */
@@ -230,7 +230,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
     fun setAdbService(service: AdbSessionService?) {
         _adbService.value = service
     }
-    
+
     @OptIn(ExperimentalCoroutinesApi::class)
     val deviceListState: StateFlow<List<DeviceUiState>> = _adbService.flatMapLatest { service ->
         if (service == null) {
@@ -257,12 +257,12 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
             appendLog("[错误] 通信守护服务未就绪，切换失败。")
             return
         }
-        
+
         if (!service.getConnectedDeviceIds().contains(targetDevice.id) || targetDevice.isActive) {
             appendLog("[INFO] 切换熔断：设备 ${targetDevice.displayName} 已离线或已被激活。")
             return
         }
-        
+
         try {
             service.currentDeviceId = targetDevice.id
             appendLog("[INFO] 主控权已动态切流至 -> ${targetDevice.displayName}")
@@ -270,10 +270,10 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
             appendLog("[系统] 切流发生异常: ${e.localizedMessage}")
         }
     }
-    
+
     private var _fastbootManager: FastbootManager? = null
     val fastbootManager: FastbootManager? get() = _fastbootManager
-    
+
     fun initFastboot(
         usbConn: UsbDeviceConnection,
         epOut: UsbEndpoint,
@@ -294,7 +294,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
             appendLog("[系统] 宿主 ViewModel 成功并网 Fastboot 物理总线。")
         }
     }
-    
+
     fun runCommand(cmd: String) {
         viewModelScope.launch(Dispatchers.IO) {
             val manager = _fastbootManager
@@ -309,7 +309,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
             }
         }
     }
-    
+
     override fun onCleared() {
         _fastbootManager = null
     }
@@ -363,7 +363,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         AppCommand("查看应用签名信息, 该指令由app提供", "neko-sig"),
         AppCommand("查看应用签名信息, 该指令由app提供", "apk-sig")
     )
-    
+
     private val _adbCommands = listOf(
         AdbCommand("adb pair [IP:配对端口] [配对码]", "adb pair "),
         AdbCommand("adb connect [IP:无线调试端口]", "adb connect "),
@@ -384,11 +384,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         AdbCommand("抓取崩溃缓冲区的日志", "logcat -b crash -d"),
         AdbCommand("清空历史输出的日志", "logcat -c"),
         AdbCommand("快照式转储日志", "logcat -d"),
-        AdbCommand("settings [--user 用户]  <动作>  <命名空间>  <参数>  [参数]", "settings "),
-        AdbCommand("settings [--user <用户id>] get [global|secure|system] <参数>", "settings "),
-        AdbCommand("settings [--user <用户id>] put [global|secure|system] <参数> <参数>", "settings "),
-        AdbCommand("settings [--user <用户id>] delete [global|secure|system] <参数>", "settings "),
-        AdbCommand("settings [--user <用户id>] list [global|secure|system]", "settings "),
+        AdbCommand("settings [--user 用户id]  [get|put|delete|list]  [global|secure|system]  <参数>  [参数]", "settings "),
         AdbCommand("settings get global [参数]", "settings get global "),
         AdbCommand("settings get secure [参数]", "settings get secure "),
         AdbCommand("settings get system [参数]", "settings get system "),
@@ -432,6 +428,11 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         AdbCommand("am kill [包名]", "am kill "),
         AdbCommand("am force-stop [包名]", "am force-stop "),
         AdbCommand("am <子命令> [参数] <意图(Intent)>", "am "),
+        AdbCommand("打开被隐藏的正在运行的服务", "su -c am start -n com.android.settings/.SubSettings --es :settings:show_fragment com.android.settings.applications.RunningServices"),
+        AdbCommand("打开被隐藏的极暗界面", "su -c am start -n com.android.settings/.Settings\$ReduceBrightColorsSettingsActivity"),
+        AdbCommand("打开被隐藏的通知界面", "su -c am start -n com.android.settings/.Settings\$ConfigureNotificationSettingsActivity"),
+        AdbCommand("启用极暗模式", "su -c settings put secure reduce_bright_colors_activated 1"),
+        AdbCommand("禁用极暗模式", "su -c settings put secure reduce_bright_colors_activated 0"),
         AdbCommand("pm path [包名]", "pm path "),
         AdbCommand("pm clear [包名]", "pm clear "),
         AdbCommand("pm enable [包名或应用组件]", "pm enable "),
@@ -475,7 +476,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         AdbCommand("列出当前运行中进程shell的SeLinux域", "su -c ps -AZ | grep shell"),
         AdbCommand("列出当前运行中进程system的SeLinux域", "su -c ps -AZ | grep system")
     )
-    
+
     private val _fbCommands = listOf(
         FbCommand("fastboot set_active <a或b>", "set_active "),
         FbCommand("fastboot format <分区>", "format "),
