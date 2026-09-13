@@ -235,6 +235,8 @@
     <uses-permission android:name="android.permission.ACCESS_ADSERVICES_TOPICS" />
     <!-- 运行用户发起的作业 API -->
     <uses-permission android:name="android.permission.RUN_USER_INITIATED_JOBS" />
+    <!-- 访问通知策略 -->
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
     <!-- 声明查询全局已安装应用权限 -->
     <uses-permission
         android:name="android.permission.QUERY_ALL_PACKAGES"
