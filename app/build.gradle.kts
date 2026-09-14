@@ -17,6 +17,7 @@ import com.android.build.api.variant.ApplicationAndroidComponentsExtension
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.kotlinx.serialization)
 }
 
 val libsCompileSdk = libs.versions.android.compileSdk.get().toInt()
