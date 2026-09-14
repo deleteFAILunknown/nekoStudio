@@ -150,7 +150,7 @@ class FastbootManager(
                 if (parts.size >= 3) {
                     performFlash(parts[1], parts[2])
                 } else {
-                    withContext(Dispatchers.Main) { log("❌ 格式错误: flash <分区> <文件名>") }
+                    withContext(Dispatchers.Main) { log("❌ 格式错误: flash 分区 文件名") }
                 }
                 return@withContext
             }
@@ -158,7 +158,7 @@ class FastbootManager(
                 if (parts.size >= 2) {
                     performBoot(parts[1])
                 } else {
-                    withContext(Dispatchers.Main) { log("❌ 格式错误: boot <文件名>") }
+                    withContext(Dispatchers.Main) { log("❌ 格式错误: boot 文件名") }
                 }
                 return@withContext
             }

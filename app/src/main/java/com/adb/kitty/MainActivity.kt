@@ -775,7 +775,7 @@ class MainActivity : ComponentActivity() {
         val prefix = if (isEncrypt) "encrypt " else "decrypt "
         val args = cmd.removePrefix(prefix).trim().split(" ")
         if (args.size < 2) {
-            appendLog("[错误] 用法: ${prefix.trim()} <文件名> <密码>")
+            appendLog("[错误] 用法: ${prefix.trim()} 文件名 密码")
             return
         }
         val fileName = args[0]
@@ -811,7 +811,7 @@ class MainActivity : ComponentActivity() {
         appendLog("[系统] 扩展指令 >> $cmd")
         val arg = cmd.removePrefix("qr-gen ").trim()
         if (arg.isEmpty()) {
-            appendLog("[错误] qr-gen 指令缺少参数！用法: qr-gen <文本/文件名>")
+            appendLog("[错误] qr-gen 指令缺少参数！用法: qr-gen 文本或文件名")
             return
         }
         val fileInFlash = File(flashFolder, arg)
@@ -1419,7 +1419,7 @@ class MainActivity : ComponentActivity() {
         appendLog("安装 >> $command")
         val trimmedCmd = command.trim()
         if (!trimmedCmd.startsWith("adb install", ignoreCase = true)) {
-            appendLog("[错误] 请使用正规格式: adb install [本地路径/文件名]")
+            appendLog("[错误] 请使用正规格式: adb install 本地路径或文件名")
             return
         }
         
@@ -1513,7 +1513,7 @@ class MainActivity : ComponentActivity() {
         appendLog("卸载 >> $command")
         val parts = command.split("\\s+".toRegex()).filter { it.isNotBlank() }
         if (parts.size < 3) {
-            appendLog("[错误] 请使用: adb uninstall [包名]")
+            appendLog("[错误] 请使用: adb uninstall 包名")
             return
         }
 
@@ -1676,7 +1676,7 @@ class MainActivity : ComponentActivity() {
         appendLog("[配对] 执行 >> $command")
         val parts = command.split("\\s+".toRegex()).filter { it.isNotBlank() }
         if (parts.size < 4) {
-            appendLog("[错误] 请使用: adb pair [IP:配对端口] [配对码]")
+            appendLog("[错误] 先在无线调试界面点击使用配对码配对，开小窗，再使用: adb pair IP地址:配对端口 配对码")
             return
         }
 
@@ -1711,7 +1711,7 @@ class MainActivity : ComponentActivity() {
 
         val parts = command.split("\\s+".toRegex()).filter { it.isNotBlank() }
         if (parts.size < 3) {
-            withContext(Dispatchers.Main) { appendLog("[错误] 请使用: adb connect [IP:无线调试端口]") }
+            withContext(Dispatchers.Main) { appendLog("[错误] 请使用: adb connect IP地址:无线调试端口") }
             return
         }
         val target = parts[2]
@@ -1770,7 +1770,7 @@ class MainActivity : ComponentActivity() {
         appendLog("推送 >> $command")
         val parts = command.split("\\s+".toRegex()).filter { it.isNotBlank() }
         if (parts.size < 4) {
-            appendLog("[错误] 请使用: adb push [本地文件名] [远端路径]")
+            appendLog("[错误] 请使用: adb push 本地文件名 远端路径")
             return
         }
 
@@ -1843,7 +1843,7 @@ class MainActivity : ComponentActivity() {
         appendLog("拉取 >> $command")
         val parts = command.split("\\s+".toRegex()).filter { it.isNotBlank() }
         if (parts.size < 3) {
-            appendLog("[错误] 请使用: adb pull [远端路径] (可选本地落地名)")
+            appendLog("[错误] 请使用: adb pull 远端路径 可选本地落地名")
             return
         }
 

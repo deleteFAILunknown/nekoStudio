@@ -42,32 +42,32 @@ fun CommandHelpBottomSheet(
                 description = "使用有线/无线连接到adbd",
                 options = listOf(
                     CommandOption(
-                        flag = "adb pair [IP:配对端口] [配对码]",
-                        description = "使用 adb pair 在同一 Wi-Fi 下进行 ADB 无线配对"
+                        flag = "adb pair IP地址:配对端口 配对码",
+                        description = "adb pair 198.0.0.1:13056 123456"
                     ),
                     CommandOption(
-                        flag = "adb connect [IP:无线调试端口]",
-                        description = "无线配对完成之后，使用 adb connect 连接到目标IP地址设备的 adbd, 进行无线调试"
+                        flag = "adb connect IP地址:无线调试端口",
+                        description = "adb connect 198.0.0.1:13056"
                     ),
                     CommandOption(
-                        flag = "adb push [本地文件名] [远端路径]",
-                        description = "使用 adb push 将文件推送至目标设备的adb可访问的位置"
+                        flag = "adb push 本地文件名 远端路径",
+                        description = "将文件推送至目标设备的adb可访问的位置，文件必须放在应用外部存储目录的flash文件夹"
                     ),
                     CommandOption(
-                        flag = "adb pull [远端路径] (可选本地落地名)",
-                        description = "使用 adb pull 拉取目标设备的文件, 前提是adb可访问"
+                        flag = "adb pull 远端路径 可选本地落地名",
+                        description = "拉取目标设备上的文件, 前提是adb可访问，拉取成功之后，文件落地应用外部存储目录的flash文件夹"
                     ),
                     CommandOption(
-                        flag = "adb install [本地文件名]",
-                        description = "使用 adb install 将apk、apks、xapk安装到目标设备上"
+                        flag = "adb install 本地文件名",
+                        description = "将apk、apks、xapk安装到目标设备上，文件必须放在应用外部存储目录的flash文件夹"
                     ),
                     CommandOption(
-                        flag = "adb uninstall [包名]",
-                        description = "使用 adb uninstall 卸载目标设备上的应用"
+                        flag = "adb uninstall 包名",
+                        description = "卸载目标设备上的应用"
                     ),
                     CommandOption(
-                        flag = "adb shell [指令] [选项] [参数]",
-                        description = "使用 adb shell 通过 adbd 调用 Shell, 将拥有 uid 2000 的特权"
+                        flag = "adb shell 指令 选项 参数",
+                        description = "通过 adbd 调用 Shell, 将拥有 uid 2000 的特权"
                     )
                 )
             ),
@@ -77,36 +77,36 @@ fun CommandHelpBottomSheet(
                 description = "使用 fastboot 原生底层链路进行有线刷机, 高级玩法请迁移至 Termux 使用 fastboot 可执行文件来完成",
                 options = listOf(
                     CommandOption(
-                        flag = "reboot <可选参数>",
-                        description = "进入 fastboot 后, 使用 reboot 进行重启操作"
+                        flag = "reboot 可选参数",
+                        description = "使用 reboot 进行重启操作"
                     ),
                     CommandOption(
-                        flag = "getvar <参数>",
-                        description = "进入 fastboot 后, 使用 getvar 进行查询操作"
+                        flag = "getvar 参数",
+                        description = "使用 getvar 进行查询操作"
                     ),
                     CommandOption(
-                        flag = "oem <参数>",
-                        description = "进入 fastboot 后, 使用 oem 进行解锁、回锁或查询操作"
+                        flag = "oem 参数",
+                        description = "使用 oem 进行解锁、回锁或查询操作"
                     ),
                     CommandOption(
-                        flag = "erase <分区>",
-                        description = "进入 fastboot 后, 使用 erase 进行擦除数据操作"
+                        flag = "erase 分区",
+                        description = "使用 erase 进行擦除数据操作"
                     ),
                     CommandOption(
-                        flag = "format <分区>",
-                        description = "进入 fastboot 后, 使用 format 进行格式化操作"
+                        flag = "format 分区",
+                        description = "使用 format 进行格式化操作"
                     ),
                     CommandOption(
-                        flag = "set_active <a或b>",
-                        description = "进入 fastboot 后, 使用 set_active 进行切换活跃插槽操作"
+                        flag = "set_active a或b",
+                        description = "使用 set_active 进行切换活跃插槽操作"
                     ),
                     CommandOption(
-                        flag = "flash <分区> <路径>",
-                        description = "进入 fastboot 后, 使用 flash 进行线刷操作"
+                        flag = "flash 分区 路径",
+                        description = "使用 flash 进行线刷操作"
                     ),
                     CommandOption(
-                        flag = "boot <文件名>",
-                        description = "进入 fastboot 后, 使用 boot 进行临时引导数据操作"
+                        flag = "boot 文件名",
+                        description = "使用 boot 进行临时引导数据操作"
                     )
                 )
             ),
@@ -129,7 +129,7 @@ fun CommandHelpBottomSheet(
             ),
             CommandHelp(
                 title = "下载",
-                command = "download <链接>",
+                command = "download 链接",
                 description = "使用 download 指令下载文件, 仅限 http/https 链接",
                 options = emptyList()
             ),
@@ -141,13 +141,13 @@ fun CommandHelpBottomSheet(
             ),
             CommandHelp(
                 title = "生成 QR 二维码",
-                command = "qr-gen <文本>",
+                command = "qr-gen 文本",
                 description = "使用 qr-gen 可生成二维码, 最多 2000 字节",
                 options = emptyList()
             ),
             CommandHelp(
                 title = "二维码解码",
-                command = "qr-decode <文件>",
+                command = "qr-decode 文件",
                 description = "使用 qr-decode 进行二维码解码操作",
                 options = listOf(
                     CommandOption(
