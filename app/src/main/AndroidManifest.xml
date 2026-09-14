@@ -263,10 +263,6 @@
           tools:ignore="ProtectedPermissions" />
     <!-- 悬浮窗 -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-    <!-- 配置并连接 WiFi 显示器 -->
-    <uses-permission
-        android:name="android.permission.CONFIGURE_WIFI_DISPLAY"
-        tools:ignore="ProtectedPermissions" />
     <!-- 使用情况访问权限 -->
     <uses-permission
         android:name="android.permission.PACKAGE_USAGE_STATS"
