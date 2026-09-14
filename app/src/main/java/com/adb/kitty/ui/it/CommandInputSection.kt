@@ -49,6 +49,15 @@ fun <T> CommandInputSection(
     isAdbItem: (T) -> Boolean,
     modifier: Modifier = Modifier
 ) {
+    // 1. 使用 rememberUpdatedState 保证在 factory 闭包中能获取最新回调
+    val currentOnQueryChange by rememberUpdatedState(onQueryChange)
+
+    // 2. 标记是否正在由 Compose 主动更新 EditText 文本，避免循环触发 TextWatcher
+    class EditStateHolder {
+        var isUpdatingProgrammatically = false
+    }
+    val stateHolder = remember { EditStateHolder() }
+
     val interactionSource = remember { MutableInteractionSource() }
     val coroutineScope = rememberCoroutineScope()
     var focusInteraction by remember { mutableStateOf<FocusInteraction.Focus?>(null) }
@@ -88,7 +97,6 @@ fun <T> CommandInputSection(
                                 textSize = 16f
 
                                 overScrollMode = android.view.View.OVER_SCROLL_NEVER
-
                                 filters = arrayOf(InputFilter.LengthFilter(16384))
 
                                 post {
@@ -97,10 +105,8 @@ fun <T> CommandInputSection(
                                     }
                                 }
 
-                                // 已移除 ScrollingMovementMethod，保留原生 ArrowKeyMovementMethod 以保证长按选择与复制菜单正常工作
                                 isVerticalScrollBarEnabled = false
                                 setHorizontallyScrolling(false)
-
                                 isLongClickable = true
 
                                 setOnTouchListener { view, event ->
@@ -136,21 +142,23 @@ fun <T> CommandInputSection(
 
                                 addTextChangedListener(object : TextWatcher {
                                     override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                                    
-                                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                                        val newText = s?.toString() ?: ""
-                                        if (newText != query.text) {
-                                            val safeStart = selectionStart.coerceIn(0, newText.length)
-                                            val safeEnd = selectionEnd.coerceIn(0, newText.length)
 
-                                            onQueryChange(
-                                                TextFieldValue(
-                                                    text = newText,
-                                                    selection = TextRange(safeStart, safeEnd)
-                                                )
+                                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                                        // 如果是 Compose 程序化更新 EditText，直接跳过处理
+                                        if (stateHolder.isUpdatingProgrammatically) return
+
+                                        val newText = s?.toString() ?: ""
+                                        val safeStart = selectionStart.coerceIn(0, newText.length)
+                                        val safeEnd = selectionEnd.coerceIn(0, newText.length)
+
+                                        // 保证调用的始终是最新的回调
+                                        currentOnQueryChange(
+                                            TextFieldValue(
+                                                text = newText,
+                                                selection = TextRange(safeStart, safeEnd)
                                             )
-                                            searchChannel.trySend(newText)
-                                        }
+                                        )
+                                        searchChannel.trySend(newText)
                                     }
 
                                     override fun afterTextChanged(s: Editable?) {
@@ -175,9 +183,13 @@ fun <T> CommandInputSection(
                             }
                         },
                         update = { editText ->
+                            // 当外部 State 改变且与输入框当前文本不一致时同步（如点击下拉菜单选项）
                             if (editText.text.toString() != query.text) {
+                                stateHolder.isUpdatingProgrammatically = true
                                 editText.setText(query.text)
-                                editText.setSelection(query.text.length)
+                                val safeSelection = query.selection.end.coerceIn(0, query.text.length)
+                                editText.setSelection(safeSelection)
+                                stateHolder.isUpdatingProgrammatically = false
                             }
                         }
                     )
