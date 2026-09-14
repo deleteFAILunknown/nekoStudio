@@ -25,11 +25,11 @@ val libsTargetSdk = libs.versions.android.targetSdk.get().toInt()
 val libsVersionCode = libs.versions.android.versionCode.get().toInt()
 
 val buildDate = SimpleDateFormat("yyyyMMdd").format(Date())
-val libsVersionPrefix = libs.versions.android.versionPrefix.get().toInt()
+val libsVersionPrefix = libs.versions.android.versionPrefix.get()
 
-val libsNdk = libs.versions.android.ndk.version.get().toInt()
-val libsCmake = libs.versions.cmake.version.get().toInt()
-val libsBuildTools = libs.versions.android.buildTools.version.get().toInt()
+val libsNdk = libs.versions.android.ndk.version.get()
+val libsCmake = libs.versions.cmake.version.get()
+val libsBuildTools = libs.versions.android.buildTools.version.get()
 
 val envNewStorePassword = System.getenv("RELEASE_STORE_PASSWORD") ?: ""
 val envNewKeyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: ""
