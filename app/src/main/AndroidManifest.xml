@@ -550,6 +550,95 @@
     <!-- 读取小区广播 -->
     <uses-permission android:name="android.permission.READ_CELL_BROADCASTS" />
 
+    <!-- 访问消耗能耗监控 -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_POWER_MONITORS" />
+    <!-- 创建/认证账户 -->
+    <uses-permission android:name="android.permission.AUTHENTICATE_ACCOUNTS" />
+    <!-- 允许同事应用调用系统通话界面 -->
+    <uses-permission android:name="android.permission.CALL_COMPANION_APP" />
+    <!-- 静默下载文件 -->
+    <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />
+    <!-- 将参与者设备的消息分发给系统 -->
+    <uses-permission android:name="android.permission.DELIVER_COMPANION_MESSAGES" />
+    <!-- 打开手电筒 -->
+    <uses-permission android:name="android.permission.FLASHLIGHT" />
+    <!-- 允许应用强行拉下系统的下拉通知栏 -->
+    <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
+    <!-- 管理账户列表 -->
+    <uses-permission android:name="android.permission.MANAGE_ACCOUNTS" />
+    <!-- 重新排列任务栈 -->
+    <uses-permission android:name="android.permission.REORDER_TASKS" />
+    <!-- 管理安全锁定设备 -->
+    <uses-permission android:name="android.permission.MANAGE_SECURE_LOCK_DEVICE" />
+    <!-- 管理应用本身的称呼 -->
+    <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
+    <!-- 在需要无线确认时管理 Wi-Fi -->
+    <uses-permission android:name="android.permission.MANAGE_WIFI_WHEN_WIRELESS_CONSENT_REQUIRED" />
+    <!-- 读取电话基础状态 -->
+    <uses-permission android:name="android.permission.READ_BASIC_PHONE_STATE" />
+    <!-- 隔离应用允许 -->
+    <uses-permission android:name="android.permission.QUARANTINE_APPS" />
+    <!-- 阅读用户词库 -->
+    <uses-permission android:name="android.permission.READ_USER_DICTIONARY" />
+    <!-- 查看用户个人资料，已弃用 -->
+    <uses-permission android:name="android.permission.READ_PROFILE" />
+    <!-- 读取附近的流媒体配置 -->
+    <uses-permission android:name="android.permission.READ_NEARBY_STREAMING_POLICY" />
+    <!-- 阅读安装说明 -->
+    <uses-permission android:name="android.permission.READ_INSTALL_SESSIONS" />
+    <!-- 读取屏幕颜色配置文件 -->
+    <uses-permission android:name="android.permission.READ_COLOR_ZONES" />
+    <!-- 请求锁屏复杂度 -->
+    <uses-permission android:name="android.permission.REQUEST_PASSWORD_COMPLEXITY" />
+    <!-- 观察配套设备是否存在 -->
+    <uses-permission android:name="android.permission.REQUEST_OBSERVE_COMPANION_DEVICE_PRESENCE" />
+    <!-- 请求忽略电池优化，此权限不适用于 nekoStudio -->
+    <uses-permission 
+        android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
+        tools:node="remove" />
+    <!-- 请求删除软件包 -->
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+    <!-- 请求手表伴侣个人资料 -->
+    <uses-permission android:name="android.permission.REQUEST_COMPANION_PROFILE_WATCH" />
+    <!-- 虚拟设备 -->
+    <uses-permission android:name="android.permission.REQUEST_COMPANION_PROFILE_VIRTUAL_DEVICE" />
+    <!-- 眼镜 -->
+    <uses-permission android:name="android.permission.REQUEST_COMPANION_PROFILE_GLASSES" />
+    <!-- 重置语音激活数据泄露计数 -->
+    <uses-permission android:name="android.permission.RESET_HOTWORD_TRAINING_DATA_EGRESS_COUNT" />
+    <!-- 访问精细化功率监控器 -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_POWER_MONITORS" />
+    <!-- 设置手机壁纸 -->
+    <uses-permission android:name="android.permission.SET_WALLPAPER" />
+    <!-- 设置壁纸参数 -->
+    <uses-permission android:name="android.permission.SET_WALLPAPER_HINTS" />
+    <!-- GNSS -->
+    <uses-permission android:name="android.permission.SUGGEST_GNSS_TIME" />
+    <!-- 建议手动计时器 -->
+    <uses-permission android:name="android.permission.SUGGEST_MANUAL_TIME" />
+    <!-- 卫星 -->
+    <uses-permission android:name="android.permission.SUGGEST_NETWORK_TIME" />
+    <!-- 建议电话网络时间 -->
+    <uses-permission android:name="android.permission.SUGGEST_TELEPHONY_TIME" />
+    <!-- 访问已看过的节目 -->
+    <uses-permission android:name="com.android.providers.tv.permission.WRITE_EPG_DATA" />
+    <!-- 写入电子节目指南数据 -->
+    <uses-permission android:name="com.android.providers.tv.permission.ACCESS_WATCHED_PROGRAMS" />
+    <!-- 创建桌面快捷方式 -->
+    <uses-permission 
+        android:name="com.android.launcher.permission.INSTALL_SHORTCUT"
+        android:maxSdkVersion="26" />
+    <!-- 卸载桌面快捷方式 -->
+    <uses-permission android:name="com.android.launcher.permission.UNINSTALL_SHORTCUT" />
+    <!-- 设置闹钟 -->
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
+    <!-- 写入同步设置 -->
+    <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS" />
+    <!-- 调用指纹识别 -->
+    <uses-permission android:name="android.permission.USE_FINGERPRINT" />
+    <!-- 精准闹钟 -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+
     <!-- Application 私有 API -->
     <uses-permission android:name="com.adb.kitty.USE_PRIVATE_API" />
     <permission
