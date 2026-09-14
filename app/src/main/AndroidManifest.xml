@@ -573,17 +573,23 @@
     <!-- 管理应用本身的称呼 -->
     <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
     <!-- 在需要无线确认时管理 Wi-Fi -->
-    <uses-permission android:name="android.permission.MANAGE_WIFI_WHEN_WIRELESS_CONSENT_REQUIRED" />
+    <uses-permission 
+        android:name="android.permission.MANAGE_WIFI_WHEN_WIRELESS_CONSENT_REQUIRED"
+        tools:ignore="ProtectedPermissions" />
     <!-- 读取电话基础状态 -->
     <uses-permission android:name="android.permission.READ_BASIC_PHONE_STATE" />
     <!-- 隔离应用允许 -->
-    <uses-permission android:name="android.permission.QUARANTINE_APPS" />
+    <uses-permission 
+        android:name="android.permission.QUARANTINE_APPS"
+        tools:ignore="ProtectedPermissions" />
     <!-- 阅读用户词库 -->
     <uses-permission android:name="android.permission.READ_USER_DICTIONARY" />
     <!-- 查看用户个人资料，已弃用 -->
     <uses-permission android:name="android.permission.READ_PROFILE" />
     <!-- 读取附近的流媒体配置 -->
-    <uses-permission android:name="android.permission.READ_NEARBY_STREAMING_POLICY" />
+    <uses-permission 
+        android:name="android.permission.READ_NEARBY_STREAMING_POLICY"
+        tools:ignore="ProtectedPermissions" />
     <!-- 阅读安装说明 -->
     <uses-permission android:name="android.permission.READ_INSTALL_SESSIONS" />
     <!-- 读取屏幕颜色配置文件 -->
@@ -592,10 +598,6 @@
     <uses-permission android:name="android.permission.REQUEST_PASSWORD_COMPLEXITY" />
     <!-- 观察配套设备是否存在 -->
     <uses-permission android:name="android.permission.REQUEST_OBSERVE_COMPANION_DEVICE_PRESENCE" />
-    <!-- 请求忽略电池优化，此权限不适用于 nekoStudio -->
-    <uses-permission 
-        android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
-        tools:node="remove" />
     <!-- 请求删除软件包 -->
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <!-- 请求手表伴侣个人资料 -->
@@ -606,8 +608,6 @@
     <uses-permission android:name="android.permission.REQUEST_COMPANION_PROFILE_GLASSES" />
     <!-- 重置语音激活数据泄露计数 -->
     <uses-permission android:name="android.permission.RESET_HOTWORD_TRAINING_DATA_EGRESS_COUNT" />
-    <!-- 访问精细化功率监控器 -->
-    <uses-permission android:name="android.permission.ACCESS_FINE_POWER_MONITORS" />
     <!-- 设置手机壁纸 -->
     <uses-permission android:name="android.permission.SET_WALLPAPER" />
     <!-- 设置壁纸参数 -->
