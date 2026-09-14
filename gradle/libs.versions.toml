@@ -3,6 +3,18 @@
 [versions]
 agp = "9.5.0-alpha05"
 kotlin = "2.4.20"
+compose-multiplatform = "1.11.1"
+
+android-compileSdk = "37"
+android-minSdk = "24"
+android-targetSdk = "37"
+
+android-versionCode = "28"
+android-versionPrefix = "4.5"
+
+android-ndk-version = "29.0.14206865"
+android-buildTools-version = "37.0.0"
+cmake-version = "4.4.2"
 
 kotlinxCoroutines = "1.11.0"
 annotation = "1.10.0"
@@ -114,3 +126,8 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+
+android-kmp-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
+kotlin-cmp = { id = "org.jetbrains.compose", version.ref = "compose-multiplatform" }
+kotlin-kmp = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlinx-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

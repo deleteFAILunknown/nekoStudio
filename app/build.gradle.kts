@@ -19,16 +19,17 @@ plugins {
     alias(libs.plugins.compose.compiler)
 }
 
-val propCompileSdk = providers.gradleProperty("COMPILE_SDK").get().toInt()
-val propMinSdk = providers.gradleProperty("MIN_SDK").get().toInt()
-val propTargetSdk = providers.gradleProperty("TARGET_SDK").get().toInt()
-val propVersionCode = providers.gradleProperty("VERSION_CODE").get().toInt()
+val libsCompileSdk = libs.versions.android.compileSdk.get().toInt()
+val libsMinSdk = libs.versions.android.minSdk.get().toInt()
+val libsTargetSdk = libs.versions.android.targetSdk.get().toInt()
+val libsVersionCode = libs.versions.android.versionCode.get().toInt()
 
 val buildDate = SimpleDateFormat("yyyyMMdd").format(Date())
-val versionPrefix = providers.gradleProperty("VERSION_PREFIX").get()
-val propNdk = providers.gradleProperty("NDK_VERSION").get()
-val propCmake = providers.gradleProperty("CMAKE_VERSION").get()
-val propBuildTools = providers.gradleProperty("BUILDTOOLS_VERSION").get()
+val libsVersionPrefix = libs.versions.android.versionPrefix.get().toInt()
+
+val libsNdk = libs.versions.android.ndk.version.get().toInt()
+val libsCmake = libs.versions.cmake.version.get().toInt()
+val libsBuildTools = libs.versions.android.buildTools.version.get().toInt()
 
 val envNewStorePassword = System.getenv("RELEASE_STORE_PASSWORD") ?: ""
 val envNewKeyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: ""
@@ -36,9 +37,9 @@ val envNewKeyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: ""
 
 android {
     namespace = "com.adb.kitty"
-    compileSdk = propCompileSdk
-    buildToolsVersion = "$propBuildTools"
-    ndkVersion = "$propNdk"
+    compileSdk = libsCompileSdk
+    buildToolsVersion = "$libsBuildTools"
+    ndkVersion = "$libsNdk"
 
     packaging {
         dex {
@@ -58,10 +59,10 @@ android {
 
     defaultConfig {
         applicationId = "com.adb.kitty"
-        minSdk = propMinSdk
-        targetSdk = propTargetSdk
-        versionCode = propVersionCode
-        versionName = "$versionPrefix-$buildDate"
+        minSdk = libsMinSdk
+        targetSdk = libsTargetSdk
+        versionCode = libsVersionCode
+        versionName = "$libsVersionPrefix-$buildDate"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -95,7 +96,7 @@ android {
     externalNativeBuild {
         cmake {
             path("src/main/cpp/CMakeLists.txt")
-            version = "$propCmake"
+            version = "$libsCmake"
         }
     }
 

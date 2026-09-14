@@ -23,7 +23,7 @@
     <string name="action_menu_clear_flagsecure">Clear FLAG_SECURE</string>
     <string name="action_menu_cpu_view">Root View</string>
     <string name="action_menu_cpu_view_cat">View recorded Root data</string>
-    <string name="action_menu_sospl">enter adb cmd / fastboot cmd</string>
+    <string name="action_menu_sospl">enter su / shell / adb / fastboot cmd</string>
     <string name="action_menu_color">use system wallpaper colors</string>
     <string name="action_menu_storage">Request file read and write permissions</string>
     <string name="action_menu_notification_img">Use a custom notification avatar</string>
