@@ -21,7 +21,6 @@ kotlin {
 
     sourceSets {
         androidMain.dependencies {
-            coreLibraryDesugaring(libs.android.jdk.libs)
             runtimeOnly(libs.bundles.kotlinx.android)
             implementation(libs.androidx.annotation)
             implementation(libs.androidx.annotation.experimental)
