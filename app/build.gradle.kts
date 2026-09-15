@@ -45,6 +45,7 @@ android {
         resources {
             merges += "kotlin-tooling-metadata.json"
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "/META-INF/Kadb:kadb.kotlin_module"
         }
     }
 
