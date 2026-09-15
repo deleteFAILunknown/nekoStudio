@@ -3,13 +3,13 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.kotlin.kmp)
     alias(libs.plugins.android.kmp.library)
-    alias(libs.plugins.kotlin.cmp)
-    alias(libs.plugins.compose.compiler)
+  //  alias(libs.plugins.kotlin.cmp)
+  //  alias(libs.plugins.compose.compiler)
     alias(libs.plugins.kotlinx.serialization)
 }
 
 kotlin {
-    androidLibrary {
+    android {
         namespace = "com.libs.shared"
         compileSdk = libs.versions.android.compileSdk.get().toInt()
         minSdk = libs.versions.android.minSdk.get().toInt()
