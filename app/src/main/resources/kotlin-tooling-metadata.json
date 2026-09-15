@@ -1,0 +1,30 @@
+{
+  "buildSystem": "Gradle",
+  "buildSystemVersion": "9.7.1", 
+  "buildPlugin": "org.jetbrains.kotlin.gradle.plugin.KotlinAndroidPluginWrapper",
+  "buildPluginVersion": "2.4.20",
+  "projectSettings": {
+    "androidGradlePlugin": "9.5.0-alpha05",
+    "kotlinxCoroutines": "1.11.0",
+    "androidxLifecycle": "2.11.0",
+    "androidxMaterial3": "1.5.0-alpha28",
+    "composeBom": "2026.09.00",
+    "kadb": "2.1.4",
+    "org.lsposed.hiddenapibypass": "6.1",
+    "com.github.topjohnwu.libsu": "6.0.0",
+    "nayukiQR": "1.8.0",
+    "zxingCode": "3.5.4"
+  },
+  "projectTargets": [
+    {
+      "target": "org.jetbrains.kotlin.gradle.plugin.mpp.KotlinAndroidTarget",
+      "platformType": "androidJvm",
+      "extras": {
+        "android": {
+          "sourceCompatibility": "25",
+          "targetCompatibility": "25"
+        }
+      }
+    }
+  ]
+}

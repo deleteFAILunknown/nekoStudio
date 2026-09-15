@@ -1,6 +1,9 @@
 -keep class com.adb.kitty.** { *; }
 -dontwarn com.adb.kitty.**
 
+-keep class com.kitty.libs.** { *; }
+-dontwarn com.kitty.libs.**
+
 -keep class com.topjohnwu.** { *; }
 -dontwarn com.topjohnwu.**
 
@@ -15,6 +18,11 @@
 
 -keep class org.** { *; }
 -dontwarn org.**
+
+-keep class kotlinx.** { *; }
+-dontwarn kotlinx.**
+-keep class kotlin.** { *; }
+-dontwarn kotlin.**
 
 -keep class kotlinx.coroutines.** { *; }
 -dontwarn kotlinx.coroutines.**
