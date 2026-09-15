@@ -134,8 +134,6 @@ android {
             optimization.keepRules {
                 // ignoreFrom 只允许忽略来自远程库的依赖
                 ignoreFrom("org.jetbrains.kotlinx:kotlinx-coroutines-android")
-                ignoreFrom("org.jetbrains.kotlinx:kotlinx-serialization-core")
-                ignoreFrom("org.jetbrains.kotlinx:kotlinx-serialization-json")
                 ignoreFrom("org.lsposed.hiddenapibypass:hiddenapibypass")
                 ignoreFrom("com.github.topjohnwu.libsu:core")
             }

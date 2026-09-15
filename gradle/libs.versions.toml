@@ -55,7 +55,6 @@ androidx-lifecycle-service = { group = "androidx.lifecycle", name = "lifecycle-s
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxCoroutines" }
-kotlinx-serialization-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-core", version.ref = "kotlinxCoroutines" }
 
 lsposed-hiddenapibypass = { module = "org.lsposed.hiddenapibypass:hiddenapibypass", version.ref = "hiddenapibypassVersion" }
 
@@ -115,8 +114,7 @@ compose-debug = [
 kotlinx-android = [
     "kotlinx-coroutines-core",
     "kotlinx-coroutines-android",
-    "kotlinx-serialization-json",
-    "kotlinx-serialization-core"
+    "kotlinx-serialization-json"
 ]
 libsu = [
     "libsu-core",
