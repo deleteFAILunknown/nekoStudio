@@ -16,10 +16,8 @@
 -keep class org.** { *; }
 -dontwarn org.**
 
--keep class kotlinx.** { *; }
--dontwarn kotlinx.**
--keep class kotlin.** { *; }
--dontwarn kotlin.**
+-keep class kotlinx.serialization.** { *; }
+-dontwarn kotlinx.serialization.**
 
 -keep class kotlinx.coroutines.** { *; }
 -dontwarn kotlinx.coroutines.**
