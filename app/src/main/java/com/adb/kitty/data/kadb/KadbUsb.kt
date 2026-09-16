@@ -1,6 +1,9 @@
-@file:Suppress("INVISIBLE_MEMBER", "INVISIBLE_REFERENCE")
+@file:Suppress(
+    "INVISIBLE_MEMBER",
+    "INVISIBLE_REFERENCE"
+)
 
-package libs.libs.libs.kadb
+package com.adb.kitty.data.kadb
 
 import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbEndpoint
@@ -148,7 +151,7 @@ class AsyncDirectUsbSink(
     }
 }
 
-suspend fun AdbConnection.Companion.connectUsbMax(
+internal suspend fun AdbConnection.Companion.connectUsbMax(
     connection: UsbDeviceConnection,
     epIn: UsbEndpoint,
     epOut: UsbEndpoint,

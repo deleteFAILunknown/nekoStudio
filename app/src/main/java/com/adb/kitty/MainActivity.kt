@@ -59,7 +59,7 @@ import com.flyfishxu.kadb.shell.*
 import org.json.*
 
 import com.flyfishxu.kadb.core.AdbConnection
-import libs.libs.libs.kadb.connectUsbMax
+import com.adb.kitty.data.kadb.connectUsbMax
 
 import androidx.annotation.*
 import androidx.activity.*
