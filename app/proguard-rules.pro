@@ -1,6 +1,9 @@
 -keep class com.adb.kitty.** { *; }
 -dontwarn com.adb.kitty.**
 
+-keep class libs.libs.libs.** { *; }
+-dontwarn libs.libs.libs.**
+
 -keep class com.topjohnwu.** { *; }
 -dontwarn com.topjohnwu.**
 

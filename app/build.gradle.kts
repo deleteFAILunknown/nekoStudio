@@ -81,14 +81,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_25
     }
 
-    kotlin {
-        compilerOptions {
-            languageVersion = KotlinVersion.KOTLIN_2_4
-            apiVersion = KotlinVersion.KOTLIN_2_4
-            jvmTarget = JvmTarget.JVM_25
-        }
-    }
-
     externalNativeBuild {
         cmake {
             path("src/main/cpp/CMakeLists.txt")
@@ -165,7 +157,16 @@ android {
     }
 }
 
+kotlin {
+    compilerOptions {
+        languageVersion = KotlinVersion.KOTLIN_2_4
+        apiVersion = KotlinVersion.KOTLIN_2_4
+        jvmTarget = JvmTarget.JVM_25
+    }
+}
+
 dependencies {
+    implementation(projects.libs)
     coreLibraryDesugaring(libs.android.jdk.libs)
     runtimeOnly(libs.bundles.kotlinx.android)
     implementation(libs.androidx.core.ktx)

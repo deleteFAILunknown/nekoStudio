@@ -645,6 +645,7 @@
         android:protectionLevel="signature" />
 
     <queries>
+        <package android:name="android" />
         <package android:name="com.adb.kitty" />
         <package android:name="com.android.browser" />
         <package android:name="com.android.chrome" />
@@ -774,31 +775,31 @@
             android:name="android.software.leanback.supports_touch"
             android:value="true" />
         <meta-data 
-            android:name="android.system.support"
+            android:name="APP_SYSTEM_SUPPORT"
             android:value="HyperOS3、Android 16" />
         <meta-data 
             android:name="app_logs"
             android:value="@string/app_logs" />
         <meta-data 
-            android:name="android.abi.level"
+            android:name="ANDROID_ABI_INFO"
             android:resource="@xml/android_abi_version" />
         <meta-data 
-            android:name="android.sdk.level"
+            android:name="ANDROID_SDK_INFO"
             android:resource="@xml/android_sdk_version" />
         <meta-data 
-            android:name="android.kernel.level"
+            android:name="ANDROID_KERNEL_INFO"
             android:resource="@xml/android_gki_kernel_version" />
         <meta-data 
-            android:name="android.ramdisk.level"
+            android:name="ANDROID_RAMDISK_INFO"
             android:resource="@xml/android_ramdisk_api_level" />
         <meta-data 
-            android:name="apex"
-            android:value="com.android.shell、com.android.runtime、com.android.adbd、com.android.wifi、com.android.permission、com.android.settings" />
+            android:name="Shell"
+            android:value="Shell, adb Shell, Root Shell" />
         <meta-data 
-            android:name="usb.host"
+            android:name="APP_USB_DEVICE_FILTER_XML"
             android:resource="@xml/usb_device_filter" />
         <meta-data 
-            android:name="usb.accessory"
+            android:name="APP_USB_ACCESSORY_FILTER_XML"
             android:resource="@xml/accessory_filter" />
         <!-- activity-alias 适配 Pixel 系列的类原生系统桌面 -->
         <activity-alias

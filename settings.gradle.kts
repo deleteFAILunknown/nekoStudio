@@ -27,3 +27,4 @@ dependencyResolutionManagement {
 rootProject.name = "nekoStudio"
 
 include(":app")
+include(":libs")

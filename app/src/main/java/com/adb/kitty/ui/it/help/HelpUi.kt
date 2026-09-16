@@ -113,42 +113,46 @@ fun CommandHelpBottomSheet(
             CommandHelp(
                 title = "Shell",
                 command = "id",
-                description = "普通 Shell",
+                description = "Shell",
                 options = listOf(
                     CommandOption(
+                        flag = "adb shell id",
+                        description = "adb Shell"
+                    ),
+                    CommandOption(
                         flag = "su -c id",
-                        description = "Root Shell, 需要授权 root 权限和传统 su 命令支持"
+                        description = "Root Shell"
                     )
                 )
             ),
             CommandHelp(
                 title = "解析 APK 签名",
                 command = "apk-sig 或 neko-sig",
-                description = "使用 apk-sig 或 neko-sig 可调出底部对话框来从应用列表选择或从本地选择 APK 进行签名解析",
+                description = "调出底部对话框来从应用列表选择或从本地选择 APK 进行签名解析",
                 options = emptyList()
             ),
             CommandHelp(
                 title = "下载",
                 command = "download 链接",
-                description = "使用 download 指令下载文件, 仅限 http/https 链接",
+                description = "下载文件, 仅限 http/https 链接",
                 options = emptyList()
             ),
             CommandHelp(
                 title = "查询高级保护模式",
                 command = "query-apm",
-                description = "使用 query-apm 查询设备上的高级保护模式是否启用, Android 16+ 专属",
+                description = "查询设备上的高级保护模式是否启用, Android 16+ 专属",
                 options = emptyList()
             ),
             CommandHelp(
                 title = "生成 QR 二维码",
                 command = "qr-gen 文本",
-                description = "使用 qr-gen 可生成二维码, 最多 2000 字节",
+                description = "生成二维码, 最多 2000 字节",
                 options = emptyList()
             ),
             CommandHelp(
                 title = "二维码解码",
                 command = "qr-decode 文件",
-                description = "使用 qr-decode 进行二维码解码操作",
+                description = "二维码解码",
                 options = listOf(
                     CommandOption(
                         flag = "qr-decode --system",
@@ -159,7 +163,7 @@ fun CommandHelpBottomSheet(
             CommandHelp(
                 title = "提取视频中的音频",
                 command = "neko-audio",
-                description = "使用 neko-audio 可唤起系统的视频选择器来选择视频进行提取音频的操作",
+                description = "唤起系统的视频选择器来选择视频进行提取音频的操作",
                 options = emptyList()
             )
         )
