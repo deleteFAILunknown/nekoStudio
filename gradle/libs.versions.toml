@@ -30,6 +30,7 @@ lifecycle = "2.11.0"
 
 material3 = "1.5.0-alpha28"
 
+okio = "3.17.0"
 kadb = "2.1.4"
 zxing = "3.5.4"
 annotationExperimental = "1.6.0"
@@ -67,6 +68,8 @@ zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" 
 android-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "jdklibs" }
 
 com-flyfishxu-kadb = { group = "com.flyfishxu", name = "kadb", version.ref = "kadb" }
+
+okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
 
 # Compose
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "compose-bom" }

@@ -1,7 +1,10 @@
+@file:Suppress("INVISIBLE_MEMBER", "INVISIBLE_REFERENCE")
+
 package com.adb.kitty.data
 
 import android.content.Context
 import android.util.Log
+import com.flyfishxu.kadb.cert.HostKeySet
 import com.flyfishxu.kadb.cert.KadbCert
 import com.flyfishxu.kadb.cert.KadbCertPolicy
 import com.flyfishxu.kadb.cert.OkioFilePrivateKeyStore
@@ -45,7 +48,7 @@ class AdbKeyManager(private val context: Context) {
 
     fun forceRotateKeys() {
         try {
-            Log.w(TAG, "⚠️ 正在触发用户特权：强制重新轮换全局 ADB 密钥对...")
+            Log.w(TAG, "⚠️ 触发强制重新轮换全局 ADB 密钥")
             
             val newSnapshot = KadbCert.rotate()
             
@@ -53,5 +56,10 @@ class AdbKeyManager(private val context: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "💥 强制轮换密钥对失败", e)
         }
+    }
+
+    fun getHostKeySet(): HostKeySet {
+        // 利用 @Suppress 注解，我们能在 App 层强行调用 KadbCert 的 internal 方法！
+        return KadbCert.currentKeySet()
     }
 }

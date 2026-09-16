@@ -58,6 +58,9 @@ import com.flyfishxu.kadb.Kadb
 import com.flyfishxu.kadb.shell.*
 import org.json.*
 
+import com.flyfishxu.kadb.core.AdbConnection
+import libs.libs.libs.kadb.connectUsbMax
+
 import androidx.annotation.*
 import androidx.activity.*
 import androidx.activity.compose.*
@@ -125,7 +128,6 @@ class MainActivity : ComponentActivity() {
     private var epIn: UsbEndpoint? = null
     private var epOut: UsbEndpoint? = null
     private var readerJob: Job? = null
-    private var usbForwarder: UsbPortForwarder? = null
 
     private var isUsbAttached = false
     private var isAdbAuthorized = false
@@ -1281,7 +1283,7 @@ class MainActivity : ComponentActivity() {
         }
         appendLog("发现设备但无 ADB/Fastboot 接口")
     }
-    
+
     private fun connectToInterface(device: UsbDevice) {
         val protocolTarget = if (isFastbootMode) 3 else 1
         val intf = (0 until device.interfaceCount).map { device.getInterface(it) }
@@ -1315,21 +1317,31 @@ class MainActivity : ComponentActivity() {
                         return@launch
                     }
 
-                    usbForwarder?.stop()
-                    usbForwarder = UsbPortForwarder(conn, epIn!!, epOut!!)
-                    val localVirtualPort = usbForwarder!!.startBridge()
-
-                    withContext(Dispatchers.Main) {
-                        appendLog("[Auth] 正在向环回端口 [$localVirtualPort] 发起握手与撞门机制...")
+                    val inEp = epIn ?: run {
+                        withContext(Dispatchers.Main) {
+                            appendLog("[Error] USB In Endpoint 未找到")
+                        }
+                        return@launch
+                    }
+                    val outEp = epOut ?: run {
+                        withContext(Dispatchers.Main) {
+                            appendLog("[Error] USB Out Endpoint 未找到")
+                        }
+                        return@launch
                     }
 
-                    val instance = Kadb.create(host = "127.0.0.1", port = localVirtualPort)
-                    val isConnected = runCatching {
-                        // 强行撞门 adbd 成功就是成功，失败就是失败
-                        instance.shell("echo 1") 
-                        // 如果没有抛出 Auth 异常且成功返回，说明通道建立成功
-                        true
-                    }.getOrElse { false }
+                    withContext(Dispatchers.Main) {
+                        appendLog("[Auth] 正在建立 USB 物理极限 DMA 直连通道...")
+                    }
+
+                    val hostKeySet = keyManager.getHostKeySet()
+
+                    val instance: AdbConnection = AdbConnection.connectUsbMax(
+                        connection = conn,
+                        epIn = inEp,
+                        epOut = outEp,
+                        hostKeySet = hostKeySet
+                    )
 
                     withContext(Dispatchers.Main) {
                         val activeService = adbService
@@ -1690,16 +1702,24 @@ class MainActivity : ComponentActivity() {
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                withContext(Dispatchers.Main) { appendLog("[配对] 正在向远端电视注入 TLS 配对验证...") }
+                withContext(Dispatchers.Main) {
+                    appendLog("[配对] 正在向远端电视注入 TLS 配对验证...")
+                }
                 
-                Kadb.pair(host = hostPort[0], port = hostPort[1].toInt(), pairingCode = pairingCode)
+                Kadb.pair(
+                    host = hostPort[0],
+                    port = hostPort[1].toInt(),
+                    pairingCode = pairingCode
+                )
                 
                 withContext(Dispatchers.Main) { 
                     appendLog("[成功] 🎉 配对凭证握手存盘成功！")
                     appendLog("[提示] ⚠️ 请查看电视上的【无线调试端口】，输入 adb connect [IP:端口] 唤醒数据总线。")
                 }
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) { appendLog("[配对失败] 异常: ${e.message}") }
+                withContext(Dispatchers.Main) {
+                    appendLog("[配对失败] 异常: ${e.message}")
+                }
             }
         }
     }
@@ -1711,13 +1731,17 @@ class MainActivity : ComponentActivity() {
 
         val parts = command.split("\\s+".toRegex()).filter { it.isNotBlank() }
         if (parts.size < 3) {
-            withContext(Dispatchers.Main) { appendLog("[错误] 请使用: adb connect IP地址:无线调试端口") }
+            withContext(Dispatchers.Main) {
+                appendLog("[错误] 请使用: adb connect IP地址:无线调试端口")
+            }
             return
         }
         val target = parts[2]
         val hostPort = target.split(":")
         if (hostPort.size != 2) {
-            withContext(Dispatchers.Main) { appendLog("[错误] IP与端口格式错误") }
+            withContext(Dispatchers.Main) {
+                appendLog("[错误] IP与端口格式错误")
+            }
             return
         }
         val ip = hostPort[0]
@@ -1732,13 +1756,17 @@ class MainActivity : ComponentActivity() {
         }
 
         try {
-            withContext(Dispatchers.Main) { appendLog("[无线] 正在唤醒远端网络数据通道...") }
+            withContext(Dispatchers.Main) {
+                appendLog("[无线] 正在唤醒远端网络数据通道...")
+            }
         
             val instance = withContext(Dispatchers.IO) {
                 Kadb.create(host = ip, port = port)
             }
         
-            withContext(Dispatchers.Main) { appendLog("[无线] 正在向网络通道发射探路信号...") }
+            withContext(Dispatchers.Main) {
+                appendLog("[无线] 正在向网络通道发射探路信号...")
+            }
         
             val response = withContext(Dispatchers.IO) {
                 instance.shell("echo 1")
@@ -1757,7 +1785,9 @@ class MainActivity : ComponentActivity() {
                 }
             } else {
                 runCatching { instance.close() }
-                withContext(Dispatchers.Main) { appendLog("[警告] 远端响应握手信号失败，退出通道") }
+                withContext(Dispatchers.Main) {
+                    appendLog("[警告] 远端响应握手信号失败，退出通道")
+                }
             }
         } catch (e: Exception) {
             withContext(Dispatchers.Main) {
@@ -1834,7 +1864,9 @@ class MainActivity : ComponentActivity() {
                     appendLog("[总体性能] 总耗时: ${totalDurationMs / 1000.0}s | 平均速度: ${calculateSpeed(totalBytes, totalDurationMs)}")
                 }
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) { appendLog("[Push 失败] 传输崩塌: ${e.message}") }
+                withContext(Dispatchers.Main) {
+                    appendLog("[Push 失败] 传输崩塌: ${e.message}")
+                }
             }
         }
     }
@@ -1891,7 +1923,9 @@ class MainActivity : ComponentActivity() {
                     appendLog("[总体性能] 总耗时: ${totalDurationMs / 1000.0}s | 平均速度: ${calculateSpeed(bytesTransferred, totalDurationMs)} | 总大小: ${bytesTransferred / 1024 / 1024}MB")
                 }
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) { appendLog("[Pull 失败] 提取中止: ${e.message}") }
+                withContext(Dispatchers.Main) {
+                    appendLog("[Pull 失败] 提取中止: ${e.message}")
+                }
             }
         }
     }

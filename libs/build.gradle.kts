@@ -25,6 +25,7 @@ android {
         }
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "/META-INF/Kadb:kadb.kotlin_module"
         }
     }
 
@@ -65,4 +66,5 @@ dependencies {
     implementation(libs.lsposed.hiddenapibypass)
     implementation(libs.androidx.annotation)
     implementation(libs.androidx.annotation.experimental)
+    implementation(libs.com.flyfishxu.kadb)
 }
