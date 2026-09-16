@@ -8,7 +8,6 @@ plugins {
 }
 
 val libsCompileSdk = libs.versions.android.compileSdk.get().toInt()
-val libsTargetSdk = libs.versions.android.targetSdk.get().toInt()
 val libsMinSdk = libs.versions.android.minSdk.get().toInt()
 val libsBuildTools = libs.versions.android.buildTools.version.get()
 
@@ -31,7 +30,6 @@ android {
 
     defaultConfig {
         minSdk = libsMinSdk
-        targetSdk = libsTargetSdk
 
         vectorDrawables { 
             useSupportLibrary = true
@@ -52,11 +50,6 @@ android {
     lint {
         checkDependencies = false
       //  abortOnError = false
-    }
-
-    dependenciesInfo {
-        includeInApk = false
-        includeInBundle = false
     }
 }
 
