@@ -1,4 +1,7 @@
-@file:Suppress("INVISIBLE_MEMBER", "INVISIBLE_REFERENCE")
+@file:Suppress(
+    "INVISIBLE_MEMBER",
+    "INVISIBLE_REFERENCE"
+)
 
 package com.adb.kitty.data
 
