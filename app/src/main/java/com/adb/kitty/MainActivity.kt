@@ -1350,7 +1350,7 @@ class MainActivity : ComponentActivity() {
 
                     withContext(Dispatchers.Main) {
                         val activeService = adbService
-                        if (isConnected && activeService != null) {
+                        if (activeService != null) {
                             activeService.registerUsbDevice(serialNumber, instance)
                             activeService.currentDeviceId = deviceKey
                             appendLog(">>> 👍 ADB 有线授权成功，物理总线全面并网！[$serialNumber] <<<")
