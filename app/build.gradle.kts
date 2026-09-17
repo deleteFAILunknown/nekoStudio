@@ -44,6 +44,7 @@ android {
         }
         resources {
             merges += "kotlin-tooling-metadata.json"
+            excludes += "/META-INF/LICENSE.md"
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
