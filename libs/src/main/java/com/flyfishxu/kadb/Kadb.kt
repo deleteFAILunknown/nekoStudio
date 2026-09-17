@@ -30,10 +30,10 @@ class Kadb(
     private val host: String,
     private val port: Int,
     private val connectTimeout: Int = 0,
-    private val socketTimeout: Int = 0
+    private val socketTimeout: Int = 0,
+    private var directConnection: AdbConnection? = null
 ) : AutoCloseable {
 
-    private var directConnection: AdbConnection? = null
     private var options: KadbOptions = KadbOptions()
     private var connection: Pair<AdbConnection, TransportChannel>? = null
 

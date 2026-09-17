@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLProtocolException
 import kotlin.Throws
 
-internal class AdbConnection internal constructor(
+class AdbConnection internal constructor(
     adbReader: AdbReader,
     private val adbWriter: AdbWriter,
     private val closeable: Closeable?,
