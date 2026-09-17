@@ -4,7 +4,7 @@
   "buildPlugin": "org.jetbrains.kotlin.gradle.plugin.KotlinAndroidPluginWrapper",
   "buildPluginVersion": "2.4.20",
   "projectSettings": {
-    "androidGradlePlugin": "9.5.0-alpha05",
+    "androidGradlePlugin": "9.5.0-alpha06",
     "kotlinxCoroutines": "1.11.0",
     "OpenSSL": "4.0.1",
     "composeBom": "2026.09.00",
