@@ -2193,7 +2193,6 @@ class MainActivity : ComponentActivity() {
         unregisterReceiver(usbStateReceiver)
         unregisterReceiver(wifiReceiver)
         unregisterReceiver(powerReceiver)
-        usbForwarder?.stop()
         runCatching { kadbInstance?.close() }
     }
 }
