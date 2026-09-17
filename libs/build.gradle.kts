@@ -12,7 +12,7 @@ val libsMinSdk = libs.versions.android.minSdk.get().toInt()
 val libsBuildTools = libs.versions.android.buildTools.version.get()
 
 android {
-    namespace = "libs.libs.libs"
+    namespace = "com.flyfishxu.kadb"
     compileSdk = libsCompileSdk
     buildToolsVersion = "$libsBuildTools"
 

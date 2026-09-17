@@ -1,9 +1,3 @@
-@file:Suppress(
-    "INVISIBLE_MEMBER",
-    "INVISIBLE_REFERENCE",
-    "EXPOSED_RECEIVER_TYPE"
-)
-
 package com.adb.kitty
 
 import android.*
@@ -63,9 +57,6 @@ import okio.*
 import com.flyfishxu.kadb.Kadb
 import com.flyfishxu.kadb.shell.*
 import org.json.*
-
-import com.flyfishxu.kadb.core.AdbConnection
-import com.adb.kitty.data.kadb.connectUsbMax
 
 import androidx.annotation.*
 import androidx.activity.*
@@ -1352,7 +1343,7 @@ class MainActivity : ComponentActivity() {
                     withContext(Dispatchers.Main) {
                         val activeService = adbService
                         if (activeService != null) {
-                            activeService.registerUsbDevice(serialNumber, Kadb(instance))
+                            activeService.registerUsbDevice(serialNumber, instance)
                             activeService.currentDeviceId = deviceKey
                             appendLog(">>> 👍 ADB 有线授权成功，物理总线全面并网！[$serialNumber] <<<")
                         }
