@@ -1334,7 +1334,7 @@ class MainActivity : ComponentActivity() {
                         usbConnection = conn,
                         epIn = epIn,
                         epOut = epOut,
-                        hostKeySet = loadKeySet()
+                        hostKeySet = keyManager.getHostKeySet()
                     )
                     val instance = Kadb.createUsb(adbConnection)
 

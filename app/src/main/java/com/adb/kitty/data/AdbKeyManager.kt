@@ -1,8 +1,3 @@
-@file:Suppress(
-    "INVISIBLE_MEMBER",
-    "INVISIBLE_REFERENCE"
-)
-
 package com.adb.kitty.data
 
 import android.content.Context
@@ -62,7 +57,6 @@ class AdbKeyManager(private val context: Context) {
     }
 
     fun getHostKeySet(): HostKeySet {
-        // 利用 @Suppress 注解，我们能在 App 层强行调用 KadbCert 的 internal 方法！
         return KadbCert.currentKeySet()
     }
 }
