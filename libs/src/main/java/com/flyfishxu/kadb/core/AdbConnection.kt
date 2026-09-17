@@ -13,7 +13,10 @@ import com.flyfishxu.kadb.transport.TransportChannel
 import com.flyfishxu.kadb.transport.TransportFactory
 import com.flyfishxu.kadb.transport.asOkioSink
 import com.flyfishxu.kadb.transport.asOkioSource
+import com.flyfishxu.kadb.transport.AsyncUsbTransportChannel
 import com.flyfishxu.kadb.tls.TlsErrorMapper
+import android.hardware.usb.UsbDeviceConnection
+import android.hardware.usb.UsbEndpoint
 import okio.Buffer
 import org.jetbrains.annotations.TestOnly
 import java.io.Closeable
@@ -240,6 +243,85 @@ class AdbConnection constructor(
                 connectTimeoutMs = connectTimeoutMs,
                 ioTimeoutMs = ioTimeoutMs
             )
+        }
+
+        suspend fun connectUsb(
+            usbConnection: UsbDeviceConnection,
+            epIn: UsbEndpoint,
+            epOut: UsbEndpoint,
+            hostKeySet: HostKeySet,
+            options: KadbOptions = KadbOptions(),
+            ioTimeoutMs: Int = 0
+        ): AdbConnection {
+            val ioTimeout = ioTimeoutMs.toLong()
+            var authKeyIndex = 0
+
+            val channel: TransportChannel = AsyncUsbTransportChannel(
+                connection = usbConnection,
+                epIn = epIn,
+                epOut = epOut,
+                bufferCapacity = 1024 * 1024 // 1MB 硬件缓冲区
+            )
+    
+            val reader = AdbReader(channel.asOkioSource(ioTimeout))
+            val writer = AdbWriter(channel.asOkioSink(ioTimeout))
+
+            try {
+                val advertisedFeatures = AdbProtocol.connectFeatures(options.delayedAckMode).toSet()
+                val connectPayload = AdbProtocol.connectPayload(advertisedFeatures.toList())
+                writer.writeConnect(connectPayload)
+
+                var message: AdbMessage = reader.readMessage()
+
+                while (true) {
+                    when (message.command) {
+                        AdbProtocol.CMD_AUTH -> {
+                            check(message.arg0 == AdbProtocol.AUTH_TYPE_TOKEN) { "Unsupported auth type: $message" }
+                            val authKey = hostKeySet.keyPairs.getOrNull(authKeyIndex)
+                            if (authKey != null) {
+                                authKeyIndex += 1
+                                writer.writeAuth(AdbProtocol.AUTH_TYPE_SIGNATURE, authKey.signPayload(message))
+                            } else {
+                                writer.writeAuth(AdbProtocol.AUTH_TYPE_RSA_PUBLIC, adbPublicKey(hostKeySet.defaultKeyPair))
+                            }
+                            message = reader.readMessage()
+                        }
+
+                        AdbProtocol.CMD_CNXN -> break
+
+                        else -> throw IOException("Connection failed: $message")
+                    }
+                }
+
+                val connectionString = parseConnectionString(String(message.payload))
+                val negotiatedFeatures = connectionString.features.intersect(advertisedFeatures)
+                val version = minOf(message.arg0, AdbProtocol.A_VERSION)
+                writer.updateProtocolVersion(version)
+                val peerMaxPayloadSize = message.arg1
+                if (peerMaxPayloadSize <= 0) {
+                    throw IOException("Peer maxdata must be > 0: $peerMaxPayloadSize")
+                }
+                val localHardCap = AdbProtocol.CONNECT_MAXDATA
+                val negotiatedMaxPayloadSize = minOf(peerMaxPayloadSize, localHardCap)
+                    .coerceAtLeast(1)
+                    .coerceAtMost(localHardCap)
+
+                reader.setInboundMaxPayloadSize(negotiatedMaxPayloadSize)
+
+                return AdbConnection(
+                    reader,
+                    writer,
+                    channel,
+                    negotiatedFeatures,
+                    version,
+                    negotiatedMaxPayloadSize
+                )
+            } catch (t: Throwable) {
+                runCatching { reader.close() }
+                runCatching { writer.close() }
+                runCatching { channel.close() }
+                throw t
+            }
         }
 
         private data class ConnectionString(val features: Set<String>)

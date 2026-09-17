@@ -55,6 +55,7 @@ import javax.crypto.*
 import javax.net.ssl.*
 import okio.*
 import com.flyfishxu.kadb.Kadb
+import com.flyfishxu.kadb.core.AdbConnection
 import com.flyfishxu.kadb.shell.*
 import org.json.*
 
@@ -1288,11 +1289,22 @@ class MainActivity : ComponentActivity() {
 
         val conn = usbManager.openDevice(device) ?: return
         conn.claimInterface(intf, true)
-    
+
+        var epIn: UsbEndpoint? = null
+        var epOut: UsbEndpoint? = null
         for (j in 0 until intf.endpointCount) {
             val ep = intf.getEndpoint(j)
             if (ep.direction == UsbConstants.USB_DIR_IN) epIn = ep else epOut = ep
         }
+ 
+        if (epIn == null || epOut == null) {
+            conn.releaseInterface(intf)
+            conn.close()
+            return
+        }
+
+        epIn = epIn
+        epOut = epOut
         usbConn = conn
     
         val serialNumber = runCatching { device.serialNumber }.getOrNull() ?: "unknown"
@@ -1314,31 +1326,17 @@ class MainActivity : ComponentActivity() {
                         return@launch
                     }
 
-                    val inEp = epIn ?: run {
-                        withContext(Dispatchers.Main) {
-                            appendLog("[Error] USB In Endpoint 未找到")
-                        }
-                        return@launch
-                    }
-                    val outEp = epOut ?: run {
-                        withContext(Dispatchers.Main) {
-                            appendLog("[Error] USB Out Endpoint 未找到")
-                        }
-                        return@launch
-                    }
-
                     withContext(Dispatchers.Main) {
-                        appendLog("[Auth] 正在建立 USB 物理极限 DMA 直连通道...")
+                        appendLog("[Auth] 正在建立原生 USB 双缓冲 DMA 握手…")
                     }
 
-                    val hostKeySet = keyManager.getHostKeySet()
-
-                    val instance: AdbConnection = AdbConnection.connectUsbMax(
-                        connection = conn,
-                        epIn = inEp,
-                        epOut = outEp,
-                        hostKeySet = hostKeySet
+                    val adbConnection = AdbConnection.connectUsb(
+                        usbConnection = conn,
+                        epIn = epIn,
+                        epOut = epOut,
+                        hostKeySet = loadKeySet()
                     )
+                    val instance = Kadb.createUsb(adbConnection)
 
                     withContext(Dispatchers.Main) {
                         val activeService = adbService
@@ -1346,6 +1344,8 @@ class MainActivity : ComponentActivity() {
                             activeService.registerUsbDevice(serialNumber, instance)
                             activeService.currentDeviceId = deviceKey
                             appendLog(">>> 👍 ADB 有线授权成功，物理总线全面并网！[$serialNumber] <<<")
+                        } else {
+                            instance.close()
                         }
                     }
                 } catch (e: Exception) {
