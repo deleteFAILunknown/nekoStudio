@@ -45,7 +45,6 @@ android {
         resources {
             merges += "kotlin-tooling-metadata.json"
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
-            excludes += "/META-INF/Kadb:kadb.kotlin_module"
         }
     }
 
@@ -176,7 +175,6 @@ dependencies {
     implementation(libs.lsposed.hiddenapibypass)
     implementation(libs.nayuki.qrcode)
     implementation(libs.zxing.core)
-    implementation(libs.com.flyfishxu.kadb)
     implementation(libs.androidx.annotation.experimental)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.bundles.compose)

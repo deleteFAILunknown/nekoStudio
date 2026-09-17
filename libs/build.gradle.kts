@@ -24,8 +24,8 @@ android {
             useLegacyPackaging = true
         }
         resources {
+            merges += "kadb/*"
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
-            excludes += "/META-INF/Kadb:kadb.kotlin_module"
         }
     }
 
@@ -66,4 +66,9 @@ dependencies {
     implementation(libs.lsposed.hiddenapibypass)
     implementation(libs.androidx.annotation)
     implementation(libs.androidx.annotation.experimental)
+    implementation(libs.java.spake2)
+    implementation(libs.androidx.documentfile)
+    implementation(libs.bcprov.jdk18on)
+    implementation(libs.bcpkix.jdk18on)
+    api(libs.okio)
 }
