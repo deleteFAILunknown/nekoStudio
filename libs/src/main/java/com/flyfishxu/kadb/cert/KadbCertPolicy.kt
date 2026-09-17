@@ -7,11 +7,11 @@ data class KadbCertPolicy(
     val subject: Subject = Subject()
 ) {
     data class Subject(
-        val cn: String = "Adb",
-        val ou: String = "",
-        val o: String = "Android",
-        val l: String = "",
-        val st: String = "",
+        val cn: String = "kadb",
+        val ou: String = "kadb",
+        val o: String = "kadb",
+        val l: String = "kadb",
+        val st: String = "kadb",
         val c: String = "US"
     )
 }

@@ -19,7 +19,7 @@ package com.flyfishxu.kadb.debug
 
 private val ENABLED = "true" == System.getenv("KADB_LOGGING")
 
-internal fun log(block: () -> String) {
+fun log(block: () -> String) {
     if (ENABLED) {
         println(block())
     }

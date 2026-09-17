@@ -23,7 +23,7 @@ import okio.buffer
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
-internal class AdbWriter(sink: Sink) : AutoCloseable {
+class AdbWriter(sink: Sink) : AutoCloseable {
 
     private val bufferedSink = sink.buffer()
     // Transport protocol starts at A_VERSION_MIN before CNXN completes.

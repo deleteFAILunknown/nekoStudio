@@ -22,7 +22,7 @@ import javax.net.ssl.SSLEngine
 import javax.net.ssl.SSLEngineResult
 import javax.net.ssl.SSLException
 
-internal class TlsNioChannel(
+class TlsNioChannel(
     private val net: TransportChannel,
     private val engine: SSLEngine
 ) : TransportChannel {

@@ -35,7 +35,7 @@ import javax.net.ssl.SSLContext
 import javax.net.ssl.X509ExtendedKeyManager
 import javax.net.ssl.X509TrustManager
 
-internal object SslUtils {
+object SslUtils {
     @Volatile
     var customConscrypt = false
 
@@ -221,7 +221,7 @@ internal object SslUtils {
         return keyType.uppercase(Locale.US).contains("RSA")
     }
 
-    internal fun parseAdbKeyFingerprintHexFromIssuer(issuer: Principal): String? {
+    fun parseAdbKeyFingerprintHexFromIssuer(issuer: Principal): String? {
         val name = runCatching { X500Name(issuer.name) }.getOrNull() ?: return null
         val organization = name.getRDNs(BCStyle.O).firstOrNull()?.first?.value?.toString() ?: return null
         if (organization != "AdbKey-0") {

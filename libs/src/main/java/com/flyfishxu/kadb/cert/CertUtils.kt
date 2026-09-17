@@ -42,7 +42,7 @@ private const val KEY_END = "-----END PRIVATE KEY-----"
 private const val CERT_BEGIN = "-----BEGIN CERTIFICATE-----"
 private const val CERT_END = "-----END CERTIFICATE-----"
 
-internal data class ResolvedIdentity(
+data class ResolvedIdentity(
     val privateKeyPem: ByteArray,
     val keyPair: AdbKeyPair,
     val snapshot: KadbIdentitySnapshot
@@ -54,7 +54,7 @@ private val providers = listOf(
     "AndroidOpenSSL"
 )
 
-internal object CertUtils {
+object CertUtils {
     fun loadKeyPair(): AdbKeyPair = KadbCert.currentKeyPair()
 
     fun loadKeySet(): HostKeySet = KadbCert.currentKeySet()

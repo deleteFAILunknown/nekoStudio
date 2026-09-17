@@ -6,7 +6,7 @@ data class KadbIdentitySnapshot(
     val fingerprintSha256: String,
     val notAfterEpochMillis: Long
 ) {
-    internal fun deepCopy(): KadbIdentitySnapshot {
+    fun deepCopy(): KadbIdentitySnapshot {
         return copy(
             privateKeyPem = privateKeyPem.copyOf(),
             certificatePem = certificatePem.copyOf()

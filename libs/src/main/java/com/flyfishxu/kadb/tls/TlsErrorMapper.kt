@@ -22,7 +22,7 @@ import javax.net.ssl.SSLException
 import javax.net.ssl.SSLHandshakeException
 import javax.net.ssl.SSLProtocolException
 
-internal object TlsErrorMapper {
+object TlsErrorMapper {
 
     fun map(throwable: Throwable): Throwable {
         val messages = buildString {

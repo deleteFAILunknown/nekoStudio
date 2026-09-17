@@ -21,7 +21,7 @@ import java.nio.ByteBuffer
 import java.util.concurrent.TimeUnit
 import kotlin.math.min
 
-internal class PlainBlockingChannel private constructor(
+class PlainBlockingChannel private constructor(
     private val socket: Socket
 ) : TransportChannel {
 

@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLProtocolException
 import kotlin.Throws
 
-class AdbConnection internal constructor(
+class AdbConnection constructor(
     adbReader: AdbReader,
     private val adbWriter: AdbWriter,
     private val closeable: Closeable?,
@@ -82,7 +82,7 @@ class AdbConnection internal constructor(
     }
 
     @TestOnly
-    internal fun ensureEmpty() {
+    fun ensureEmpty() {
         messageQueue.ensureEmpty()
     }
 

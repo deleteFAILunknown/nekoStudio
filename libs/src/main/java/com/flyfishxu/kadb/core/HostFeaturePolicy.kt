@@ -2,7 +2,7 @@ package com.flyfishxu.kadb.core
 
 import com.flyfishxu.kadb.DelayedAckMode
 
-internal fun shouldAdvertiseDelayedAck(mode: DelayedAckMode): Boolean = when (mode) {
+fun shouldAdvertiseDelayedAck(mode: DelayedAckMode): Boolean = when (mode) {
     DelayedAckMode.AOSP_DEFAULT -> aospDefaultDelayedAckEnabled()
     DelayedAckMode.ENABLED -> true
     DelayedAckMode.DISABLED -> false
@@ -11,4 +11,4 @@ internal fun shouldAdvertiseDelayedAck(mode: DelayedAckMode): Boolean = when (mo
 /**
  * 抹去 expect/actual 后，直接提供 Android 端的实体实现
  */
-internal fun aospDefaultDelayedAckEnabled(): Boolean = false
+fun aospDefaultDelayedAckEnabled(): Boolean = false

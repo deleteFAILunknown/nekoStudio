@@ -7,7 +7,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.locks.ReentrantLock
 
-internal abstract class MessageQueue<V> {
+abstract class MessageQueue<V> {
 
     private val readLock = ReentrantLock()
     private val queueLock = ReentrantLock()

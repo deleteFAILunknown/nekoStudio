@@ -22,7 +22,7 @@ import okio.Source
 import okio.buffer
 import java.io.IOException
 
-internal class AdbReader(
+class AdbReader(
     source: Source,
     maxPayloadSize: Int = AdbProtocol.CONNECT_MAXDATA
 ) : AutoCloseable {

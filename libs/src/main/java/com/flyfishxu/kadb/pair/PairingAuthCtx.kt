@@ -41,13 +41,13 @@ private val SERVER_NAME: ByteArray
 internal val INFO: ByteArray
     get() = getBytes("adb pairing_auth aes-128-gcm key", "UTF-8")
 
-internal val HKDF_KEY_LENGTH: Int
+val HKDF_KEY_LENGTH: Int
     get() = 16
 
 private val GCM_IV_LENGTH: Int
     get() = 12
 
-internal class PairingAuthCtx(
+class PairingAuthCtx(
     private val mSpake2Ctx: Spake2Context, password: ByteArray
 ) : Destroyable {
     val msg: ByteArray = mSpake2Ctx.generateMessage(password)
@@ -116,7 +116,7 @@ internal class PairingAuthCtx(
     }
 }
 
-internal fun getBytes(text: String, charsetName: String): ByteArray {
+fun getBytes(text: String, charsetName: String): ByteArray {
     return try {
         text.toByteArray(charset(charsetName))
     } catch (e: UnsupportedEncodingException) {

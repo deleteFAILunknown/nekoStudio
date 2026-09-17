@@ -4,7 +4,7 @@ import java.io.IOException
 
 // PTY shell sessions use shell protocol control frames on top of the ADB WRTE stream.
 // https://android.googlesource.com/platform/packages/modules/adb/+/1cf2f017d312f73b3dc53bda85ef2610e35a80e9/shell_protocol.h
-class AdbPtyShellSession internal constructor(
+class AdbPtyShellSession constructor(
     private val shell: AdbShellStream
 ) : AutoCloseable {
 

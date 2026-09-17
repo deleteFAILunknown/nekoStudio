@@ -29,7 +29,7 @@ private const val MAX_CHUNK_SIZE = 256 * 1024
 /**
  * Okio bridge that reuses an internal scratch ByteBuffer to reduce allocations.
  */
-internal fun TransportChannel.asOkioSource(readTimeoutMs: Long = 0L): Source = object : Source {
+fun TransportChannel.asOkioSource(readTimeoutMs: Long = 0L): Source = object : Source {
     private val timeout = Timeout().apply {
         if (readTimeoutMs > 0) timeout(readTimeoutMs, TimeUnit.MILLISECONDS)
     }

@@ -22,7 +22,7 @@ import java.nio.ByteOrder
 /**
  * This class provides useful functions and fields for ADB protocol details.
  */
-internal object AdbProtocol {
+object AdbProtocol {
 
     const val ADB_HEADER_LENGTH = 24
 

@@ -23,7 +23,7 @@ import okio.Buffer
 import okio.BufferedSource
 import java.nio.charset.StandardCharsets
 
-internal class AdbMessage(
+class AdbMessage(
     val command: Int,
     val arg0: Int,
     val arg1: Int,

@@ -60,7 +60,7 @@ private const val LIST_V2_DONE_TAIL_BYTES = 72L
 // https://android.googlesource.com/platform/packages/modules/adb/+/refs/heads/main/file_sync_protocol.h
 private const val SYNC_DATA_MAX = 64 * 1024
 
-internal val SYNC_IDS = setOf(
+val SYNC_IDS = setOf(
     ID_LSTAT_V1,
     ID_STAT_V2,
     ID_LSTAT_V2,

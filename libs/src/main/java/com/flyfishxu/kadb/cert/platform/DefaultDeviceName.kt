@@ -16,7 +16,7 @@ fun defaultDeviceName(software: String? = null): String {
     return formatDefaultDeviceName(userName, hostName)
 }
 
-internal fun formatDefaultDeviceName(loginName: String?, hostName: String?): String {
+fun formatDefaultDeviceName(loginName: String?, hostName: String?): String {
     fun normalize(component: String?): String {
         return component
             ?.trim()

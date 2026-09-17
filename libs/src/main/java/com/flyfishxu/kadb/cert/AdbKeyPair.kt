@@ -21,7 +21,7 @@ import java.security.PublicKey
 import java.security.cert.Certificate
 import javax.crypto.Cipher
 
-internal class AdbKeyPair(
+class AdbKeyPair(
     val privateKey: PrivateKey, val publicKey: PublicKey, val certificate: Certificate
 ) {
     internal fun signPayload(message: AdbMessage): ByteArray {

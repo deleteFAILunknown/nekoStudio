@@ -15,7 +15,7 @@
 
 package com.flyfishxu.kadb.transport
 
-internal object TransportFactory {
+object TransportFactory {
     suspend fun connect(host: String, port: Int, connectTimeoutMs: Long): TransportChannel {
         return PlainBlockingChannel.connect(host, port, connectTimeoutMs)
     }

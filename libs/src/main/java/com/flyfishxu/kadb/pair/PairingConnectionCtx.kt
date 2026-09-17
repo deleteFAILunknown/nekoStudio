@@ -40,7 +40,7 @@ import kotlin.Throws
 private const val EXPORTED_KEY_LABEL = "adb-label\u0000"
 private const val EXPORT_KEY_SIZE = 64
 
-internal class PairingConnectionCtx(
+class PairingConnectionCtx(
     host: String, private val mPort: Int, pwd: ByteArray, keyPair: AdbKeyPair, deviceName: String
 ) : Closeable {
     private val mHost: String = Objects.requireNonNull(host)
@@ -249,7 +249,7 @@ internal class PairingConnectionCtx(
         Ready, ExchangingMsgs, ExchangingPeerInfo, Stopped
     }
 
-    internal enum class Role {
+    enum class Role {
         Client, Server
     }
 
@@ -323,7 +323,7 @@ internal class PairingConnectionCtx(
  * 原 .android.kt 上的 Conscrypt 反射获取与 HiddenApiBypass 豁免逻辑
  */
 @SuppressLint("PrivateApi")
-internal fun PairingConnectionCtx.getConscryptClass(): Class<*> {
+fun PairingConnectionCtx.getConscryptClass(): Class<*> {
     return if (SslUtils.customConscrypt) {
         Class.forName("org.conscrypt.Conscrypt")
     } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {

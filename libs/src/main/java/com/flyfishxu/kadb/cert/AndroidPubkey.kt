@@ -30,7 +30,7 @@ import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.math.ceil
 
-internal object AndroidPubkey {
+object AndroidPubkey {
     /**
      * Size of an RSA modulus such as an encrypted block or a signature.
      */

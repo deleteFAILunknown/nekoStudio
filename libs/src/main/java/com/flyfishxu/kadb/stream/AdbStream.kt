@@ -27,7 +27,7 @@ import java.lang.Integer.min
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicBoolean
 
-class AdbStream internal constructor(
+class AdbStream constructor(
     private val messageQueue: AdbMessageQueue,
     private val adbWriter: AdbWriter,
     private val outboundMaxPayloadSize: Int,
