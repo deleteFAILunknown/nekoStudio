@@ -1,6 +1,6 @@
 package com.flyfishxu.kadb.cert
 
-internal data class HostKeySet(
+data class HostKeySet(
     val defaultKeyPair: AdbKeyPair,
     val keyPairs: List<AdbKeyPair>
 ) {
