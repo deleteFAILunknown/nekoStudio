@@ -62,7 +62,7 @@ kotlin {
 
 dependencies {
     coreLibraryDesugaring(libs.android.jdk.libs)
-    runtimeOnly(libs.bundles.kotlinx.android)
+    implementation(libs.bundles.kotlinx.android)
     implementation(libs.lsposed.hiddenapibypass)
     implementation(libs.androidx.annotation)
     implementation(libs.androidx.annotation.experimental)
