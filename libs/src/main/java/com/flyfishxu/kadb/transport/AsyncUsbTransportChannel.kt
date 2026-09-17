@@ -1,5 +1,6 @@
 package com.flyfishxu.kadb.transport
 
+import android.os.Build
 import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbRequest
@@ -141,7 +142,16 @@ class AsyncUsbTransportChannel(
 
     private fun queueRequest(req: UsbRequest, buf: ByteBuffer) {
         buf.clear()
-        if (!req.queue(buf, bufferCapacity)) {
+    
+        // API 26 (Android 8.0) 及以上使用新的 queue(buf) 接口
+        val queued = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            req.queue(buf)
+        } else {
+            @Suppress("DEPRECATION")
+            req.queue(buf, bufferCapacity)
+        }
+
+        if (!queued) {
             throw IOException("Failed to queue USB IN Request into kernel pipeline")
         }
     }
