@@ -20,7 +20,7 @@ import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.util.concurrent.TimeUnit
 
-internal interface TransportChannel : Closeable {
+interface TransportChannel : Closeable {
     suspend fun read(dst: ByteBuffer, timeout: Long, unit: TimeUnit): Int
     suspend fun write(src: ByteBuffer, timeout: Long, unit: TimeUnit): Int
     suspend fun readExactly(dst: ByteBuffer, timeout: Long, unit: TimeUnit)
