@@ -3,28 +3,36 @@ package com.flyfishxu.kadb.transport
 import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbRequest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.IOException
+import java.net.InetSocketAddress
 import java.nio.ByteBuffer
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 /**
- * 极限异步 USB 传输通道
- * - IN 端点: 采用 UsbRequest 双缓冲区 (Double-Buffering Pipeline) 硬件级零停顿轮询
- * - OUT 端点: 采用 Direct ByteBuffer 零拷贝物理 DMA 传输
- * - 线程安全: 彻底隔离读写端点，规避 Android 内核 requestWait 跨端点竞争
+ * 极限异步 USB 传输通道 (适配 Kadb Suspend ByteBuffer TransportChannel 规范)
  */
 class AsyncUsbTransportChannel(
     private val connection: UsbDeviceConnection,
     private val epIn: UsbEndpoint,
     private val epOut: UsbEndpoint,
-    private val bufferCapacity: Int = 1024 * 1024 // 匹配 ADB 1MB 极限 Payload
+    private val bufferCapacity: Int = 1024 * 1024
 ) : TransportChannel {
 
     @Volatile
     private var closed = false
 
-    // 读端点: 采用 Direct Memory (直接物理内存)，配合内核 DMA 驱动
+    override val isOpen: Boolean
+        get() = !closed && connection.fileDescriptor != -1
+
+    // USB 模拟虚拟 Socket 接口地址
+    override val localAddress: InetSocketAddress = InetSocketAddress("127.0.0.1", 0)
+    override val remoteAddress: InetSocketAddress = InetSocketAddress("127.0.0.1", 0)
+
+    // Direct Physical Memory 物理硬件缓冲区
     private val inBufferA: ByteBuffer = ByteBuffer.allocateDirect(bufferCapacity)
     private val inBufferB: ByteBuffer = ByteBuffer.allocateDirect(bufferCapacity)
 
@@ -40,59 +48,95 @@ class AsyncUsbTransportChannel(
     private val writeLock = ReentrantLock()
 
     init {
-        // 初始装载：向 USB 驱动硬件队列预先投递第 1 个读请求
         queueRequest(activeReq, activeBuf)
     }
 
-    override val isOpen: Boolean
-        get() = !closed && connection.fileDescriptor != -1
+    override suspend fun read(dst: ByteBuffer, timeout: Long, unit: TimeUnit): Int = withContext(Dispatchers.IO) {
+        readLock.withLock {
+            if (closed) throw IOException("AsyncUsbTransportChannel is closed")
 
-    override fun read(buffer: ByteArray, offset: Int, length: Int): Int = readLock.withLock {
-        if (closed) throw IOException("UsbTransportChannel is closed")
+            queueRequest(shadowReq, shadowBuf)
 
-        // 1. 启动并发流水线：将第 2 个缓冲区提前压入内核队列，使硬件在 CPU 拷贝数据时继续接收数据
-        queueRequest(shadowReq, shadowBuf)
+            waitForRequest(activeReq)
+            val readBytes = activeBuf.position()
 
-        // 2. 等待当前已挂起请求的硬件响应
-        val completedReq = waitForRequest(activeReq)
-        val readBytes = activeBuf.position()
+            var copied = 0
+            if (readBytes > 0) {
+                activeBuf.flip()
+                copied = minOf(dst.remaining(), activeBuf.remaining())
+                val oldLimit = activeBuf.limit()
+                activeBuf.limit(activeBuf.position() + copied)
+                dst.put(activeBuf)
+                activeBuf.limit(oldLimit)
+                activeBuf.clear()
+            }
 
-        if (readBytes > 0) {
-            activeBuf.flip()
-            val bytesToCopy = minOf(length, readBytes)
-            activeBuf.get(buffer, offset, bytesToCopy)
-            activeBuf.clear()
+            swapBuffers()
+            copied
         }
-
-        // 3. 乒乓轮换 (Buffer Flip) 准备下一轮读取
-        swapBuffers()
-
-        return readBytes
     }
 
-    override fun write(buffer: ByteArray, offset: Int, length: Int): Unit = writeLock.withLock {
-        if (closed) throw IOException("UsbTransportChannel is closed")
+    override suspend fun readExactly(dst: ByteBuffer, timeout: Long, unit: TimeUnit) {
+        val timeoutMs = if (timeout > 0) unit.toMillis(timeout) else 0L
+        val startTime = System.currentTimeMillis()
 
-        // 写入采用零拷贝 Direct 模式，规避 JNI ByteArray 内存复制
-        val directWriteBuf = ByteBuffer.allocateDirect(length)
-        directWriteBuf.put(buffer, offset, length)
-
-        var bytesWritten = 0
-        while (bytesWritten < length) {
-            val chunk = minOf(length - bytesWritten, bufferCapacity)
-            val subArray = if (offset == 0 && length == buffer.size) {
-                buffer
-            } else {
-                buffer.copyOfRange(offset + bytesWritten, offset + bytesWritten + chunk)
+        while (dst.hasRemaining()) {
+            val elapsed = System.currentTimeMillis() - startTime
+            if (timeoutMs > 0 && elapsed >= timeoutMs) {
+                throw IOException("USB read timed out")
             }
-
-            // 超时设置为 0，完全交付给 USB 控制器 Native 硬件处理
-            val transferred = connection.bulkTransfer(epOut, subArray, chunk, 0)
-            if (transferred < 0) {
-                throw IOException("USB Out bulk transfer failed: error code $transferred")
+            val remainingTimeout = if (timeoutMs > 0) timeoutMs - elapsed else 0L
+            val readBytes = read(dst, remainingTimeout, TimeUnit.MILLISECONDS)
+            if (readBytes < 0) {
+                throw IOException("EOF reached before target buffer was filled")
             }
-            bytesWritten += transferred
         }
+    }
+
+    override suspend fun write(src: ByteBuffer, timeout: Long, unit: TimeUnit): Int = withContext(Dispatchers.IO) {
+        writeLock.withLock {
+            if (closed) throw IOException("AsyncUsbTransportChannel is closed")
+
+            val remaining = src.remaining()
+            if (remaining == 0) return@withContext 0
+
+            val chunkLen = minOf(remaining, bufferCapacity)
+            val tempBuf = ByteArray(chunkLen)
+            src.get(tempBuf, 0, chunkLen)
+
+            val timeoutMs = if (timeout > 0) unit.toMillis(timeout).toInt() else 0
+            val transferred = connection.bulkTransfer(epOut, tempBuf, chunkLen, timeoutMs)
+
+            if (transferred < 0) {
+                throw IOException("USB Out bulk transfer failed: $transferred")
+            }
+            transferred
+        }
+    }
+
+    override suspend fun writeExactly(src: ByteBuffer, timeout: Long, unit: TimeUnit) {
+        val timeoutMs = if (timeout > 0) unit.toMillis(timeout) else 0L
+        val startTime = System.currentTimeMillis()
+
+        while (src.hasRemaining()) {
+            val elapsed = System.currentTimeMillis() - startTime
+            if (timeoutMs > 0 && elapsed >= timeoutMs) {
+                throw IOException("USB write timed out")
+            }
+            val remainingTimeout = if (timeoutMs > 0) timeoutMs - elapsed else 0L
+            write(src, remainingTimeout, TimeUnit.MILLISECONDS)
+        }
+    }
+
+    override suspend fun shutdownInput() {
+        runCatching {
+            reqA.cancel()
+            reqB.cancel()
+        }
+    }
+
+    override suspend fun shutdownOutput() {
+        // USB 端点不支持逻辑半关闭，保留空实现
     }
 
     private fun queueRequest(req: UsbRequest, buf: ByteBuffer) {
@@ -102,13 +146,12 @@ class AsyncUsbTransportChannel(
         }
     }
 
-    private fun waitForRequest(targetReq: UsbRequest): UsbRequest {
+    private fun waitForRequest(targetReq: UsbRequest) {
         while (!closed) {
             val completed = connection.requestWait() ?: throw IOException("USB hardware IO interrupted or channel closed")
             if (completed.endpoint.endpointNumber == epIn.endpointNumber) {
-                return completed
+                return
             }
-            // 若为其他端点事件则继续等待匹配目标 IN 端点
         }
         throw IOException("USB Channel closed during wait")
     }
