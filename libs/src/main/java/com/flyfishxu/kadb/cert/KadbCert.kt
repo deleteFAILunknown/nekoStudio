@@ -103,11 +103,11 @@ object KadbCert {
         }
     }
 
-    internal fun currentKeyPair(): AdbKeyPair = synchronized(lock) {
+    fun currentKeyPair(): AdbKeyPair = synchronized(lock) {
         ensureReadyStateLocked().keySet.defaultKeyPair
     }
 
-    internal fun currentKeySet(): HostKeySet = synchronized(lock) {
+    fun currentKeySet(): HostKeySet = synchronized(lock) {
         ensureReadyStateLocked().keySet
     }
 

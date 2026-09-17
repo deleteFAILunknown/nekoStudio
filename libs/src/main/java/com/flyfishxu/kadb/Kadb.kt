@@ -56,9 +56,13 @@ class Kadb(
     fun supportsFeature(feature: String): Boolean = connection().supportsFeature(feature)
 
     fun shell(command: String): AdbShellResponse {
+        // AOSP host checks kFeatureShell2 before selecting shell protocol framing.
+        // https://android.googlesource.com/platform/packages/modules/adb/+/1cf2f017d312f73b3dc53bda85ef2610e35a80e9/client/commandline.cpp#1122
         return if (supportsFeature(SHELL_V2_FEATURE)) {
             openShell(command).use { it.readAll() }
         } else {
+            // Legacy shell transport has no protocol-framed stderr/exit packets.
+            // https://android.googlesource.com/platform/packages/modules/adb/+/1cf2f017d312f73b3dc53bda85ef2610e35a80e9/client/commandline.cpp#595
             val legacyService = buildShellService(command = command, useShellProtocol = false)
             enforceLegacyShellServiceLength(legacyService)
             open(legacyService).use { legacy ->
@@ -78,6 +82,8 @@ class Kadb(
         term: String = DEFAULT_TERM_TYPE
     ): AdbPtyShellSession {
         requireShellV2(apiName = "openPtyShellSession")
+        // AOSP daemon accepts "v2", "TERM=...", and "pty/raw" shell service args.
+        // https://android.googlesource.com/platform/packages/modules/adb/+/1cf2f017d312f73b3dc53bda85ef2610e35a80e9/daemon/services.cpp#107
         val service = buildShellService(
             command = command,
             useShellProtocol = true,
@@ -102,6 +108,8 @@ class Kadb(
 
     fun openSync(): AdbSyncStream {
         val (conn, stream) = openStream("sync:")
+        // AOSP sync client behavior is feature-gated by the negotiated CNXN feature set.
+        // https://android.googlesource.com/platform/packages/modules/adb/+/1cf2f017d312f73b3dc53bda85ef2610e35a80e9/client/file_sync_client.cpp#238
         return AdbSyncStream(stream, conn.featureSnapshot())
     }
 
@@ -133,6 +141,9 @@ class Kadb(
     }
 
     private fun pmInstallRemote(remotePath: String, vararg options: String) {
+        // AOSP install command vectors append only explicit args and quote each arg with escape_arg().
+        // https://android.googlesource.com/platform/packages/modules/adb/+/1cf2f017d312f73b3dc53bda85ef2610e35a80e9/client/adb_install.cpp#563
+        // https://android.googlesource.com/platform/packages/modules/adb/+/1cf2f017d312f73b3dc53bda85ef2610e35a80e9/adb_utils.cpp#81
         val response = shell(buildShellCommand(listOf("pm", "install") + nonBlankOptions(options) + remotePath))
         check(response.allOutput.startsWith("Success")) { "Install failed: ${response.allOutput}" }
     }
@@ -166,6 +177,9 @@ class Kadb(
     }
 
     fun uninstall(packageName: String) {
+        // AOSP routes uninstall through "cmd package uninstall" when streamed/cmd mode is available,
+        // and falls back to "pm uninstall" in legacy push mode.
+        // https://android.googlesource.com/platform/packages/modules/adb/+/1cf2f017d312f73b3dc53bda85ef2610e35a80e9/client/adb_install.cpp#131
         val command = if (supportsFeature("cmd")) {
             listOf("cmd", "package", "uninstall", packageName)
         } else {
@@ -175,6 +189,8 @@ class Kadb(
         check(response.exitCode == 0) { "Uninstall failed: ${response.allOutput}" }
     }
 
+    // AOSP non-abb install path opens exec:cmd services and applies shell escaping per argument.
+    // https://android.googlesource.com/platform/packages/modules/adb/+/1cf2f017d312f73b3dc53bda85ef2610e35a80e9/client/adb_install.cpp#210
     fun execCmd(vararg command: String): AdbStream = open(buildExecCmdService(command.asList()))
 
     fun abbExec(vararg command: String): AdbStream = open("abb_exec:${command.joinToString("\u0000")}")
@@ -190,6 +206,10 @@ class Kadb(
         connection = null
     }
 
+    /**
+     * Reset current transport only.
+     * The Kadb instance remains reusable and reconnects lazily on next command.
+     */
     fun resetConnection() {
         directConnection?.close()
         directConnection = null
@@ -314,6 +334,8 @@ class Kadb(
         val lastModifiedMs = apk.lastModified()
         try {
             push(apk, remotePath, mode = mode, lastModifiedMs = lastModifiedMs)
+            // Legacy install-write path uses shell command assembly with escape_arg() for each argv token.
+            // https://android.googlesource.com/platform/packages/modules/adb/+/1cf2f017d312f73b3dc53bda85ef2610e35a80e9/client/adb_install.cpp#570
             return shell(
                 buildShellCommand(
                     listOf(
@@ -333,11 +355,14 @@ class Kadb(
     }
 
     private fun cleanupRemoteTempFile(remotePath: String) {
+        // Best-effort cleanup to match AOSP install_app_legacy() delete_device_file() behavior.
         runCatching { shell(buildDeleteDeviceFileCommand(remotePath)) }
     }
 
     private fun finalizeSession(sessionId: String, error: String?, sessionMode: InstallSessionMode) {
         val finalCommand = if (error == null) "install-commit" else "install-abandon"
+        // AOSP finalizes sessions with install-commit/install-abandon on the same install command family.
+        // https://android.googlesource.com/platform/packages/modules/adb/+/refs/heads/main/client/adb_install.cpp#653
         val output = when (sessionMode) {
             InstallSessionMode.ABB_EXEC, InstallSessionMode.EXEC_CMD -> {
                 openInstallCommand(sessionMode, "package", finalCommand, sessionId).use { stream ->
@@ -352,21 +377,29 @@ class Kadb(
         error?.let { throw IOException("Install failed: $it") }
     }
 
+    // Shell fallback builds one command string; mirror AOSP argv behavior by dropping empty args first.
+    // https://android.googlesource.com/platform/packages/modules/adb/+/1cf2f017d312f73b3dc53bda85ef2610e35a80e9/client/adb_install.cpp#563
     private fun nonBlankOptions(options: Array<out String>): List<String> = options.filter { it.isNotBlank() }
 
     private fun buildShellCommand(parts: List<String>): String =
         parts.filter { it.isNotBlank() }.joinToString(" ") { escapeArg(it) }
 
     private fun buildExecCmdService(parts: List<String>): String {
+        // adb_install.cpp joins cmd_args into one service string; escaped args stay space-delimited.
+        // https://android.googlesource.com/platform/packages/modules/adb/+/1cf2f017d312f73b3dc53bda85ef2610e35a80e9/client/adb_install.cpp#152
         val escapedArgs = parts.filter { it.isNotBlank() }.joinToString(" ") { escapeArg(it) }
         return if (escapedArgs.isEmpty()) "exec:cmd" else "exec:cmd $escapedArgs"
     }
 
     private fun buildDeleteDeviceFileCommand(remotePath: String): String {
+        // AOSP uses "rm <file> </dev/null" here rather than "rm -f" for old-device compatibility.
+        // https://android.googlesource.com/platform/packages/modules/adb/+/1cf2f017d312f73b3dc53bda85ef2610e35a80e9/client/adb_install.cpp#983
         return "rm ${escapeArg(remotePath)} </dev/null"
     }
 
     private fun escapeArg(arg: String): String {
+        // Mirror AOSP adb_utils.cpp::escape_arg(): wrap in single quotes and replace ' with '\''.
+        // https://android.googlesource.com/platform/packages/modules/adb/+/1cf2f017d312f73b3dc53bda85ef2610e35a80e9/adb_utils.cpp#81
         return "'" + arg.replace("'", "'\\''") + "'"
     }
 
@@ -377,6 +410,8 @@ class Kadb(
     }
 
     private fun enforceLegacyShellServiceLength(service: String) {
+        // AOSP rejects legacy shell service strings longer than MAX_PAYLOAD_V1.
+        // https://android.googlesource.com/platform/packages/modules/adb/+/1cf2f017d312f73b3dc53bda85ef2610e35a80e9/client/commandline.cpp#628
         val size = service.encodeToByteArray().size
         require(size <= AdbProtocol.MAX_PAYLOAD_V1) {
             "error: shell command too long"
@@ -384,6 +419,8 @@ class Kadb(
     }
 
     private fun requireShellV2(apiName: String) {
+        // AOSP shell protocol mode is selected only when kFeatureShell2 is available.
+        // https://android.googlesource.com/platform/packages/modules/adb/+/1cf2f017d312f73b3dc53bda85ef2610e35a80e9/client/commandline.cpp#1122
         check(supportsFeature(SHELL_V2_FEATURE)) {
             "$apiName requires peer feature '$SHELL_V2_FEATURE'; use shell(command) for legacy shell fallback."
         }
@@ -397,6 +434,10 @@ class Kadb(
     ): String {
         val args = mutableListOf<String>()
         if (useShellProtocol) {
+            // AOSP builds service strings as shell[,arg1,arg2,...]:command.
+            // https://android.googlesource.com/platform/packages/modules/adb/+/1cf2f017d312f73b3dc53bda85ef2610e35a80e9/client/commandline.cpp#611
+            // Argument tokens are "v2", "raw", and "pty".
+            // https://android.googlesource.com/platform/packages/modules/adb/+/1cf2f017d312f73b3dc53bda85ef2610e35a80e9/services.h#24
             args += SHELL_ARG_V2
             if (!term.isNullOrBlank()) {
                 args += "$SHELL_ARG_TERM_PREFIX$term"
@@ -484,6 +525,9 @@ private val OPEN_TRANSPORT_FAILURE_MARKERS = listOf(
 
 internal fun isRecoverableTransportOpenFailure(error: Throwable): Boolean {
     return when (error) {
+        // A CLSE received for an OPEN means that the requested adbd service rejected
+        // the request (for example, a localabstract socket is not listening yet).
+        // The underlying transport remains healthy and must not be discarded.
         is AdbStreamClosed -> false
         is EOFException -> true
         is IOException, is IllegalStateException -> {
