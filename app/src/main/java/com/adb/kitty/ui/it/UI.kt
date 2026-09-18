@@ -128,8 +128,6 @@ fun CenterAlignedTopAppBarExample(
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
     var showMenu by remember { mutableStateOf(false) }
     
-    val devicesState by viewModel.deviceListState.collectAsStateWithLifecycle()
-    
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     
@@ -311,18 +309,6 @@ fun CenterAlignedTopAppBarExample(
                             DropdownMenuItem(
                                 text = {
                                     Text(
-                                        stringResource(R.string.action_menu_wifi)
-                                    )
-                                },
-                                leadingIcon = { Icon(Icons.Outlined.Refresh, null) },
-                                onClick = {
-                                    showMenu = false
-                                    activity.handleWifiConnectionFlow()
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
                                         stringResource(R.string.action_menu_storage)
                                     )
                                 },
@@ -396,18 +382,6 @@ fun CenterAlignedTopAppBarExample(
                                 }
                             )
                             HorizontalDivider()
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        stringResource(R.string.action_menu_shell_stop)
-                                    )
-                                },
-                                leadingIcon = { Icon(Icons.Outlined.Cancel, null) },
-                                onClick = {
-                                    showMenu = false
-                                    activity.stopCurrentCommand()
-                                }
-                            )
                             DropdownMenuItem(
                                 text = {
                                     Text(
@@ -505,14 +479,7 @@ fun CenterAlignedTopAppBarExample(
         },
     ) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding).padding(16.dp).fillMaxSize()) {
-            
-            DeviceSelectionSection(
-                devices = devicesState,
-                onDeviceSelected = { selectedDevice ->
-                    viewModel.switchActiveDevice(selectedDevice)
-                }
-            )
-            
+
             CommandInputSection(
                 query = query,
                 onQueryChange = { query = it },

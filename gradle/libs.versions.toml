@@ -21,10 +21,6 @@ coreKtx = "1.19.0"
 collection = "1.6.0"
 window = "1.5.1"
 
-bc = "1.86"
-spake2 = "1.1.1"
-documentfile = "1.1.0"
-
 jdklibs = "2.1.5"
 libsuVersion = "6.0.0"
 
@@ -35,7 +31,6 @@ lifecycle = "2.11.0"
 material3 = "1.5.0-alpha28"
 
 okio = "3.18.2"
-kadb = "2.1.4"
 zxing = "3.5.4"
 annotationExperimental = "1.6.0"
 
@@ -49,7 +44,6 @@ androidx-annotation = { group = "androidx.annotation", name = "annotation", vers
 androidx-annotation-experimental = { group = "androidx.annotation", name = "annotation-experimental", version.ref = "annotationExperimental" }
 androidx-collection = { group = "androidx.collection", name = "collection", version.ref = "collection" }
 androidx-window = { group = "androidx.window", name = "window", version.ref = "window" }
-androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
 
 # Lifecycle 组件
 androidx-lifecycle-livedata-ktx = { group = "androidx.lifecycle", name = "lifecycle-livedata-ktx", version.ref = "lifecycle" }
@@ -72,12 +66,7 @@ zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" 
 
 android-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "jdklibs" }
 
-com-flyfishxu-kadb = { group = "com.flyfishxu", name = "kadb", version.ref = "kadb" }
-
 okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
-bcprov-jdk18on = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bc" }
-bcpkix-jdk18on = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bc" }
-java-spake2 = { module = "com.github.Flyfish233:spake2-java", version.ref = "spake2" }
 
 # Compose
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "compose-bom" }

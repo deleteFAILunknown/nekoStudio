@@ -54,9 +54,6 @@ import java.time.format.*
 import javax.crypto.*
 import javax.net.ssl.*
 import okio.*
-import com.flyfishxu.kadb.Kadb
-import com.flyfishxu.kadb.core.AdbConnection
-import com.flyfishxu.kadb.shell.*
 import org.json.*
 
 import androidx.annotation.*
@@ -119,7 +116,6 @@ class MainActivity : ComponentActivity() {
     private val viewModel: MainActivityViewModel by viewModels()
     private val pviewModel: PerformanceViewModel by viewModels()
     private lateinit var usbManager: UsbManager
-    private lateinit var keyManager: AdbKeyManager
     private val ACTION_USB_PERMISSION = "com.adb.kitty.USB_PERMISSION"
 
     private var usbConn: UsbDeviceConnection? = null
@@ -176,19 +172,13 @@ class MainActivity : ComponentActivity() {
     }
     
     val turbo by lazy { PerformanceTurbo(this) }
-    
-    var showDeviceListBottomSheet = mutableStateOf(false)
-    var matchedDevicesList = mutableStateListOf<AdbDevice>()
-    
+
     var qrCodeDialogContent by mutableStateOf<String?>(null)
     var qrDecodeResult by mutableStateOf<String?>(null)
-    
+
     var adbService: AdbSessionService? = null
     private var isServiceBound = false
     private var isBindingRequested = false
-    private var kadbInstance: Kadb?
-        get() = if (isServiceBound) adbService?.globalKadbInstance else null
-        set(value) { if (isServiceBound) adbService?.globalKadbInstance = value }
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -428,21 +418,6 @@ class MainActivity : ComponentActivity() {
                     }
                 )
 
-                if (showDeviceListBottomSheet.value) {
-                    DeviceSelectionBottomSheet(
-                        wifiName = getCurrentWifiSsid(),
-                        devices = matchedDevicesList,
-                        onDeviceSelected = { selectedDevice ->
-                            appendLog("[INFO] 用户从底栏选择了设备: ${selectedDevice.ip}:${selectedDevice.port}")
-                            lifecycleScope.launch(Dispatchers.IO) {
-                                handleLocalAdbConnect("adb connect ${selectedDevice.ip}:${selectedDevice.port}")
-                            }
-                            showDeviceListBottomSheet.value = false
-                        },
-                        onDismiss = { showDeviceListBottomSheet.value = false }
-                    )
-                }
-
                 qrCodeDialogContent?.let { textToEncode ->
                     QrCodePopupDialog(
                         contentString = textToEncode,
@@ -593,7 +568,6 @@ class MainActivity : ComponentActivity() {
         }
         
         usbManager = getSystemService(Context.USB_SERVICE) as UsbManager
-        keyManager = AdbKeyManager(this)
         ensureFlashDirExists()
         tryToStartService()
 
@@ -1009,76 +983,17 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handlePhysicalFallback(cmd: String) {
-        if (isFastbootMode) {
-            appendLog("[发送] FB >> $cmd")
+        appendLog("[发送] FB >> $cmd")
     
-            if (cmd == "usb-selinux") {
-                appendLog("[系统] 正在尝试设置 SeLinux 为宽容模式, 该指令由 app 提供")
-                FbSeLinuxCmd()
-                return
-            }
+        if (cmd == "usb-selinux") {
+            appendLog("[系统] 正在尝试设置 SeLinux 为宽容模式, 该指令由 app 提供")
+            FbSeLinuxCmd()
+            return
+        }
     
-            lifecycleScope.launch(Dispatchers.IO) {
-                runCatching { viewModel.runCommand(cmd) }
-                    .onFailure { appendLog("[错误] ${it.message}") } 
-            }
-        } else {
-            lifecycleScope.launch(Dispatchers.IO) {
-                when {
-                    cmd.startsWith("adb pair") -> handleLocalAdbPair(cmd)
-                    cmd.startsWith("adb connect") -> handleLocalAdbConnect(cmd)
-
-                    cmd.startsWith("adb shell") -> {
-                        if (!isAdbAuthorized) {
-                            appendLog("[发送] ADB >> $cmd")
-                            appendLog("[错误] ADB 未授权，无法执行 adb shell")
-                            return@launch
-                        }
-                        sendAdbShell(cmd)
-                    }
-                    
-                    cmd.startsWith("adb push") -> {
-                        if (!isAdbAuthorized) {
-                            appendLog("[发送] ADB >> $cmd")
-                            appendLog("[错误] ADB 未授权，无法执行 adb push")
-                            return@launch
-                        }
-                        handleLocalAdbPush(cmd)
-                    }
-                    
-                    cmd.startsWith("adb pull") -> {
-                        if (!isAdbAuthorized) {
-                            appendLog("[发送] ADB >> $cmd")
-                            appendLog("[错误] ADB 未授权，无法执行 adb pull")
-                            return@launch
-                        }
-                        handleLocalAdbPull(cmd)
-                    }
-                    
-                    cmd.startsWith("adb install") -> {
-                        if (!isAdbAuthorized) {
-                            appendLog("[发送] ADB >> $cmd")
-                            appendLog("[错误] ADB 未授权，无法执行 adb install")
-                            return@launch
-                        }
-                        handleLocalAdbInstall(this@MainActivity, cmd)
-                    }
-                    
-                    cmd.startsWith("adb uninstall") -> {
-                        if (!isAdbAuthorized) {
-                            appendLog("[发送] ADB >> $cmd")
-                            appendLog("[错误] ADB 未授权，无法执行 adb uninstall")
-                            return@launch
-                        }
-                        handleLocalAdbUninstall(cmd)
-                    }
-
-                    // 兜底：未加 adb 前缀的所有普通命令均走本地 Shell 管道（不受 adbd 状态限制）
-                    else -> {
-                        handleLocalShellPipeline(cmd)
-                    }
-                }
-            }
+        lifecycleScope.launch(Dispatchers.IO) {
+            runCatching { viewModel.runCommand(cmd) }
+               .onFailure { appendLog("[错误] ${it.message}") } 
         }
     }
 
@@ -1309,7 +1224,7 @@ class MainActivity : ComponentActivity() {
     
         val serialNumber = runCatching { device.serialNumber }.getOrNull() ?: "unknown"
         val deviceKey = "USB_$serialNumber"
-    
+
         if (isFastbootMode) {
             setupFastboot()
             appendLog("[系统] Fastboot 物理信道就绪 | 序列号: $serialNumber")
@@ -1317,40 +1232,12 @@ class MainActivity : ComponentActivity() {
             isAdbAuthorized = true
             lifecycleScope.launch(Dispatchers.IO) {
                 try {
-                    val currentService = adbService ?: return@launch
-            
-                    if (currentService.getConnectedDeviceIds().contains(deviceKey)) {
-                        withContext(Dispatchers.Main) { 
-                            appendLog("[USB] 设备已在通道中，直接复用当前连接，防止无限重连循环。") 
-                        }
-                        return@launch
-                    }
-
                     withContext(Dispatchers.Main) {
-                        appendLog("[Auth] 正在建立原生 USB 双缓冲 DMA 握手…")
-                    }
-
-                    val adbConnection = AdbConnection.connectUsb(
-                        usbConnection = conn,
-                        epIn = epIn,
-                        epOut = epOut,
-                        hostKeySet = keyManager.getHostKeySet()
-                    )
-                    val instance = Kadb.createUsb(adbConnection)
-
-                    withContext(Dispatchers.Main) {
-                        val activeService = adbService
-                        if (activeService != null) {
-                            activeService.registerUsbDevice(serialNumber, instance)
-                            activeService.currentDeviceId = deviceKey
-                            appendLog(">>> 👍 ADB 有线授权成功，物理总线全面并网！[$serialNumber] <<<")
-                        } else {
-                            instance.close()
-                        }
+                        appendLog("adbd 支持已被移除")
                     }
                 } catch (e: Exception) {
                     withContext(Dispatchers.Main) {
-                        appendLog("[Error] KADB 物理有线握手崩溃: ${e.message}")
+                        appendLog("[Error]: ${e.message}")
                     }
                 }
             }
@@ -1374,30 +1261,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    
-    private fun executeAutoWifiConnect() {
-        val currentWifi = getCurrentWifiSsid()
-        val allHistory = getAllSavedDevices()
-        val matchedDevices = allHistory.filter { it.wifiSsid == currentWifi }
-        when {
-            matchedDevices.isEmpty() -> {
-                appendLog("[系统] 💡 当前 WiFi [$currentWifi] 无历史记录，等待手动输入")
-            }
-            matchedDevices.size == 1 -> {
-                val target = matchedDevices.first()
-                appendLog("[系统] 📡 侦测到 WiFi [$currentWifi] 唯一历史设备，正在无感回连...")
-                lifecycleScope.launch(Dispatchers.IO) {
-                    handleLocalAdbConnect("adb connect ${target.ip}:${target.port}")
-                }
-            }
-            else -> {
-                matchedDevicesList.clear()
-                matchedDevicesList.addAll(matchedDevices)
-                showDeviceListBottomSheet.value = true
-            }
-        }
-    }
-    
+
     private fun exportLogToFlashFolder() {
         if (viewModel.isLogEmpty) {
             appendLog("[提示] 当前控制台日志空空如也")
@@ -1424,658 +1288,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun handleLocalAdbInstall(context: Context, command: String) {
-        appendLog("安装 >> $command")
-        val trimmedCmd = command.trim()
-        if (!trimmedCmd.startsWith("adb install", ignoreCase = true)) {
-            appendLog("[错误] 请使用正规格式: adb install 本地路径或文件名")
-            return
-        }
-        
-        val pathInput = trimmedCmd.substring("adb install".length).trim()
-            .removeSurrounding("\"")
-            .removeSurrounding("'")
-
-        if (pathInput.isEmpty()) {
-            appendLog("[错误] 找不到输入路径")
-            return
-        }
-
-        val file = if (pathInput.startsWith("/")) File(pathInput) else File(flashFolder, pathInput)
-
-        if (!file.exists()) {
-            appendLog("[错误] 找不到文件或路径: ${file.absolutePath}")
-            return
-        }
-
-        val ext = file.extension.lowercase()
-        val isCompressedBundle = ext == "apks" || ext == "xapk"
-        val isMultiple = file.isDirectory || isCompressedBundle
-
-        lifecycleScope.launch(Dispatchers.IO) {
-            var tempExtractDir: File? = null
-            
-            try {
-                val kadb = kadbInstance ?: throw IllegalStateException("数据通道未建立，请先并网设备")
-            
-                if (isMultiple) {
-                    withContext(Dispatchers.Main) { appendLog("[Install] 检测到多文件/多组件安装模式 (Split APKs)...") }
-                    
-                    val apkList = mutableListOf<File>()
-
-                    if (file.isDirectory) {
-                        val files = file.listFiles { _, name -> name.lowercase().endsWith(".apk") }
-                        if (files != null) apkList.addAll(files)
-                    } else if (isCompressedBundle) {
-                        withContext(Dispatchers.Main) { appendLog("[Install] 正在对 [${file.name}] 容器进行物理破壳与流提取...") }
-                        
-                        tempExtractDir = File(context.cacheDir, "kadb_extracted_${System.currentTimeMillis()}")
-                        if (!tempExtractDir.mkdirs()) throw java.io.IOException("无法创建临时解压释放区")
-
-                        ZipFile(file).use { zip ->
-                            val entries = zip.entries()
-                            while (entries.hasMoreElements()) {
-                                val entry = entries.nextElement()
-                                if (!entry.isDirectory && entry.name.endsWith(".apk", ignoreCase = true)) {
-                                    val pureFileName = File(entry.name).name
-                                    val targetFile = File(tempExtractDir, pureFileName)
-                                    
-                                    zip.getInputStream(entry).use { input ->
-                                        targetFile.outputStream().use { output -> input.copyTo(output) }
-                                    }
-                                    apkList.add(targetFile)
-                                }
-                            }
-                        }
-                    }
-
-                    if (apkList.isEmpty()) {
-                        withContext(Dispatchers.Main) { appendLog("[错误] 目标路径下或容器内未提取到任何有效的 .apk 安装元组件") }
-                        return@launch
-                    }
-
-                    withContext(Dispatchers.Main) { appendLog("[Install] 物理集群总线传输中，共计 ${apkList.size} 个组件...") }
-                    
-                    kadb.installMultiple(apkList)
-                    
-                    withContext(Dispatchers.Main) { appendLog("[成功] 👍 多组件联装全量部署成功！") }
-                } else {
-                    withContext(Dispatchers.Main) { appendLog("[Install] 正在传输独立架构包: ${file.name}") }
-                    kadb.install(file)
-                    withContext(Dispatchers.Main) { appendLog("[成功] 👍 独立包安装完成: ${file.name}") }
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) { 
-                    appendLog("[安装失败] 核心熔断原因: ${e.message}") 
-                }
-            } finally {
-                tempExtractDir?.let {
-                    if (it.exists()) {
-                        it.deleteRecursively()
-                    }
-                }
-            }
-        }
-    }
-
-    private fun handleLocalAdbUninstall(command: String) {
-        appendLog("卸载 >> $command")
-        val parts = command.split("\\s+".toRegex()).filter { it.isNotBlank() }
-        if (parts.size < 3) {
-            appendLog("[错误] 请使用: adb uninstall 包名")
-            return
-        }
-
-        val packageName = parts[2]
-        appendLog("[Uninstall] 正在尝试卸载: $packageName")
-
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val kadb = kadbInstance ?: throw IllegalStateException("数据通道未建立")
-            
-                // 🌟 直接调用 Kadb 内置的 uninstall
-                kadb.uninstall(packageName)
-            
-                withContext(Dispatchers.Main) { 
-                    appendLog("[成功] 已卸载: $packageName") 
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) { 
-                    appendLog("[卸载失败] 无法完成: ${e.message}") 
-                }
-            }
-        }
-    }
-    
-    private suspend fun sendAdbShell(command: String) {
-        withContext(Dispatchers.Main) {
-            isAdbAuthorized = true
-            appendLog("ADB >> $command")
-        }
-        // 1. 如果有旧任务正在运行，先停止它
-        if (currentShellJob?.isActive == true) {
-            currentShellJob?.cancel()
-            appendLog("[提示] 已自动停止了上一个任务…")
-        }
-
-        // 2. 启动新任务并保存 Job
-        currentShellJob = lifecycleScope.launch(Dispatchers.IO) {
-            val cleanCmd = command.removePrefix("adb shell ").trim()
-            val shortDumpsysList = listOf(
-                "dumpsys battery",
-                "dumpsys thermal",
-                "dumpsys diskstats",
-                "dumpsys user",
-                "dumpsys statusbar",
-                "dumpsys hardware_properties"
-            )
-            val isLongRunning = when {
-                shortDumpsysList.any { cleanCmd.contains(it) } -> false
-                cleanCmd.contains("logcat") && (cleanCmd.contains("-d") || cleanCmd.contains("-c")) -> false
-                cleanCmd.startsWith("top") && !cleanCmd.contains("-n") -> true
-                cleanCmd.startsWith("ping") && !cleanCmd.contains("-c") -> true
-            
-                cleanCmd.contains("logcat") -> true
-                cleanCmd.contains("dumpsys") -> true
-                cleanCmd.contains("screenrecord") -> true
-            
-                else -> false
-            }
-        
-            try {
-                val kadb = kadbInstance ?: throw IllegalStateException("通道连接未就绪")
-            
-                if (isLongRunning) {
-                    handleStreamingCommand(kadb, cleanCmd)
-                } else {
-                    handleBufferedCommand(kadb, cleanCmd, 30_000L)
-                }
-            } catch (e: CancellationException) {
-                // 协程被取消时会走到这里
-                withContext(Dispatchers.Main) { appendLog("[系统] 任务已手动停止") }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) { 
-                    appendLog("[Shell 异常] ${e.message}")
-                    if (e is java.io.IOException || e.message?.contains("closed") == true) {
-                        kadbInstance = null
-                        isAdbAuthorized = false
-                        appendLog("连接已断开")
-                    }
-                }
-            }
-        }
-    }
-    
-    fun stopCurrentCommand() {
-        if (currentShellJob?.isActive == true) {
-            currentShellJob?.cancel()
-            appendLog("[系统] 正在停止...")
-        } else {
-            appendLog("[系统] 当前没有运行中的任务")
-        }
-    }
-    
-    private suspend fun handleBufferedCommand(kadb: Kadb, command: String, timeout: Long) {
-        val response = withContext(Dispatchers.IO) {
-            withTimeout(timeout) {
-                kadb.shell(command)
-            }
-        }
-        withContext(Dispatchers.Main) {
-            if (response.allOutput.isNotBlank()) appendLog(response.allOutput.trim())
-            else appendLog("[系统] 执行完成，无输出")
-        }
-    }
-    
-    private suspend fun handleStreamingCommand(kadb: Kadb, command: String) {
-        withContext(Dispatchers.IO) {
-            // kadb.openShell() 返回的就是 AdbShellStream
-            kadb.openShell(command).use { shellStream ->
-            
-                // 简单的批处理缓冲，避免高频刷新 UI
-                val outputBuffer = StringBuilder()
-                var lastUpdate = System.currentTimeMillis()
-
-                try {
-                    while (true) {
-                        // 直接调用库自带的 read() 方法，它是阻塞的，非常适合协程
-                        val packet = shellStream.read()
-                    
-                        val content = when (packet) {
-                            is AdbShellPacket.StdOut -> String(packet.payload)
-                            is AdbShellPacket.StdError -> "[Error] " + String(packet.payload)
-                            is AdbShellPacket.Exit -> {
-                                // 收到 Exit 包，任务结束，跳出循环
-                                withContext(Dispatchers.Main) { 
-                                    appendLog("[系统] 命令执行结束，退出码: ${packet.payload[0].toUByte()}") 
-                                }
-                                break
-                            }
-                        }
-
-                        // 实时追加到缓冲
-                        outputBuffer.append(content)
-
-                        // 性能优化：每 500ms 或数据块积累足够多时才刷新 UI
-                        if (System.currentTimeMillis() - lastUpdate > 500) {
-                            val snapshot = outputBuffer.toString()
-                            outputBuffer.clear()
-                            lastUpdate = System.currentTimeMillis()
-                        
-                            withContext(Dispatchers.Main) {
-                                appendLog(snapshot)
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    // 捕获协程取消或其他异常
-                    withContext(Dispatchers.Main) {
-                        if (e is CancellationException) {
-                            appendLog("[系统] 用户已手动终止任务")
-                        } else {
-                            appendLog("[Shell 异常] $e")
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
-    private fun handleLocalAdbPair(command: String) {
-        appendLog("[配对] 执行 >> $command")
-        val parts = command.split("\\s+".toRegex()).filter { it.isNotBlank() }
-        if (parts.size < 4) {
-            appendLog("[错误] 先在无线调试界面点击使用配对码配对，开小窗，再使用: adb pair IP地址:配对端口 配对码")
-            return
-        }
-
-        val target = parts[2] 
-        val pairingCode = parts[3] 
-        val hostPort = target.split(":")
-        if (hostPort.size != 2) {
-            appendLog("[错误] 格式不正确，应为 IP:端口")
-            return
-        }
-
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                withContext(Dispatchers.Main) {
-                    appendLog("[配对] 正在向远端电视注入 TLS 配对验证...")
-                }
-                
-                Kadb.pair(
-                    host = hostPort[0],
-                    port = hostPort[1].toInt(),
-                    pairingCode = pairingCode
-                )
-                
-                withContext(Dispatchers.Main) { 
-                    appendLog("[成功] 🎉 配对凭证握手存盘成功！")
-                    appendLog("[提示] ⚠️ 请查看电视上的【无线调试端口】，输入 adb connect [IP:端口] 唤醒数据总线。")
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    appendLog("[配对失败] 异常: ${e.message}")
-                }
-            }
-        }
-    }
-    
-    suspend fun handleLocalAdbConnect(command: String) {
-        withContext(Dispatchers.Main) {
-            appendLog("[无线] 执行 >> $command")
-        }
-
-        val parts = command.split("\\s+".toRegex()).filter { it.isNotBlank() }
-        if (parts.size < 3) {
-            withContext(Dispatchers.Main) {
-                appendLog("[错误] 请使用: adb connect IP地址:无线调试端口")
-            }
-            return
-        }
-        val target = parts[2]
-        val hostPort = target.split(":")
-        if (hostPort.size != 2) {
-            withContext(Dispatchers.Main) {
-                appendLog("[错误] IP与端口格式错误")
-            }
-            return
-        }
-        val ip = hostPort[0]
-        val port = hostPort[1].toInt()
-        
-        val deviceKey = "WIFI_$ip:$port" 
-
-        val currentService = adbService ?: return
-
-        if (currentService.getConnectedDeviceIds().contains(deviceKey)) {
-            currentService.unregisterDevice(deviceKey) 
-        }
-
-        try {
-            withContext(Dispatchers.Main) {
-                appendLog("[无线] 正在唤醒远端网络数据通道...")
-            }
-        
-            val instance = withContext(Dispatchers.IO) {
-                Kadb.create(host = ip, port = port)
-            }
-        
-            withContext(Dispatchers.Main) {
-                appendLog("[无线] 正在向网络通道发射探路信号...")
-            }
-        
-            val response = withContext(Dispatchers.IO) {
-                instance.shell("echo 1")
-            }
-
-            if (response.exitCode == 0 && response.allOutput.trim() == "1") {
-                withContext(Dispatchers.Main) {
-                    isAdbAuthorized = true
-                    val activeService = adbService
-                    if (activeService != null) {
-                        activeService.registerWifiDevice("$ip:$port", instance)
-                        activeService.currentDeviceId = deviceKey 
-                        appendLog(">>> 👍 无线设备并网成功！已自动切换为主控目标。 <<<")
-                    }
-                    saveConnectedDevice(ip, port)
-                }
-            } else {
-                runCatching { instance.close() }
-                withContext(Dispatchers.Main) {
-                    appendLog("[警告] 远端响应握手信号失败，退出通道")
-                }
-            }
-        } catch (e: Exception) {
-            withContext(Dispatchers.Main) {
-                appendLog("[连接失败] 远端网络拒绝建立链路: ${e.message}")
-            }
-        }
-    }
-    
-    private fun handleLocalAdbPush(command: String) {
-        appendLog("推送 >> $command")
-        val parts = command.split("\\s+".toRegex()).filter { it.isNotBlank() }
-        if (parts.size < 4) {
-            appendLog("[错误] 请使用: adb push 本地文件名 远端路径")
-            return
-        }
-
-        val localInput = parts[2]
-        val remotePath = parts[3]
-        val localFile = if (localInput.startsWith("/")) File(localInput) else File(flashFolder, localInput)
-
-        if (!localFile.exists()) {
-            appendLog("[错误] 找不到本地物理文件: ${localFile.absolutePath}")
-            return
-        }
-
-        val finalRemotePath = if (remotePath.endsWith("/")) remotePath + localFile.name else remotePath
-        appendLog("[Sync] 正在安全推送: ${localFile.name} -> $finalRemotePath")
-
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val kadb = kadbInstance ?: throw IllegalStateException("数据通道未建立")
-                val totalBytes = localFile.length()
-                val startTime = System.currentTimeMillis()
-                var lastUpdateTime = startTime
-
-                val baseSource = localFile.source()
-                var bytesTransferred = 0L
-            
-                val progressSource = object : okio.ForwardingSource(baseSource) {
-                    override fun read(sink: okio.Buffer, byteCount: Long): Long {
-                        val bytesRead = super.read(sink, byteCount)
-                        if (bytesRead > 0) {
-                            bytesTransferred += bytesRead
-                            val currentTime = System.currentTimeMillis()
-                        
-                            if (currentTime - lastUpdateTime >= 300 || bytesTransferred == totalBytes) {
-                                val durationMs = currentTime - startTime
-                                val speedStr = calculateSpeed(bytesTransferred, durationMs)
-                                val progress = if (totalBytes > 0) (bytesTransferred * 100 / totalBytes).toInt() else 0
-                            
-                                lifecycleScope.launch(Dispatchers.Main) {
-                                    appendLog("[实时] 进度: $progress% | 已传: ${bytesTransferred / 1024 / 1024}MB | 速度: $speedStr | 耗时: ${durationMs / 1000.0}s")
-                                }
-                                lastUpdateTime = currentTime
-                            }
-                        }
-                        return bytesRead
-                    }
-                }
-
-                val syncStream = kadb.openSync()
-                syncStream.use { stream ->
-                    stream.send(
-                        source = progressSource, 
-                        remotePath = finalRemotePath, 
-                        mode = 438, 
-                        lastModifiedMs = localFile.lastModified()
-                    )
-                }
-
-                val totalDurationMs = System.currentTimeMillis() - startTime
-                withContext(Dispatchers.Main) {
-                    appendLog("[成功] 文件已被推入远端: $finalRemotePath")
-                    appendLog("[总体性能] 总耗时: ${totalDurationMs / 1000.0}s | 平均速度: ${calculateSpeed(totalBytes, totalDurationMs)}")
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    appendLog("[Push 失败] 传输崩塌: ${e.message}")
-                }
-            }
-        }
-    }
-
-    private fun handleLocalAdbPull(command: String) {
-        appendLog("拉取 >> $command")
-        val parts = command.split("\\s+".toRegex()).filter { it.isNotBlank() }
-        if (parts.size < 3) {
-            appendLog("[错误] 请使用: adb pull 远端路径 可选本地落地名")
-            return
-        }
-
-        val remotePath = parts[2]
-        val localInput = if (parts.size >= 4) parts[3] else remotePath.substringAfterLast("/")
-        val localFile = if (localInput.startsWith("/")) File(localInput) else File(flashFolder, localInput)
-
-        appendLog("[Sync] 正在拉取远端数据: $remotePath -> ${localFile.absolutePath}")
-
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val kadb = kadbInstance ?: throw IllegalStateException("数据通道未建立")
-                val startTime = System.currentTimeMillis()
-                var lastUpdateTime = startTime
-
-                val baseSink = localFile.sink()
-                var bytesTransferred = 0L
-
-                val progressSink = object : okio.ForwardingSink(baseSink) {
-                    override fun write(source: okio.Buffer, byteCount: Long) {
-                        super.write(source, byteCount)
-                        bytesTransferred += byteCount
-                        val currentTime = System.currentTimeMillis()
-                    
-                        if (currentTime - lastUpdateTime >= 300) {
-                            val durationMs = currentTime - startTime
-                            val speedStr = calculateSpeed(bytesTransferred, durationMs)
-                        
-                            lifecycleScope.launch(Dispatchers.Main) {
-                                appendLog("[实时] 已下载: ${bytesTransferred / 1024 / 1024}MB | 速度: $speedStr | 耗时: ${durationMs / 1000.0}s")
-                            }
-                            lastUpdateTime = currentTime
-                        }
-                    }
-                }
-
-                val syncStream = kadb.openSync()
-                syncStream.use { stream ->
-                    stream.recv(sink = progressSink, remotePath = remotePath)
-                }
-
-                val totalDurationMs = System.currentTimeMillis() - startTime
-                withContext(Dispatchers.Main) {
-                    appendLog("[成功] 数据已沉淀至本地: ${localFile.absolutePath}")
-                    appendLog("[总体性能] 总耗时: ${totalDurationMs / 1000.0}s | 平均速度: ${calculateSpeed(bytesTransferred, totalDurationMs)} | 总大小: ${bytesTransferred / 1024 / 1024}MB")
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    appendLog("[Pull 失败] 提取中止: ${e.message}")
-                }
-            }
-        }
-    }
-
-    private fun calculateSpeed(bytes: Long, durationMs: Long): String {
-        if (durationMs <= 0 || bytes <= 0) return "0 KB/s"
-    
-        // 秒数 = 毫秒 / 1000
-        val seconds = durationMs / 1000.0
-        // 每秒传输的字节数
-        val bytesPerSecond = bytes / seconds
-    
-        return when {
-            // 如果达到 MB/s 级别 (大于等于 1024 * 1024 字节)
-            bytesPerSecond >= 1048576 -> {
-                val mbps = bytesPerSecond / 1048576.0
-                String.format(java.util.Locale.US, "%.2f MB/s", mbps)
-            }
-            // 如果是 KB/s 级别
-            bytesPerSecond >= 1024 -> {
-                val kbps = bytesPerSecond / 1024.0
-                String.format(java.util.Locale.US, "%.2f KB/s", kbps)
-            }
-            // 极小文本下的 B/s 级别
-            else -> {
-                String.format(java.util.Locale.US, "%.0f B/s", bytesPerSecond)
-            }
-        }
-    }
-    
-    private fun saveConnectedDevice(ip: String, port: Int) {
-        val currentWifi = getCurrentWifiSsid()
-        val prefs = applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val deviceList = getAllSavedDevices().toMutableList()
-        
-        deviceList.removeAll { it.ip == ip && it.wifiSsid == currentWifi }
-        deviceList.add(0, AdbDevice(ip, port, currentWifi, System.currentTimeMillis()))
-        
-        val trimmedList = if (deviceList.size > 10) deviceList.subList(0, 10) else deviceList
-        val jsonArray = JSONArray()
-        for (dev in trimmedList) {
-            val obj = JSONObject().apply {
-                put("ip", dev.ip)
-                put("port", dev.port)
-                put("wifiSsid", dev.wifiSsid)
-                put("lastConnectedTime", dev.lastConnectedTime)
-            }
-            jsonArray.put(obj)
-        }
-        prefs.edit {
-            putString(KEY_DEVICE_LIST, jsonArray.toString())
-        }
-    }
-
-    private fun getAllSavedDevices(): List<AdbDevice> {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val jsonStr = prefs.getString(KEY_DEVICE_LIST, null) ?: return emptyList()
-        val list = mutableListOf<AdbDevice>()
-        try {
-            val jsonArray = JSONArray(jsonStr)
-            for (i in 0 until jsonArray.length()) {
-                val obj = jsonArray.getJSONObject(i)
-                list.add(
-                    AdbDevice(
-                        ip = obj.getString("ip"),
-                        port = obj.getInt("port"),
-                        wifiSsid = obj.getString("wifiSsid"),
-                        lastConnectedTime = obj.getLong("lastConnectedTime")
-                    )
-                )
-            }
-        } catch (e: Exception) { e.printStackTrace() }
-        return list
-    }
-
-    private fun getCurrentWifiSsid(): String {
-        try {
-            val connectivityManager = applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val activeNetwork = connectivityManager?.activeNetwork
-                val capabilities = connectivityManager?.getNetworkCapabilities(activeNetwork)
-
-                if (capabilities != null && capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
-                    val wifiInfo = capabilities.transportInfo as? WifiInfo
-                    if (wifiInfo != null) {
-                        val ssid = wifiInfo.ssid.removeSurrounding("\"")
-                        if (isValidSsid(ssid)) {
-                            return ssid
-                        }
-                    }
-                }
-            }
-
-            @Suppress("DEPRECATION")
-            val wifiManager = applicationContext.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
-            @Suppress("DEPRECATION")
-            val info = wifiManager?.connectionInfo
-
-            if (info != null) {
-                val ssid = info.ssid.removeSurrounding("\"")
-                if (isValidSsid(ssid)) {
-                    return ssid
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("adbKitty", "获取无线SSID受限", e)
-        }
-        return "DEFAULT_WIFI"
-    }
-
-    private fun isValidSsid(ssid: String?): Boolean {
-        if (ssid.isNullOrEmpty()) return false
-        return !ssid.equals("<unknown ssid>", ignoreCase = true)
-    }
-
-    fun handleWifiConnectionFlow() {
-        val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-        isWifiEnabled = wifiManager.isWifiEnabled
-        appendLog("[提示] 🚀 初始 WLAN 状态: isWifiEnabled = $isWifiEnabled")
-        if (checkAndRequestWifiPermission()) {
-            if (isWifiEnabled) executeAutoWifiConnect()
-            else appendLog("[警告] 📡 自动回连已跳过：手机 WLAN 开关当前未开启。")
-        }
-    }
-
     private fun getWifiScanPermission(): String {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             Manifest.permission.NEARBY_WIFI_DEVICES
         } else {
             Manifest.permission.ACCESS_FINE_LOCATION
-        }
-    }
-    
-    private fun checkAndRequestWifiPermission(): Boolean {
-        val permissionsToRequest = mutableListOf<String>()
-        val wifiPermission = getWifiScanPermission()
-        if (ContextCompat.checkSelfPermission(this, wifiPermission) != PackageManager.PERMISSION_GRANTED) {
-            permissionsToRequest.add(wifiPermission)
-        }
-
-        if (Build.VERSION.SDK_INT >= 37) {
-            val localNetPermission = "android.permission.ACCESS_LOCAL_NETWORK"
-            if (ContextCompat.checkSelfPermission(this, localNetPermission) != PackageManager.PERMISSION_GRANTED) {
-                permissionsToRequest.add(localNetPermission)
-            }
-        }
-
-        return if (permissionsToRequest.isNotEmpty()) {
-            requestNetworkPermissionsLauncher.launch(permissionsToRequest.toTypedArray())
-            false
-        } else {
-            true
         }
     }
 
@@ -2185,7 +1402,6 @@ class MainActivity : ComponentActivity() {
         }
         stopAdbService()
         currentShellJob?.cancel()
-        viewModel.setAdbService(null)
         super.onDestroy()
         readerJob?.cancel()
         usbConn?.close()
@@ -2193,6 +1409,5 @@ class MainActivity : ComponentActivity() {
         unregisterReceiver(usbStateReceiver)
         unregisterReceiver(wifiReceiver)
         unregisterReceiver(powerReceiver)
-        runCatching { kadbInstance?.close() }
     }
 }

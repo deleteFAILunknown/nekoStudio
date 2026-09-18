@@ -36,9 +36,6 @@ data class FbCommand(val description: String, val command: String)
 data class AppCommand(val description: String, val command: String)
 
 @Keep
-data class AdbDevice(val ip: String, val port: Int, val wifiSsid: String, val lastConnectedTime: Long)
-
-@Keep
 object NativeLibs {
     init {
         runCatching {
@@ -119,15 +116,4 @@ data class CommandUiItem(
     val description: String,
     val isAdb: Boolean,
     val isApp: Boolean = false
-)
-
-@Keep
-enum class DeviceType { USB, WIFI }
-
-@Keep
-data class DeviceUiState(
-    val id: String,
-    val displayName: String,
-    val type: DeviceType,
-    val isActive: Boolean
 )

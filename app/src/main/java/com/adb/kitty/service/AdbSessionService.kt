@@ -50,7 +50,6 @@ import android.annotation.SuppressLint
 import androidx.annotation.RequiresApi
 import androidx.annotation.CallSuper
 
-import com.flyfishxu.kadb.Kadb
 import kotlin.concurrent.thread
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
@@ -84,8 +83,6 @@ class AdbSessionService : LifecycleService() {
     private var cachedCircularIcon: IconCompat? = null
     var onCommandReceivedListener: ((String) -> Unit)? = null
 
-    private val kadbInstancePool = ConcurrentHashMap<String, Kadb>()
-
     @Volatile
     private var currentWorkingDirectory: File = Environment.getExternalStorageDirectory()
 
@@ -110,59 +107,6 @@ class AdbSessionService : LifecycleService() {
         return binder
     }
 
-    private val _currentDeviceId = MutableStateFlow<String?>(null)
-    val currentDeviceIdState = _currentDeviceId.asStateFlow()
-
-    private val _connectedDevices = MutableStateFlow<List<String>>(emptyList())
-    val connectedDevicesState = _connectedDevices.asStateFlow()
-
-    var currentDeviceId: String?
-        get() = _currentDeviceId.value
-        set(value) {
-            _currentDeviceId.value = value
-        }
-
-    var globalKadbInstance: Kadb?
-        get() = currentDeviceId?.let { kadbInstancePool[it] }
-        set(value) {
-            val id = currentDeviceId ?: "default_device"
-            if (value != null) {
-                kadbInstancePool[id] = value
-                notifyDeviceDataChanged()
-            } else {
-                kadbInstancePool.remove(id)?.let { runCatching { it.close() } }
-                notifyDeviceDataChanged()
-            }
-        }
-
-    private fun notifyDeviceDataChanged() {
-        _connectedDevices.value = kadbInstancePool.keys().toList()
-    }
-
-    fun registerUsbDevice(serialNumber: String, instance: Kadb) {
-        val key = "USB_$serialNumber"
-        kadbInstancePool[key] = instance
-        if (currentDeviceId == null) currentDeviceId = key
-        notifyDeviceDataChanged()
-    }
-
-    fun registerWifiDevice(ipAndPort: String, instance: Kadb) {
-        val key = "WIFI_$ipAndPort"
-        kadbInstancePool[key] = instance
-        if (currentDeviceId == null) currentDeviceId = key
-        notifyDeviceDataChanged()
-    }
-
-    fun unregisterDevice(deviceId: String) {
-        kadbInstancePool.remove(deviceId)?.let { runCatching { it.close() } }
-        if (currentDeviceId == deviceId) {
-            currentDeviceId = kadbInstancePool.keys().asSequence().firstOrNull()
-        }
-        notifyDeviceDataChanged()
-    }
-
-    fun getConnectedDeviceIds(): List<String> = kadbInstancePool.keys().toList()
-    
     fun logToNotification(log: String) {
         synchronized(notificationLogs) {
             if (notificationLogs.size >= MAX_LOG_COUNT) {
@@ -1040,8 +984,6 @@ class AdbSessionService : LifecycleService() {
         releaseWakeLock()
         terminateCurrentCommand()
         runCatching { unregisterReceiver(shellCmdReceiver) }
-        kadbInstancePool.forEach { (_, instance) -> runCatching { instance.close() } }
-        kadbInstancePool.clear()
         super.onDestroy()
     }
 }

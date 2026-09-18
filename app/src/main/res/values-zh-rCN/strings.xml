@@ -3,7 +3,6 @@
     <string name="app_bar_name">指令集工具</string>
     <string name="documents_name">应用数据存储目录</string>
     <string name="push_cmd_name">发送</string>
-    <string name="action_menu_wifi">触发无线调试扫描</string>
     <string name="action_menu_usb">扫描 USB 设备</string>
     <string name="action_menu_selinux">尝试设置SeLinux为宽容</string>
     <string name="action_menu_iptest">测试 ipv4 / ipv6 地址</string>
@@ -11,7 +10,6 @@
     <string name="action_menu_dellog">清空控制台日志</string>
     <string name="action_menu_help">使用说明</string>
     <string name="action_menu_log_export">打印已输出的日志</string>
-    <string name="action_menu_shell_stop">终止当前 adb Shell 进程</string>
     <string name="action_menu_neko_shell_stop">终止当前 Shell 进程</string>
     <string name="action_menu_turbo">启动性能提示管理器</string>
     <string name="action_menu_turbo_stop">还原性能提示管理器</string>

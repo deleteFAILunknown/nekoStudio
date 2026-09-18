@@ -38,15 +38,6 @@
 -keep class com.google.** { *; }
 -dontwarn com.google.**
 
--keep class cafe.cryptography.** { *; }
--dontwarn cafe.cryptography.**
-
--keep class com.flyfishxu.kadb.** { *; }
--dontwarn com.flyfishxu.kadb.**
-
--keep class com.flyfish233.crypto.spake2.** { *; }
--dontwarn com.flyfish233.crypto.spake2.**
-
 -dontrepackage
 
 -keep class com.android.tools.r8.RecordTag { *; }

@@ -225,52 +225,6 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         return cachedTimeString
     }
 
-    private val _adbService = MutableStateFlow<AdbSessionService?>(null)
-
-    fun setAdbService(service: AdbSessionService?) {
-        _adbService.value = service
-    }
-
-    @OptIn(ExperimentalCoroutinesApi::class)
-    val deviceListState: StateFlow<List<DeviceUiState>> = _adbService.flatMapLatest { service ->
-        if (service == null) {
-            flowOf(emptyList())
-        } else {
-            combine(service.connectedDevicesState, service.currentDeviceIdState) { devices, activeId ->
-                devices.map { rawId ->
-                    val isUsb = rawId.startsWith("USB_")
-                    val cleanName = rawId.substringAfter("_")
-                    DeviceUiState(
-                        id = rawId,
-                        displayName = if (isUsb) "🔌 USB: $cleanName" else "🌐 Wi-Fi: $cleanName",
-                        type = if (isUsb) DeviceType.USB else DeviceType.WIFI,
-                        isActive = rawId == activeId
-                    )
-                }
-            }
-        }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    fun switchActiveDevice(targetDevice: DeviceUiState) {
-        val service = _adbService.value
-        if (service == null) {
-            appendLog("[错误] 通信守护服务未就绪，切换失败。")
-            return
-        }
-
-        if (!service.getConnectedDeviceIds().contains(targetDevice.id) || targetDevice.isActive) {
-            appendLog("[INFO] 切换熔断：设备 ${targetDevice.displayName} 已离线或已被激活。")
-            return
-        }
-
-        try {
-            service.currentDeviceId = targetDevice.id
-            appendLog("[INFO] 主控权已动态切流至 -> ${targetDevice.displayName}")
-        } catch (e: Exception) {
-            appendLog("[系统] 切流发生异常: ${e.localizedMessage}")
-        }
-    }
-
     private var _fastbootManager: FastbootManager? = null
     val fastbootManager: FastbootManager? get() = _fastbootManager
 
