@@ -104,15 +104,6 @@ class AdbSessionService : LifecycleService() {
         fun getService(): AdbSessionService = this@AdbSessionService
     }
 
-    lateinit var mainViewModel: MainActivityViewModel
-        private set
-
-    private fun appendLog(msg: String) {
-        runCatching{
-            mainViewModel.appendLog(msg)
-        }
-    }
-
     @CallSuper
     override fun onBind(intent: Intent): IBinder? {
         super.onBind(intent)
@@ -208,8 +199,6 @@ class AdbSessionService : LifecycleService() {
         // 运行前台服务被要求在 1秒或者2秒 内发送通知，必需发送通知，哪怕用户没有授予通知权限，也是可以正常运行的，通知并不会影响到前台服务，唯一受影响的只有视觉上
         updateShortcutIfNeeded()
         startNotificationTicker()
-
-        mainViewModel = ViewModelProvider(this)[MainActivityViewModel::class.java]
 
         ContextCompat.registerReceiver(
             this,
