@@ -15,7 +15,7 @@ public class AdbSyncService(public val connection: AdbConnection) {
     public suspend fun push(
         inputStream: InputStream,
         remotePath: String,
-        mode: Int = 0644,
+        mode: Int = 0x1A4,
         chunkSize: Int = 256 * 1024
     ): Boolean = withContext(Dispatchers.IO) {
         val stream = connection.openStream("sync:")

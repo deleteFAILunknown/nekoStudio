@@ -38,7 +38,7 @@ public class Adb(
     public suspend fun push(
         inputStream: InputStream,
         remotePath: String,
-        mode: Int = 0644
+        mode: Int = 0x1A4
     ): Boolean {
         return services.sync.push(inputStream, remotePath, mode)
     }
