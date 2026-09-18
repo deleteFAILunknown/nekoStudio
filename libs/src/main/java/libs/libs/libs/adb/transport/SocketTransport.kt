@@ -14,6 +14,11 @@ public class SocketTransport(
 
     public suspend fun connect(): Unit = withContext(Dispatchers.IO) {
         socket = Socket().apply {
+            // 禁用 Nagle 算法，消除 ACK 延迟
+            tcpNoDelay = true 
+            // 显式将 TCP 读写缓冲区扩至 1MB
+            sendBufferSize = 1024 * 1024     
+            receiveBufferSize = 1024 * 1024  
             connect(InetSocketAddress(host, port), timeoutMs)
             soTimeout = timeoutMs
         }

@@ -26,11 +26,12 @@ public class UsbTransport(
 
     override suspend fun write(buffer: ByteArray, offset: Int, length: Int): Unit = withContext(Dispatchers.IO) {
         var totalWritten = 0
+    // 将分块从 4KB 提升至 64KB（甚至 256KB），大幅减少 JNI 调用开销
+        val maxChunkSize = 64 * 1024 
         while (totalWritten < length) {
-            val chunkSize = minOf(4096, length - totalWritten)
-            val chunk = buffer.copyOfRange(offset + totalWritten, offset + totalWritten + chunkSize)
-            val written = connection.bulkTransfer(outEndpoint, chunk, chunkSize, timeoutMs)
-            if (written < 0) throw IllegalStateException("USB 写入数据失败")
+            val chunkSize = minOf(maxChunkSize, length - totalWritten)
+            val written = connection.bulkTransfer(outEndpoint, buffer, offset + totalWritten, chunkSize, timeoutMs)
+            if (written < 0) throw IllegalStateException("USB 写入失败")
             totalWritten += written
         }
     }

@@ -50,7 +50,7 @@ android {
 
     lint {
         checkDependencies = false
-      //  abortOnError = false
+        abortOnError = false
     }
 }
 

@@ -16,13 +16,14 @@ public class AdbSyncService(public val connection: AdbConnection) {
         inputStream: InputStream,
         remotePath: String,
         mode: Int = 0644,
-        chunkSize: Int = 64 * 1024
+        chunkSize: Int = 256 * 1024
     ): Boolean = withContext(Dispatchers.IO) {
         val stream = connection.openStream("sync:")
         val targetStr = "$remotePath,$mode"
         
         sendSyncReq(stream, "SEND", targetStr.toByteArray(Charsets.UTF_8))
 
+        // 内存复用：只分配一次固定大小的 Buffer
         val buffer = ByteArray(chunkSize)
         var bytesRead: Int
         while (inputStream.read(buffer).also { bytesRead = it } != -1) {
@@ -30,8 +31,14 @@ public class AdbSyncService(public val connection: AdbConnection) {
                 .put("DATA".toByteArray(Charsets.UTF_8))
                 .putInt(bytesRead)
                 .array()
+        
+            // 写入 8 字节 DATA Header 与 256KB 数据块
             stream.write(chunkHeader)
-            stream.write(buffer.copyOf(bytesRead))
+            if (bytesRead == chunkSize) {
+                stream.write(buffer)
+            } else {
+                stream.write(buffer.copyOf(bytesRead))
+            }
         }
 
         val timestamp = (System.currentTimeMillis() / 1000).toInt()

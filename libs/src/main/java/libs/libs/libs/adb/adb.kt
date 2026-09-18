@@ -62,31 +62,28 @@ public class Adb(
 
     public companion object {
 
-        /**
-         * 默认的 RSA 秘钥生成与缓存单例（首次调用时自动生成 2048 位 RSA 密钥对）
-         */
         public var defaultCrypto: AdbCrypto? = null
-            get() {
-                if (field == null) {
-                    field = AdbCrypto.generate()
-                }
-                return field
-            }
 
         /**
-         * 通过无线网络（Socket）快速建立 ADB 连接
+         * 使用 Android Context 自动从内部存储 (filesDir/adbkey) 初始化持久化秘钥
+         */
+        public fun initCrypto(context: Context): AdbCrypto {
+            val crypto = AdbCrypto.loadOrGenerate(context)
+            defaultCrypto = crypto
+            return crypto
+        }
+
+        /**
+         * 带 Context 参数的无线 ADB 一键建连（自动处理密钥本地化）
          */
         public suspend fun connectSocket(
+            context: Context,
             host: String,
             port: Int = 5555,
-            crypto: AdbCrypto = defaultCrypto!!,
             timeoutMs: Int = 10000
         ): Adb {
-            val transport = SocketTransport(host, port, timeoutMs)
-            transport.connect()
-            val connection = AdbConnection(transport, crypto)
-            connection.connect()
-            return Adb(connection)
+            val crypto = initCrypto(context)
+            return connectSocket(host, port, crypto, timeoutMs)
         }
 
         /**
