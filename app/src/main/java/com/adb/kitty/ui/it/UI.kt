@@ -59,9 +59,6 @@ import java.time.*
 import java.time.format.*
 import javax.crypto.*
 import javax.net.ssl.*
-import okio.*
-import com.flyfishxu.kadb.Kadb
-import com.flyfishxu.kadb.shell.*
 import org.json.*
 
 import android.os.*

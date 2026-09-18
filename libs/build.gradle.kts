@@ -66,6 +66,4 @@ dependencies {
     implementation(libs.lsposed.hiddenapibypass)
     implementation(libs.androidx.annotation)
     implementation(libs.androidx.annotation.experimental)
-    implementation(libs.okio)
-    implementation(libs.okhttp)
 }
