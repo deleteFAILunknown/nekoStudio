@@ -44,8 +44,10 @@ import androidx.core.graphics.drawable.IconCompat
 import androidx.core.graphics.createBitmap
 import androidx.window.layout.WindowMetricsCalculator
 import android.webkit.MimeTypeMap
+import androidx.lifecycle.LifecycleService
 import android.annotation.SuppressLint
 import androidx.annotation.RequiresApi
+import androidx.annotation.CallSuper
 
 import com.flyfishxu.kadb.Kadb
 import kotlin.concurrent.thread
@@ -62,7 +64,7 @@ import java.net.*
 import java.lang.reflect.*
 
 @Keep
-class AdbSessionService : Service() {
+class AdbSessionService : LifecycleService() {
 
     private val NOTIFICATION_ID = 101
     private val CHANNEL_ID = "com.adb.kitty.core_service_channel_v1"
@@ -101,7 +103,11 @@ class AdbSessionService : Service() {
         fun getService(): AdbSessionService = this@AdbSessionService
     }
 
-    override fun onBind(intent: Intent?): IBinder = binder
+    @CallSuper
+    override fun onBind(intent: Intent): IBinder? {
+        super.onBind(intent)
+        return binder
+    }
 
     private val _currentDeviceId = MutableStateFlow<String?>(null)
     val currentDeviceIdState = _currentDeviceId.asStateFlow()
