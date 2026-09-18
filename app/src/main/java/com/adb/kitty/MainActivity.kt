@@ -186,7 +186,6 @@ class MainActivity : ComponentActivity() {
             val cmdsService = binder.getService()
             isServiceBound = true
             appendLog("[系统] 前台物理守护进程并网成功。")
-            viewModel.setAdbService(adbService)
             cmdsService.onCommandReceivedListener = { cmd ->
                 cmdsServiceExec(cmd)
             }
@@ -197,7 +196,6 @@ class MainActivity : ComponentActivity() {
             isServiceBound = false
             isBindingRequested = false
             adbService = null
-            viewModel.setAdbService(null)
         }
     }
     
