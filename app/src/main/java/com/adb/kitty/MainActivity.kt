@@ -345,12 +345,10 @@ class MainActivity : ComponentActivity() {
                     WifiManager.WIFI_STATE_ENABLED -> {
                         isWifiEnabled = true
                         appendLog("[INFO] ⏳ WLAN 已开启")
-                        if (!oldState) handleWifiConnectionFlow()
                     }
                     WifiManager.WIFI_STATE_DISABLED -> {
                         isWifiEnabled = false
                         appendLog("[警告] ⏳ WLAN 已关闭")
-                        handleWifiConnectionFlow()
                     }
                 }
             }
