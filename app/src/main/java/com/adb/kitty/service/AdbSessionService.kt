@@ -284,11 +284,12 @@ class AdbSessionService : LifecycleService() {
     private var wakeLock: PowerManager.WakeLock? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
-            ACTION_REPLY_COMMAND -> handleNotificationInput(intent)
-            ACTION_START_RECORDING -> acquireWakeLock()
-            ACTION_STOP_RECORDING -> releaseWakeLock()
-        }
+        super.onStartCommand(intent, flags, startId)
+            when (intent?.action) {
+                ACTION_REPLY_COMMAND -> handleNotificationInput(intent)
+                ACTION_START_RECORDING -> acquireWakeLock()
+                ACTION_STOP_RECORDING -> releaseWakeLock()
+            }
         return START_STICKY
     }
 
