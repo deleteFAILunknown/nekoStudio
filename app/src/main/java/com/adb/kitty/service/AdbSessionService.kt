@@ -108,7 +108,7 @@ class AdbSessionService : LifecycleService() {
         private set
 
     private fun appendLog(msg: String) {
-        runOnUiThread {
+        runCatching{
             mainViewModel.appendLog(msg)
         }
     }
