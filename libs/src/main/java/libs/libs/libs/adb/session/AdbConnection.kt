@@ -131,7 +131,7 @@ public class AdbConnection(
                 handleIncomingPacket(AdbPacket(header.command, header.arg0, header.arg1, payload))
             }
         } catch (e: Exception) {
-            close()
+            closeInternal()
         }
     }
 
@@ -185,7 +185,7 @@ public class AdbConnection(
                 val localId = packet.arg1
                 val stream = activeStreams[localId]
                 if (stream != null) {
-                    // AdbStream.receiveData 内部会自动入队并向设备端发送 CMD_OKAY 触发后续包，无需在此重复发送
+                    // AdbStream.receiveData 内部会自动入队并向设备端发送 CMD_OKAY 触发后续包
                     stream.receiveData(packet.payload)
                 }
             }
@@ -211,9 +211,9 @@ public class AdbConnection(
     }
 
     /**
-     * 关闭连接并清理所有关联资源（普通函数，符合 Closeable 规范）
+     * 内部异步断开与清理逻辑
      */
-    override fun close() {
+    private fun closeInternal() {
         if (isClosed) return
         isClosed = true
 
@@ -221,14 +221,25 @@ public class AdbConnection(
             connectionDeferred.completeExceptionally(IOException("AdbConnection 已主动关闭"))
         }
 
-        // 通知并关闭所有解绑挂起的 AdbStream
+        // 1. 解绑所有挂起的 AdbStream
         activeStreams.values.forEach { stream ->
             runCatching { stream.onRemoteClosed() }
         }
         activeStreams.clear()
 
-        // 取消协程作用域并关闭底层传输
+        // 2. 在 IO 协程中执行 transport 关闭，完美兼容 transport.close 为 suspend 的情况
+        CoroutineScope(Dispatchers.IO).launch {
+            runCatching { transport.close() }
+        }
+
+        // 3. 取消内部 CoroutineScope
         scope.cancel()
-        runCatching { transport.close() }
+    }
+
+    /**
+     * 实现 Closeable 接口（非挂起普通函数）
+     */
+    override fun close() {
+        closeInternal()
     }
 }
