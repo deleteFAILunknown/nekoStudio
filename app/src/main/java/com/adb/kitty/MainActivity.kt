@@ -1004,9 +1004,7 @@ class MainActivity : ComponentActivity() {
                         appendLog("[发送] FB >> $cmd")
 
                         runCatching { viewModel.runCommand(cmd) }
-                            .onFailure { appendLog("[错误] ${it.message}") } 
-
-                        return@launch
+                            .onFailure { appendLog("[错误] ${it.message}") }
                     } else {
                         handleLocalShellPipeline(cmd)
                     }
