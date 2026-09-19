@@ -978,17 +978,40 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handlePhysicalFallback(cmd: String) {
-        appendLog("[发送] FB >> $cmd")
-    
-        if (cmd == "usb-selinux") {
-            appendLog("[系统] 正在尝试设置 SeLinux 为宽容模式, 该指令由 app 提供")
-            FbSeLinuxCmd()
-            return
-        }
-    
         lifecycleScope.launch(Dispatchers.IO) {
-            runCatching { viewModel.runCommand(cmd) }
-               .onFailure { appendLog("[错误] ${it.message}") } 
+            when {
+                cmd.startsWith("usb-selinux") -> {
+                    appendLog("[发送] FB >> $cmd")
+                    appendLog("[系统] 正在尝试设置 SeLinux 为宽容模式, 该指令由 app 提供")
+                    FbSeLinuxCmd()
+
+                    return@launch
+                }
+
+                cmd.startsWith("fastboot") -> {
+                    appendLog("[发送] FB >> $cmd")
+
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        runCatching { viewModel.runCommand(cmd) }
+                            .onFailure { appendLog("[错误] ${it.message}") } 
+                    }
+
+                    return@launch
+                }
+
+                else -> {
+                    if (!isFastbootMode) {
+                        appendLog("[发送] FB >> $cmd")
+
+                        runCatching { viewModel.runCommand(cmd) }
+                            .onFailure { appendLog("[错误] ${it.message}") } 
+
+                        return@launch
+                    } else {
+                        handleLocalShellPipeline(cmd)
+                    }
+                }
+            }
         }
     }
 
