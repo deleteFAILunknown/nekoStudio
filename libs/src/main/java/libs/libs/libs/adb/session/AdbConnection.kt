@@ -8,6 +8,7 @@ import libs.libs.libs.adb.protocol.AdbCrypto
 import libs.libs.libs.adb.protocol.AdbPacket
 import libs.libs.libs.adb.transport.AdbTransport
 import libs.libs.libs.adb.transport.TlsTransport
+import java.io.Closeable
 import java.io.EOFException
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
@@ -17,7 +18,8 @@ public class AdbConnection(
     public val transport: AdbTransport,
     public val crypto: AdbCrypto,
     public val features: String = DEFAULT_FEATURES
-) {
+) : Closeable {
+
     public companion object {
         public const val DEFAULT_FEATURES: String =
             "shell_v2,cmd,abb,abb_exec,stat_v2,ls_v2,sendrecv_v2,fixed_push_mkdir"
@@ -34,6 +36,10 @@ public class AdbConnection(
     // 连接握手 CompletableDeferred，确保 connect() 等到 CNXN 握手成功后才返回
     private val connectionDeferred: CompletableDeferred<Unit> = CompletableDeferred()
 
+    @Volatile
+    public var isClosed: Boolean = false
+        private set
+
     public var maxData: Int = 4096
         private set
 
@@ -44,6 +50,8 @@ public class AdbConnection(
      * 建立 ADB 连接并进行 CNXN 握手与认证（挂起直到成功）
      */
     public suspend fun connect(): Unit = withContext(Dispatchers.IO) {
+        check(!isClosed) { "AdbConnection 已关闭，无法重新连接" }
+
         // 启动后台读取循环
         scope.launch { readLoop() }
 
@@ -68,6 +76,8 @@ public class AdbConnection(
      * 打开一个新的 ADB Stream（挂起直到收到对端的 CMD_OKAY 确认）
      */
     public suspend fun openStream(destination: String): AdbStream = withContext(Dispatchers.IO) {
+        check(!isClosed) { "AdbConnection 已关闭，无法打开 Stream" }
+
         val localId = localIdCounter.getAndIncrement()
         val stream = AdbStream(localId, 0, this@AdbConnection)
         activeStreams[localId] = stream
@@ -84,6 +94,8 @@ public class AdbConnection(
      * 线程安全的报文发送逻辑
      */
     public suspend fun sendPacket(packet: AdbPacket): Unit = withContext(Dispatchers.IO) {
+        if (isClosed) return@withContext
+
         writeMutex.withLock {
             transport.write(packet.toHeaderBytes(), 0, AdbPacket.HEADER_SIZE)
             if (packet.payload.isNotEmpty()) {
@@ -102,7 +114,7 @@ public class AdbConnection(
     private suspend fun readLoop() {
         val headerBuf = ByteArray(AdbPacket.HEADER_SIZE)
         try {
-            while (scope.isActive) {
+            while (scope.isActive && !isClosed) {
                 // 1. 严格读满 24 字节 Header
                 readFully(headerBuf, 0, AdbPacket.HEADER_SIZE)
                 val header = AdbPacket.parseHeader(headerBuf)
@@ -119,12 +131,7 @@ public class AdbConnection(
                 handleIncomingPacket(AdbPacket(header.command, header.arg0, header.arg1, payload))
             }
         } catch (e: Exception) {
-            // 连接断开或异常，清理所有未完成的 Deferred 和 Stream
-            if (!connectionDeferred.isCompleted) {
-                connectionDeferred.completeExceptionally(e)
-            }
-            activeStreams.values.forEach { it.onRemoteClosed() }
-            activeStreams.clear()
+            close()
         }
     }
 
@@ -178,10 +185,8 @@ public class AdbConnection(
                 val localId = packet.arg1
                 val stream = activeStreams[localId]
                 if (stream != null) {
+                    // AdbStream.receiveData 内部会自动入队并向设备端发送 CMD_OKAY 触发后续包，无需在此重复发送
                     stream.receiveData(packet.payload)
-                    // 【关键修复】：收到数据后必须向设备回应 CMD_OKAY(localId, remoteId)
-                    // 否则设备端 adbd 会触发 Stop-and-Wait 流控从而停止后续数据发送
-                    sendPacket(AdbPacket(AdbCommand.CMD_OKAY, stream.localId, stream.remoteId, ByteArray(0)))
                 }
             }
             AdbCommand.CMD_CLSE -> {
@@ -205,9 +210,25 @@ public class AdbConnection(
         }
     }
 
-    public fun close() {
+    /**
+     * 关闭连接并清理所有关联资源（普通函数，符合 Closeable 规范）
+     */
+    override fun close() {
+        if (isClosed) return
+        isClosed = true
+
+        if (!connectionDeferred.isCompleted) {
+            connectionDeferred.completeExceptionally(IOException("AdbConnection 已主动关闭"))
+        }
+
+        // 通知并关闭所有解绑挂起的 AdbStream
+        activeStreams.values.forEach { stream ->
+            runCatching { stream.onRemoteClosed() }
+        }
+        activeStreams.clear()
+
+        // 取消协程作用域并关闭底层传输
         scope.cancel()
         runCatching { transport.close() }
-        activeStreams.clear()
     }
 }
