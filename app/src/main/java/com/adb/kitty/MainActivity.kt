@@ -978,36 +978,32 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handlePhysicalFallback(cmd: String) {
-        if (!isFastbootMode) {
-            appendLog("[发送] FB >> $cmd")
+        lifecycleScope.launch(Dispatchers.IO) {
+            when {
+                cmd.startsWith("usb-selinux") -> {
+                    appendLog("[发送] FB >> $cmd")
+                    appendLog("[系统] 正在尝试设置 SeLinux 为宽容模式, 该指令由 app 提供")
+                    FbSeLinuxCmd()
 
-            lifecycleScope.launch(Dispatchers.IO) {
-                runCatching { viewModel.runCommand(cmd) }
-                    .onFailure { appendLog("[错误] ${it.message}") }
-            }
-        } else {
-            lifecycleScope.launch(Dispatchers.IO) {
-                when {
-                    cmd.startsWith("usb-selinux") -> {
+                    return@launch
+                }
+
+                cmd.startsWith("fastboot") -> {
+                    appendLog("[发送] FB >> $cmd")
+
+                    runCatching { viewModel.runCommand(cmd) }
+                        .onFailure { appendLog("[错误] ${it.message}") }
+
+                    return@launch
+                }
+
+                else -> {
+                    if (isFastbootMode) {
                         appendLog("[发送] FB >> $cmd")
-                        appendLog("[系统] 正在尝试设置 SeLinux 为宽容模式, 该指令由 app 提供")
-                        FbSeLinuxCmd()
 
-                        return@launch
-                    }
-
-                    cmd.startsWith("fastboot") -> {
-                        appendLog("[发送] FB >> $cmd")
-
-                        lifecycleScope.launch(Dispatchers.IO) {
-                            runCatching { viewModel.runCommand(cmd) }
-                                .onFailure { appendLog("[错误] ${it.message}") } 
-                        }
-
-                        return@launch
-                    }
-
-                    else -> {
+                        runCatching { viewModel.runCommand(cmd) }
+                            .onFailure { appendLog("[错误] ${it.message}") }
+                    } else {
                         handleLocalShellPipeline(cmd)
                     }
                 }
