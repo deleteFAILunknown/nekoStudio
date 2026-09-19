@@ -46,28 +46,40 @@ fun CommandHelpBottomSheet(
                         description = "adb pair 198.0.0.1:13056 123456"
                     ),
                     CommandOption(
-                        flag = "adb connect IP地址:无线调试端口",
-                        description = "adb connect 198.0.0.1:13056"
+                        flag = "adb connect IP地址 无线调试端口",
+                        description = "adb connect 198.0.0.1 13056"
                     ),
                     CommandOption(
-                        flag = "adb push 本地文件名 远端路径",
-                        description = "将文件推送至目标设备的adb可访问的位置，文件必须放在应用外部存储目录的flash文件夹"
+                        flag = "adb tls IP地址 无线调试端口",
+                        description = "adb tls 198.0.0.1 13056"
                     ),
                     CommandOption(
-                        flag = "adb pull 远端路径 可选本地落地名",
-                        description = "拉取目标设备上的文件, 前提是adb可访问，拉取成功之后，文件落地应用外部存储目录的flash文件夹"
+                        flag = "adb push",
+                        description = "推送文件"
                     ),
                     CommandOption(
-                        flag = "adb install 本地文件名",
-                        description = "将apk、apks、xapk安装到目标设备上，文件必须放在应用外部存储目录的flash文件夹"
+                        flag = "adb pull",
+                        description = "拉取文件"
                     ),
                     CommandOption(
-                        flag = "adb uninstall 包名",
-                        description = "卸载目标设备上的应用"
+                        flag = "adb install",
+                        description = "安装软件/应用/APP"
                     ),
                     CommandOption(
-                        flag = "adb shell 指令 选项 参数",
-                        description = "通过 adbd 调用 Shell, 将拥有 uid 2000 的特权"
+                        flag = "adb uninstall",
+                        description = "卸载软件/应用/APP"
+                    ),
+                    CommandOption(
+                        flag = "adb shell",
+                        description = "adb shell 会话"
+                    ),
+                    CommandOption(
+                        flag = "adb root",
+                        description = "重启设备"
+                    ),
+                    CommandOption(
+                        flag = "adb disconnect",
+                        description = "断开 adb 会话"
                     )
                 )
             ),

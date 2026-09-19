@@ -105,6 +105,9 @@ import com.adb.kitty.data.help.*
 import com.adb.kitty.service.*
 import com.adb.kitty.R
 
+import libs.libs.libs.adb.Adb
+import libs.libs.libs.adb.protocol.AdbCrypto
+
 @Keep
 class MainActivity : ComponentActivity() {
     companion object {
@@ -624,6 +627,11 @@ class MainActivity : ComponentActivity() {
         if (cmd.isEmpty()) return
     
         when {
+            cmd.startsWith("adb ") -> {
+                appendLog("[系统] ADB >> $cmd")
+                handleAdbLibraryCommand(cmd.removePrefix("adb ").trim())
+            }
+
             cmd.startsWith("neko ") -> {
                 // 临时保留 neko 指令, 一般情况用不到
                 val localCmd = cmd.removePrefix("neko ").trim()
@@ -1010,6 +1018,144 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    private var activeAdbSession: Adb? = null
+    private var activeAdbHost: String = "127.0.0.1"
+    private var activeAdbPort: Int = 5555
+
+    private fun handleAdbLibraryCommand(subCmd: String) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                when {
+                    // 1. 无线 TCP/IP Socket 连接: adb connect <host> [port]
+                    subCmd.startsWith("connect ") -> {
+                        val args = subCmd.removePrefix("connect ").trim().split(" ")
+                        val host = args[0]
+                        val port = if (args.size > 1) args[1].toIntOrNull() ?: 5555 else 5555
+
+                        appendLog("[Adb] 正在通过 Socket 连接 $host:$port ...")
+                        activeAdbSession?.close()
+
+                        activeAdbSession = Adb.connectSocket(this@MainActivity, host, port)
+                        activeAdbHost = host
+                        activeAdbPort = port
+                        appendLog("[成功] 已成功建立标准 Socket Adb 连接！")
+                    }
+
+                    // 2. 无线 TLS 安全连接 (Android 11+): adb tls <host> <port>
+                    subCmd.startsWith("tls ") -> {
+                        val args = subCmd.removePrefix("tls ").trim().split(" ")
+                        if (args.size < 2) {
+                            appendLog("[错误] 用法: adb tls <host> <port>")
+                            return@launch
+                        }
+                        val host = args[0]
+                        val port = args[1].toInt()
+
+                        appendLog("[Adb] 正在通过 TLS 建立安全加密通道 $host:$port ...")
+                        activeAdbSession?.close()
+
+                        activeAdbSession = Adb.connectTlsSocket(this@MainActivity, host, port)
+                        activeAdbHost = host
+                        activeAdbPort = port
+                        appendLog("[成功] TLS 加密 Adb 握手成功！")
+                    }
+
+                    // 3. 无线配对: adb pair <host>:<port> <pairingCode>
+                    subCmd.startsWith("pair ") -> {
+                        val args = subCmd.removePrefix("pair ").trim().split(" ")
+                        if (args.size < 2) {
+                            appendLog("[错误] 用法: adb pair <host:port> <pairingCode>")
+                            return@launch
+                        }
+                        val target = args[0].split(":")
+                        val host = target[0]
+                        val port = target[1].toInt()
+                        val code = args[1]
+
+                        appendLog("[Adb] 正在与 $host:$port 进行无线配对...")
+                        val success = Adb.pair(this@MainActivity, host, port, code)
+                        if (success) {
+                            appendLog("[成功] 无线配对成功！请使用 adb tls 进行连接")
+                        } else {
+                            appendLog("[错误] 配对失败，请检查配对码或网络")
+                        }
+                    }
+
+                    // 4. 执行 Shell 命令: adb shell <command>
+                    subCmd.startsWith("shell ") -> {
+                        val shellCmd = subCmd.removePrefix("shell ").trim()
+                        val adb = checkAndGetActiveAdb() ?: return@launch
+
+                        appendLog("[Adb Exec] $shellCmd")
+                        // 使用你库中的高级 Shell 结果解析，带 exitCode 和 stderr
+                        val result = adb.shellResult(shellCmd)
+                        appendLog(result.stdout)
+                        if (result.stderr.isNotEmpty()) {
+                            appendLog("[Stderr]: ${result.stderr}")
+                        }
+                        appendLog("[退出码] exitCode = ${result.exitCode}")
+                    }
+
+                    // 5. 应用极速安装: adb install <filename.apk>
+                    subCmd.startsWith("install ") -> {
+                        val fileName = subCmd.removePrefix("install ").trim()
+                        val apkFile = File(flashFolder, fileName)
+                        if (!apkFile.exists()) {
+                            appendLog("[错误] 未在 flash 目录下找到文件: $fileName")
+                            return@launch
+                        }
+                        val adb = checkAndGetActiveAdb() ?: return@launch
+                        appendLog("[Adb ABB] 正在通过 ABB 协议极速安装 $fileName ...")
+                        val res = adb.installApp(apkFile)
+                        appendLog("[安装结果] $res")
+                    }
+
+                    // 6. 设备重启: adb reboot [target] (如 bootloader / recovery)
+                    subCmd.startsWith("reboot") -> {
+                        val target = subCmd.removePrefix("reboot").trim()
+                        val adb = checkAndGetActiveAdb() ?: return@launch
+                        appendLog("[Adb] 正在重启设备 (目标: ${target.ifEmpty { "正常重启" }}) ...")
+                        val ok = adb.reboot(target)
+                        appendLog(if (ok) "[成功] 重启指令已发送" else "[错误] 重启失败")
+                    }
+
+                    // 7. 切换 Root 模式: adb root
+                    subCmd == "root" -> {
+                        val adb = checkAndGetActiveAdb() ?: return@launch
+                        val msg = adb.root()
+                        appendLog("[Adb Root] $msg")
+                    }
+
+                    // 8. 断开当前会话: adb disconnect
+                    subCmd == "disconnect" -> {
+                        activeAdbSession?.disconnect()
+                        activeAdbSession = null
+                        appendLog("[系统] 已断开当前 Adb 会话连接。")
+                    }
+
+                    else -> {
+                        appendLog("[错误] 未知的 adb 指令集分支: adb $subCmd")
+                        appendLog("[提示] 支持的子指令: connect, tls, pair, shell, install, reboot, root, disconnect")
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    appendLog("[Adb 异常] ${e.localizedMessage ?: e.message}")
+                }
+            }
+        }
+    }
+
+    private suspend fun checkAndGetActiveAdb(): Adb? {
+        val session = activeAdbSession
+        if (session == null) {
+            appendLog("[错误] 当前没有激活的 Adb 会话！请先执行 【adb connect <ip> <port>】 或 【adb tls <ip> <port>】")
+            return null
+        }
+        return session
+    }
+
 
     fun triggerStoragePermissionCheck() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -1415,6 +1561,7 @@ class MainActivity : ComponentActivity() {
             isServiceBound = false
         }
         stopAdbService()
+        activeAdbSession?.close()
         currentShellJob?.cancel()
         super.onDestroy()
         readerJob?.cancel()
