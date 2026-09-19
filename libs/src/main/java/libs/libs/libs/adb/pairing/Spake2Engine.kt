@@ -5,37 +5,51 @@ import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
-public class Spake2Engine(pairingCode: String) {
-
-    private object Spake2Native {
-        init {
-            System.loadLibrary("native-lib")
-        }
-
-        external fun nativeGenerateClientPoint(wScalar: ByteArray, privateKey: ByteArray): ByteArray
-        external fun nativeDeriveKey(pairingCode: String, privateKey: ByteArray, serverPointY: ByteArray): ByteArray
-    }
-
-    private val random = SecureRandom()
-    public val clientPrivateKey: ByteArray = ByteArray(32).also { random.nextBytes(it) }
-    public val clientPublicKey: ByteArray
-
+public object Spake2Native {
     init {
-        // 调用 C++ / OpenSSL 生成 Point X
-        clientPublicKey = Spake2Native.nativeGenerateClientPoint(pairingCode.toByteArray(), clientPrivateKey)
+        System.loadLibrary("native-lib")
     }
 
-    public fun deriveAesKey(serverPublicKeyY: ByteArray): ByteArray {
-        // 调用 C++ / OpenSSL 计算共享密钥并执行 HKDF
-        return Spake2Native.nativeDeriveKey(pairingCode, clientPrivateKey, serverPublicKeyY)
+    external fun nativeGenerateClientPoint(
+        pairingCode: String,
+        clientPrivateKey: ByteArray
+    ): ByteArray?
+
+    external fun nativeDeriveKey(
+        pairingCode: String,
+        clientPrivateKey: ByteArray,
+        serverPointY: ByteArray
+    ): ByteArray?
+}
+
+public class Spake2Engine(
+    public val pairingCode: String
+) {
+    private val random = SecureRandom()
+
+    // 随机生成 32 字节客户端私钥
+    public val clientPrivateKey: ByteArray = ByteArray(32).also { random.nextBytes(it) }
+
+    // 调用 C++ / OpenSSL 计算客户端公钥点 X = x*G + w*M
+    public val clientPublicKey: ByteArray by lazy {
+        Spake2Native.nativeGenerateClientPoint(pairingCode, clientPrivateKey)
+            ?: throw IllegalStateException("SPAKE2 客户端公钥点生成失败，请检查 Native 库")
     }
 
     /**
-     * 直接使用 Android 系统自带的 javax.crypto (Android 5.0+ 原生支持，不需要 BC)
+     * 结合服务端公钥点 Y，调用 C++ / OpenSSL 计算共享密钥并执行 HKDF-SHA256 派生
+     */
+    public fun deriveAesKey(serverPublicKeyY: ByteArray): ByteArray {
+        return Spake2Native.nativeDeriveKey(pairingCode, clientPrivateKey, serverPublicKeyY)
+            ?: throw IllegalStateException("SPAKE2 共享 AES 密钥派生失败，配对码可能不匹配")
+    }
+
+    /**
+     * 使用 Android 原生 javax.crypto 执行 AES-128-GCM 加密 (12 字节 IV + 16 字节 Tag)
      */
     public fun encryptPayload(aesKey: ByteArray, plainText: ByteArray): ByteArray {
         val nonce = ByteArray(12).also { random.nextBytes(it) }
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding") // 系统原生 Provider
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         val keySpec = SecretKeySpec(aesKey, "AES")
         val gcmSpec = GCMParameterSpec(128, nonce)
 
