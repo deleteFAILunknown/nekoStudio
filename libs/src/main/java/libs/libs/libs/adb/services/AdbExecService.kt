@@ -44,7 +44,7 @@ public class AdbExecService(public val connection: AdbConnection) {
      */
     public suspend fun execToStream(command: String, outputStream: OutputStream): Boolean =
         withContext(Dispatchers.IO) {
-            runCatching {
+            try {
                 val stream = connection.openStream("exec:$command")
                 try {
                     while (true) {
@@ -54,10 +54,13 @@ public class AdbExecService(public val connection: AdbConnection) {
                         }
                     }
                     outputStream.flush()
+                    true
                 } finally {
                     stream.close()
                 }
-            }.isSuccess
+            } catch (e: Exception) {
+                false
+            }
         }
 
     /**
@@ -65,7 +68,7 @@ public class AdbExecService(public val connection: AdbConnection) {
      */
     public suspend fun execFromStream(command: String, inputStream: InputStream): Boolean =
         withContext(Dispatchers.IO) {
-            runCatching {
+            try {
                 val stream = connection.openStream("exec:$command")
                 try {
                     val buffer = ByteArray(8192)
@@ -74,10 +77,13 @@ public class AdbExecService(public val connection: AdbConnection) {
                         stream.write(buffer, 0, bytesRead)
                     }
                     stream.flush()
+                    true
                 } finally {
                     stream.close()
                 }
-            }.isSuccess
+            } catch (e: Exception) {
+                false
+            }
         }
 
     /**
