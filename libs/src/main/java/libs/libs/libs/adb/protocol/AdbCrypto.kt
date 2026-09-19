@@ -15,8 +15,10 @@ import java.security.PublicKey
 import java.security.Signature
 import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
+import java.security.interfaces.RSAPrivateCrtKey
 import java.security.interfaces.RSAPublicKey
 import java.security.spec.PKCS8EncodedKeySpec
+import java.security.spec.RSAPublicKeySpec
 import java.security.spec.X509EncodedKeySpec
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -77,10 +79,24 @@ public class AdbCrypto(public val keyPair: KeyPair) {
         return sslContext
     }
 
+    /**
+     * 将密钥导出并保存为标准明文文本文件：
+     * - adbkey: 明文 PEM 格式私钥
+     * - adbkey.pub: 标准 ADB 公钥明文文本
+     */
     public fun saveToFiles(privateKeyFile: File, publicKeyFile: File) {
         privateKeyFile.parentFile?.mkdirs()
-        privateKeyFile.writeBytes(keyPair.private.encoded)
-        publicKeyFile.writeBytes(keyPair.public.encoded)
+        publicKeyFile.parentFile?.mkdirs()
+
+        // 1. 私钥转化为 PEM 明文格式 (PKCS#8 Base64 每 64 字符分行)
+        val privBase64 = Base64.encodeToString(keyPair.private.encoded, Base64.NO_WRAP)
+        val pemBody = privBase64.chunked(64).joinToString("\n")
+        val pemString = "-----BEGIN PRIVATE KEY-----\n$pemBody\n-----END PRIVATE KEY-----\n"
+        privateKeyFile.writeText(pemString, Charsets.US_ASCII)
+
+        // 2. 公钥保存为 ADB 明文文本格式
+        val pubBytes = getAdbPublicKey()
+        publicKeyFile.writeBytes(pubBytes)
     }
 
     public companion object {
@@ -104,16 +120,47 @@ public class AdbCrypto(public val keyPair: KeyPair) {
             return AdbCrypto(kpg.generateKeyPair())
         }
 
+        /**
+         * 从文件读取密钥（无缝兼容 PEM 明文文本 与 旧版 DER 二进制格式）
+         */
         public fun loadFromFiles(privateKeyFile: File, publicKeyFile: File): AdbCrypto {
             val keyFactory = KeyFactory.getInstance("RSA")
 
-            val privateKeyBytes = privateKeyFile.readBytes()
+            // 1. 读取私钥内容
+            val privateKeyContent = privateKeyFile.readText(Charsets.US_ASCII)
+            val privateKeyBytes = if (privateKeyContent.contains("-----BEGIN")) {
+                // 过滤 PEM 标头标尾及换行符，提取纯 Base64 字节
+                val cleanBase64 = privateKeyContent
+                    .replace("-----BEGIN PRIVATE KEY-----", "")
+                    .replace("-----END PRIVATE KEY-----", "")
+                    .replace("-----BEGIN RSA PRIVATE KEY-----", "")
+                    .replace("-----END RSA PRIVATE KEY-----", "")
+                    .replace("\\s+".toRegex(), "")
+                Base64.decode(cleanBase64, Base64.DEFAULT)
+            } else {
+                // 向前兼容：读取旧版本的原始二进制 DER 数据
+                privateKeyFile.readBytes()
+            }
+
             val privateKeySpec = PKCS8EncodedKeySpec(privateKeyBytes)
             val privateKey: PrivateKey = keyFactory.generatePrivate(privateKeySpec)
 
-            val publicKeyBytes = publicKeyFile.readBytes()
-            val publicKeySpec = X509EncodedKeySpec(publicKeyBytes)
-            val publicKey: PublicKey = keyFactory.generatePublic(publicKeySpec)
+            // 2. 从 RSA 私钥直接派生对应的公钥 (RSA 私钥内含 Modulus 和 Exponent)
+            val publicKey: PublicKey = runCatching {
+                val rsaPrivate = privateKey as RSAPrivateCrtKey
+                val pubSpec = RSAPublicKeySpec(rsaPrivate.modulus, rsaPrivate.publicExponent)
+                keyFactory.generatePublic(pubSpec)
+            }.getOrElse {
+                // 备用兜底逻辑：读取 publicKeyFile 文本解析
+                val pubContent = publicKeyFile.readText(Charsets.US_ASCII)
+                val cleanBase64 = pubContent
+                    .replace("-----BEGIN PUBLIC KEY-----", "")
+                    .replace("-----END PUBLIC KEY-----", "")
+                    .replace("\\s+".toRegex(), "")
+                    .split(" ")[0]
+                val pubBytes = runCatching { Base64.decode(cleanBase64, Base64.DEFAULT) }.getOrDefault(publicKeyFile.readBytes())
+                keyFactory.generatePublic(X509EncodedKeySpec(pubBytes))
+            }
 
             return AdbCrypto(KeyPair(publicKey, privateKey))
         }

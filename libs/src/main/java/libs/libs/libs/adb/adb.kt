@@ -3,14 +3,16 @@ package libs.libs.libs.adb
 import android.content.Context
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.withContext
 import libs.libs.libs.adb.discovery.AdbMdnsDiscoverer
 import libs.libs.libs.adb.pairing.AdbPairingClient
 import libs.libs.libs.adb.protocol.AdbCrypto
-import libs.libs.libs.adb.sync.AdbFileEntry
 import libs.libs.libs.adb.services.AdbServices
 import libs.libs.libs.adb.services.AdbShellResult
 import libs.libs.libs.adb.session.AdbConnection
+import libs.libs.libs.adb.sync.AdbFileEntry
 import libs.libs.libs.adb.transport.AdbTransport
 import libs.libs.libs.adb.transport.SocketTransport
 import libs.libs.libs.adb.transport.TlsTransport
@@ -209,82 +211,126 @@ public class Adb(
 
     public companion object {
 
+        @Volatile
         public var defaultCrypto: AdbCrypto? = null
 
+        /**
+         * 线程安全初始化默认密钥
+         */
         public fun initCrypto(context: Context): AdbCrypto {
-            val crypto = AdbCrypto.loadOrGenerate(context)
-            defaultCrypto = crypto
-            return crypto
+            return defaultCrypto ?: synchronized(this) {
+                defaultCrypto ?: AdbCrypto.loadOrGenerate(context).also { defaultCrypto = it }
+            }
         }
 
         private fun getOrCreateCrypto(context: Context): AdbCrypto {
             return defaultCrypto ?: initCrypto(context)
         }
 
+        // --- Socket 建立连接 ---
+
         public suspend fun connectSocket(
             context: Context,
             host: String,
             port: Int = 5555,
             timeoutMs: Int = 10000
-        ): Adb {
-            val crypto = getOrCreateCrypto(context)
+        ): Adb = connectSocket(host, port, getOrCreateCrypto(context), timeoutMs)
+
+        public suspend fun connectSocket(
+            host: String,
+            port: Int = 5555,
+            crypto: AdbCrypto,
+            timeoutMs: Int = 10000
+        ): Adb = withContext(Dispatchers.IO) {
             val transport = SocketTransport(host, port, timeoutMs)
             transport.connect()
             val connection = AdbConnection(transport, crypto)
             connection.connect()
-            return Adb(connection)
+            Adb(connection)
         }
+
+        // --- TLS Socket 建立连接 ---
 
         public suspend fun connectTlsSocket(
             context: Context,
             host: String,
             port: Int,
             timeoutMs: Int = 10000
-        ): Adb {
-            val crypto = getOrCreateCrypto(context)
+        ): Adb = connectTlsSocket(host, port, getOrCreateCrypto(context), timeoutMs)
+
+        public suspend fun connectTlsSocket(
+            host: String,
+            port: Int,
+            crypto: AdbCrypto,
+            timeoutMs: Int = 10000
+        ): Adb = withContext(Dispatchers.IO) {
             val transport = TlsTransport(host, port, crypto, timeoutMs)
             transport.connect()
             val connection = AdbConnection(transport, crypto)
             connection.connect()
-            return Adb(connection)
+            Adb(connection)
         }
+
+        // --- USB 建立连接 ---
 
         public suspend fun connectUsb(
             context: Context,
             manager: UsbManager,
             device: UsbDevice,
             timeoutMs: Int = 5000
-        ): Adb {
-            val crypto = getOrCreateCrypto(context)
+        ): Adb = connectUsb(manager, device, getOrCreateCrypto(context), timeoutMs)
+
+        public suspend fun connectUsb(
+            manager: UsbManager,
+            device: UsbDevice,
+            crypto: AdbCrypto,
+            timeoutMs: Int = 5000
+        ): Adb = withContext(Dispatchers.IO) {
             val transport = UsbAdbDetector.createTransport(manager, device, timeoutMs)
                 ?: throw IllegalStateException("未检测到合法 ADB USB 接口或权限不足")
             val connection = AdbConnection(transport, crypto)
             connection.connect()
-            return Adb(connection)
+            Adb(connection)
         }
+
+        // --- 通用 Transport 建立连接 ---
 
         public suspend fun connectTransport(
             transport: AdbTransport,
             crypto: AdbCrypto
-        ): Adb {
+        ): Adb = withContext(Dispatchers.IO) {
             val connection = AdbConnection(transport, crypto)
             connection.connect()
-            return Adb(connection)
+            Adb(connection)
         }
+
+        // --- 设备发现 ---
 
         public fun discoverDevices(context: Context): Flow<AdbMdnsDiscoverer.DiscoveredService> {
             return AdbMdnsDiscoverer(context).discoverServices()
         }
 
+        // --- 无线配对 ---
+
         public suspend fun pair(
             context: Context,
             host: String,
             port: Int,
-            pairingCode: String
+            pairingCode: String,
+            timeoutMs: Int = 10000
         ): Boolean {
-            val crypto = getOrCreateCrypto(context)
+            return pair(host, port, pairingCode, getOrCreateCrypto(context), timeoutMs)
+        }
+
+        public suspend fun pair(
+            host: String,
+            port: Int,
+            pairingCode: String,
+            crypto: AdbCrypto,
+            timeoutMs: Int = 10000
+        ): Boolean = withContext(Dispatchers.IO) {
             val client = AdbPairingClient(host, port, crypto)
-            return client.pair(pairingCode)
+            client.pair(pairingCode, timeoutMs)
         }
     }
 }
