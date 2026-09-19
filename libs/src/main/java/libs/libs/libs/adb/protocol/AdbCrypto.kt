@@ -18,7 +18,10 @@ import java.security.cert.X509Certificate
 import java.security.interfaces.RSAPublicKey
 import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.X509EncodedKeySpec
+import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 import javax.net.ssl.KeyManagerFactory
 import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManager
@@ -45,7 +48,7 @@ public class AdbCrypto(public val keyPair: KeyPair) {
     public fun generateCertificate(): X509Certificate {
         val derBytes = generateSelfSignedCertDer(
             keyPair = keyPair,
-            subjectDn = "CN=ADB Key, O=Android",
+            subjectDn = "CN=ADB Key, O=Android, OU=NekoStudio, C=US",
             validityDays = 3650
         )
         val certFactory = CertificateFactory.getInstance("X.509")
@@ -81,6 +84,20 @@ public class AdbCrypto(public val keyPair: KeyPair) {
     }
 
     public companion object {
+        // 常见 DN 属性及其 OID 和 ASN.1 String 类型 Tag 映射
+        private val DN_OIDS = mapOf(
+            "CN" to Pair(byteArrayOf(0x06, 0x03, 0x55, 0x04, 0x03), 0x0C.toByte()), // UTF8String
+            "O"  to Pair(byteArrayOf(0x06, 0x03, 0x55, 0x04, 0x0A), 0x0C.toByte()), // UTF8String
+            "OU" to Pair(byteArrayOf(0x06, 0x03, 0x55, 0x04, 0x0B), 0x0C.toByte()), // UTF8String
+            "C"  to Pair(byteArrayOf(0x06, 0x03, 0x55, 0x04, 0x06), 0x13.toByte()), // PrintableString (两字母国家代码)
+            "ST" to Pair(byteArrayOf(0x06, 0x03, 0x55, 0x04, 0x08), 0x0C.toByte()), // UTF8String
+            "L"  to Pair(byteArrayOf(0x06, 0x03, 0x55, 0x04, 0x07), 0x0C.toByte()), // UTF8String
+            "EMAIL" to Pair(
+                byteArrayOf(0x06, 0x09, 0x2A, 0x86.toByte(), 0x48, 0x86.toByte(), 0xF7.toByte(), 0x0D, 0x01, 0x09, 0x01),
+                0x16.toByte() // IA5String
+            )
+        )
+
         public fun generate(): AdbCrypto {
             val kpg = KeyPairGenerator.getInstance("RSA")
             kpg.initialize(2048)
@@ -186,18 +203,55 @@ public class AdbCrypto(public val keyPair: KeyPair) {
             return out.toByteArray()
         }
 
+        /**
+         * 动态解析并编码 DN 字符串（如 "CN=ADB Key, O=Android, OU=Studio, C=US"）为标准的 ASN.1 RDNSequence
+         */
         private fun encodeName(dn: String): ByteArray {
             val out = ByteArrayOutputStream()
-            val attrOut = ByteArrayOutputStream()
-            attrOut.write(byteArrayOf(0x06, 0x03, 0x55, 0x04, 0x03)) // OID: 2.5.4.3 (CN)
-            val valBytes = "ADB Key".toByteArray(Charsets.UTF_8)
-            attrOut.write(0x0C) // UTF8String
-            attrOut.write(valBytes.size)
-            attrOut.write(valBytes)
-            
-            val setBytes = encodeSet(encodeSequence(attrOut.toByteArray()))
-            out.write(setBytes)
+            val pairs = dn.split(",")
+
+            for (pair in pairs) {
+                val parts = pair.trim().split("=", limit = 2)
+                if (parts.size == 2) {
+                    val rawKey = parts[0].trim().uppercase()
+                    val value = parts[1].trim()
+                    
+                    val key = if (rawKey == "E") "EMAIL" else rawKey
+                    val attrInfo = DN_OIDS[key]
+
+                    if (attrInfo != null) {
+                        val rdnBytes = encodeAttribute(attrInfo.first, attrInfo.second, value)
+                        out.write(rdnBytes)
+                    }
+                }
+            }
+
             return encodeSequence(out.toByteArray())
+        }
+
+        /**
+         * 编码单个 RDN：SET { SEQUENCE { AttributeType (OID), AttributeValue } }
+         */
+        private fun encodeAttribute(oid: ByteArray, tag: Byte, value: String): ByteArray {
+            val attrStream = ByteArrayOutputStream()
+            
+            // 1. 写入 OID
+            attrStream.write(oid)
+            
+            // 2. 写入 Value (Tag + Length + UTF8/Printable/IA5 Bytes)
+            val valBytes = value.toByteArray(Charsets.UTF_8)
+            val valStream = ByteArrayOutputStream()
+            valStream.write(tag.toInt())
+            writeLength(valStream, valBytes.size)
+            valStream.write(valBytes)
+
+            attrStream.write(valStream.toByteArray())
+
+            // 3. 封装为 SEQUENCE 节点
+            val seqBytes = encodeSequence(attrStream.toByteArray())
+
+            // 4. 封装为 SET 节点 (RelativeDistinguishedName)
+            return encodeSet(seqBytes)
         }
 
         private fun encodeSet(content: ByteArray): ByteArray {
@@ -209,16 +263,19 @@ public class AdbCrypto(public val keyPair: KeyPair) {
         }
 
         private fun encodeValidity(notBefore: Date, notAfter: Date): ByteArray {
+            val utcFormat = SimpleDateFormat("yyMMddHHmmss'Z'", Locale.US).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+            }
+
             fun formatDate(d: Date): ByteArray {
-                val s = String.format("%02d%02d%02d%02d%02d%02dZ", 
-                    d.year % 100, d.month + 1, d.date, d.hours, d.minutes, d.seconds)
-                val bytes = s.toByteArray(Charsets.US_ASCII)
+                val bytes = utcFormat.format(d).toByteArray(Charsets.US_ASCII)
                 val out = ByteArrayOutputStream()
                 out.write(0x17) // UTCTime
                 out.write(bytes.size)
                 out.write(bytes)
                 return out.toByteArray()
             }
+
             val out = ByteArrayOutputStream()
             out.write(formatDate(notBefore))
             out.write(formatDate(notAfter))
