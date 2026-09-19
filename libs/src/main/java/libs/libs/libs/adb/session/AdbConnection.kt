@@ -23,7 +23,6 @@ public class AdbConnection(
     public suspend fun connect() {
         val systemProps = "host::features=shell_v2,cmd\u0000".toByteArray(Charsets.UTF_8)
         
-        // 替换硬编码：TLS 传输采用免 CRC32 校验版本号，其余采用标准 1.0 版本号
         val protocolVersion = if (transport is TlsTransport) {
             AdbCommand.A_VERSION_SKIP_CHECKSUM
         } else {
@@ -77,7 +76,11 @@ public class AdbConnection(
             }
             AdbCommand.CMD_AUTH -> handleAuth(packet)
             AdbCommand.CMD_STLS -> {
-                // 收到设备端 STLS 响应，切换传输层 TLS 握手
+                // 收到 STLS 响应，立即升级传输层 TLS 握手
+                transport.startTls(crypto)
+                // 升级完毕后，重新以 TLS 免校验版本号建立 CNXN 握手
+                val systemProps = "host::features=shell_v2,cmd\u0000".toByteArray(Charsets.UTF_8)
+                sendPacket(AdbPacket(AdbCommand.CMD_CNXN, AdbCommand.A_VERSION_SKIP_CHECKSUM, 1024 * 1024, systemProps))
             }
             AdbCommand.CMD_OKAY -> {
                 val stream = activeStreams[packet.arg1]

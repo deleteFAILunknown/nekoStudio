@@ -6,13 +6,7 @@ import libs.libs.libs.adb.protocol.AdbCrypto
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.InetSocketAddress
-import java.security.KeyStore
-import java.security.cert.X509Certificate
-import javax.net.ssl.KeyManagerFactory
-import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
-import javax.net.ssl.TrustManager
-import javax.net.ssl.X509TrustManager
 
 public class TlsTransport(
     public val host: String,
@@ -26,7 +20,7 @@ public class TlsTransport(
     public var outputStream: OutputStream? = null
 
     public suspend fun connect(): Unit = withContext(Dispatchers.IO) {
-        val sslContext = createAdbSslContext(crypto)
+        val sslContext = crypto.createSslContext()
         val socket = sslContext.socketFactory.createSocket() as SSLSocket
         
         socket.tcpNoDelay = true
@@ -64,29 +58,5 @@ public class TlsTransport(
         sslSocket = null
         inputStream = null
         outputStream = null
-    }
-
-    public companion object {
-        public fun createAdbSslContext(crypto: AdbCrypto): SSLContext {
-            val trustAllCerts = arrayOf<TrustManager>(object : X509TrustManager {
-                override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
-                override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
-                override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
-            })
-
-            val keyStore = KeyStore.getInstance(KeyStore.getDefaultType()).apply {
-                load(null, null)
-                val cert = crypto.generateCertificate()
-                setKeyEntry("adb_key", crypto.keyPair.private, "adb".toCharArray(), arrayOf(cert))
-            }
-
-            val kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm()).apply {
-                init(keyStore, "adb".toCharArray())
-            }
-
-            val sslContext = SSLContext.getInstance("TLSv1.3")
-            sslContext.init(kmf.keyManagers, trustAllCerts, null)
-            return sslContext
-        }
     }
 }

@@ -2,28 +2,37 @@ package libs.libs.libs.adb.transport
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import libs.libs.libs.adb.protocol.AdbCrypto
+import java.io.InputStream
+import java.io.OutputStream
 import java.net.InetSocketAddress
 import java.net.Socket
+import javax.net.ssl.SSLSocket
 
 public class SocketTransport(
     public val host: String,
     public val port: Int = 5555,
     public val timeoutMs: Int = 10000
 ) : AdbTransport {
-    public var socket: Socket? = null
+    public var rawSocket: Socket? = null
+    public var inputStream: InputStream? = null
+    public var outputStream: OutputStream? = null
 
     public suspend fun connect(): Unit = withContext(Dispatchers.IO) {
-        socket = Socket().apply {
+        val s = Socket().apply {
             tcpNoDelay = true
             sendBufferSize = 1024 * 1024
             receiveBufferSize = 1024 * 1024
             connect(InetSocketAddress(host, port), timeoutMs)
             soTimeout = timeoutMs
         }
+        rawSocket = s
+        inputStream = s.getInputStream()
+        outputStream = s.getOutputStream()
     }
 
     override suspend fun read(buffer: ByteArray, offset: Int, length: Int): Int = withContext(Dispatchers.IO) {
-        val input = socket?.getInputStream() ?: throw IllegalStateException("Socket 未连接")
+        val input = inputStream ?: throw IllegalStateException("Socket 未连接")
         var totalRead = 0
         while (totalRead < length) {
             val bytes = input.read(buffer, offset + totalRead, length - totalRead)
@@ -34,13 +43,33 @@ public class SocketTransport(
     }
 
     override suspend fun write(buffer: ByteArray, offset: Int, length: Int): Unit = withContext(Dispatchers.IO) {
-        val output = socket?.getOutputStream() ?: throw IllegalStateException("Socket 未连接")
+        val output = outputStream ?: throw IllegalStateException("Socket 未连接")
         output.write(buffer, offset, length)
         output.flush()
     }
 
+    override suspend fun startTls(crypto: AdbCrypto): Unit = withContext(Dispatchers.IO) {
+        val currentSocket = rawSocket ?: throw IllegalStateException("Socket 未连接")
+        val sslContext = crypto.createSslContext()
+        val sslSocket = sslContext.socketFactory.createSocket(
+            currentSocket,
+            host,
+            port,
+            true // autoClose
+        ) as SSLSocket
+
+        sslSocket.useClientMode = true
+        sslSocket.startHandshake()
+
+        rawSocket = sslSocket
+        inputStream = sslSocket.inputStream
+        outputStream = sslSocket.outputStream
+    }
+
     override suspend fun close(): Unit = withContext(Dispatchers.IO) {
-        runCatching { socket?.close() }
-        socket = null
+        runCatching { rawSocket?.close() }
+        rawSocket = null
+        inputStream = null
+        outputStream = null
     }
 }
