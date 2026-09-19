@@ -65,6 +65,7 @@ public class AdbExecService(public val connection: AdbConnection) {
 
     /**
      * 从 InputStream 读取二进制数据流写入远程进程 stdin（例如通过 exec:管道导入数据）
+     * 直接利用 AdbStream 的 (data, offset, length) 写入，避免产生多余的临时数组分配
      */
     public suspend fun execFromStream(command: String, inputStream: InputStream): Boolean =
         withContext(Dispatchers.IO) {
@@ -76,7 +77,6 @@ public class AdbExecService(public val connection: AdbConnection) {
                     while (inputStream.read(buffer).also { bytesRead = it } != -1) {
                         stream.write(buffer, 0, bytesRead)
                     }
-                    stream.flush()
                     true
                 } finally {
                     stream.close()
