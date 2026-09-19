@@ -2,6 +2,7 @@ package libs.libs.libs.adb.session
 
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ClosedSendChannelException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -44,21 +45,33 @@ public class AdbStream(
     }
 
     /**
-     * 向流通道写入数据（自动分片 + 严格流控 ACK 等待）
+     * 向流通道写入数据（原生支持 offset 与 length，兼容 1 个或 3 个参数的写操作）
      */
-    public suspend fun write(data: ByteArray) {
+    public suspend fun write(
+        data: ByteArray,
+        offset: Int = 0,
+        length: Int = data.size - offset
+    ) {
         check(!isClosed) { "AdbStream $localId 已关闭，无法写入" }
+        require(offset >= 0 && length >= 0 && offset + length <= data.size) {
+            "无效的 offset ($offset) 或 length ($length)"
+        }
 
         // 挂起等待流建立完成（确保 remoteId 已准备就绪）
         openDeferred.await()
 
         writeMutex.withLock {
-            var offset = 0
+            var currOffset = offset
+            val endOffset = offset + length
             val maxChunk = connection.maxData.coerceAtLeast(1024)
 
-            while (offset < data.size && !isClosed) {
-                val length = minOf(maxChunk, data.size - offset)
-                val chunk = data.copyOfRange(offset, offset + length)
+            while (currOffset < endOffset && !isClosed) {
+                val chunkSize = minOf(maxChunk, endOffset - currOffset)
+                val chunk = if (currOffset == 0 && chunkSize == data.size) {
+                    data
+                } else {
+                    data.copyOfRange(currOffset, currOffset + chunkSize)
+                }
 
                 // 清空可能残留的旧 ACK，防止信号误触发
                 ackChannel.tryReceive()
@@ -75,7 +88,7 @@ public class AdbStream(
                     throw IOException("AdbStream $localId 在等待 ACK 过程中流被关闭", e)
                 }
 
-                offset += length
+                currOffset += chunkSize
             }
         }
     }
@@ -86,13 +99,17 @@ public class AdbStream(
     public suspend fun receiveData(payload: ByteArray) {
         if (isClosed) return
 
-        // 1. 压入接收管道（若管道满了会挂起，停止向对端回复 OKAY，从而触发设备端暂停发送）
-        readChannel.send(payload)
+        try {
+            // 1. 压入接收管道（若管道满了会挂起，停止向对端回复 OKAY，从而触发设备端暂停发送）
+            readChannel.send(payload)
 
-        // 2. 成功入队后，回复 CMD_OKAY 触发对方继续发送下一包
-        connection.sendPacket(
-            AdbPacket(AdbCommand.CMD_OKAY, localId, remoteId, ByteArray(0))
-        )
+            // 2. 成功入队后，回复 CMD_OKAY 触发对方继续发送下一包
+            connection.sendPacket(
+                AdbPacket(AdbCommand.CMD_OKAY, localId, remoteId, ByteArray(0))
+            )
+        } catch (e: ClosedSendChannelException) {
+            // 管道在并发状态下已被关闭，忽略即可
+        }
     }
 
     /**
