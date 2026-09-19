@@ -9,6 +9,7 @@ import libs.libs.libs.adb.transport.TlsTransport
 import java.io.EOFException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.UUID
 
 public class AdbPairingClient(
     public val host: String,
@@ -29,7 +30,7 @@ public class AdbPairingClient(
             val spake2 = Spake2Engine(pairingCode)
             var sequence = 1
 
-            // 1. 发送 SPAKE2_MATTER (交换客户端公钥点 X)
+            // 1. 发送 SPAKE2_MATTER (发送客户端公钥点 X)
             val req1 = PairingPacket(
                 type = PairingPacketType.SPAKE2_MATTER.value,
                 seq = sequence++,
@@ -42,24 +43,32 @@ public class AdbPairingClient(
             val resp1 = ProtoBuf.decodeFromByteArray(PairingPacket.serializer(), resp1Bytes)
 
             if (resp1.type == PairingPacketType.SPAKE2_ERROR.value) {
-                throw IllegalStateException("配对失败：配对码错误或服务端拒绝")
+                throw IllegalStateException("服务端拒绝配对：配对码错误或握手失效")
             }
 
             val serverPublicKeyY = resp1.payload
             val aesKey = spake2.deriveAesKey(serverPublicKeyY)
 
-            // 3. 使用推导出的 AES Key 加密 adbkey.pub 并发送 PAIRING_COMPLETE
-            val pubKeyBytes = crypto.getAdbPublicKey()
-            val encryptedPubKey = spake2.encryptPayload(aesKey, pubKeyBytes)
+            // 3. 构建规范要求的 PeerInfo 结构体 (AOSP adbd 必须校验此结构体)
+            val peerInfo = PeerInfo(
+                type = 2, // ADB_CLIENT
+                guid = UUID.randomUUID().toString(),
+                name = "NekoStudio-Client"
+            )
+            val peerInfoBytes = ProtoBuf.encodeToByteArray(PeerInfo.serializer(), peerInfo)
 
+            // 使用派生的 AES-128 Key 加密 PeerInfo 字节流
+            val encryptedPayload = spake2.encryptPayload(aesKey, peerInfoBytes)
+
+            // 4. 发送 PAIRING_COMPLETE 报文
             val req2 = PairingPacket(
                 type = PairingPacketType.PAIRING_COMPLETE.value,
                 seq = sequence++,
-                payload = encryptedPubKey
+                payload = encryptedPayload
             )
             sendFrame(transport, ProtoBuf.encodeToByteArray(PairingPacket.serializer(), req2))
 
-            // 4. 接收配对完成响应确认
+            // 5. 接收服务端响应，验证确认
             val resp2Bytes = readFrame(transport)
             val resp2 = ProtoBuf.decodeFromByteArray(PairingPacket.serializer(), resp2Bytes)
 
@@ -71,9 +80,6 @@ public class AdbPairingClient(
         }.getOrDefault(false)
     }
 
-    /**
-     * 发送 Length-Prefixed 帧 (已添加 suspend)
-     */
     private suspend fun sendFrame(transport: TlsTransport, payload: ByteArray) {
         val header = ByteBuffer.allocate(4)
             .order(ByteOrder.BIG_ENDIAN)
@@ -83,16 +89,13 @@ public class AdbPairingClient(
         transport.write(payload, 0, payload.size)
     }
 
-    /**
-     * 读取 Length-Prefixed 帧 (已添加 suspend)
-     */
     private suspend fun readFrame(transport: TlsTransport): ByteArray {
         val lengthBuf = ByteArray(4)
         readFully(transport, lengthBuf)
         val length = ByteBuffer.wrap(lengthBuf).order(ByteOrder.BIG_ENDIAN).int
 
-        if (length <= 0 || length > 10 * 1024 * 1024) { // 防御性上限 10MB
-            throw IllegalStateException("无效的数据帧长度: $length")
+        if (length <= 0 || length > 10 * 1024 * 1024) {
+            throw IllegalStateException("无效的帧长度: $length")
         }
 
         val payload = ByteArray(length)
@@ -100,15 +103,12 @@ public class AdbPairingClient(
         return payload
     }
 
-    /**
-     * 解决 TCP 粘包/分包问题，保证读取完整字节流 (已添加 suspend)
-     */
     private suspend fun readFully(transport: TlsTransport, buffer: ByteArray) {
         var offset = 0
         while (offset < buffer.size) {
             val read = transport.read(buffer, offset, buffer.size - offset)
             if (read <= 0) {
-                throw EOFException("TLS 连接中断 (目标长度: ${buffer.size}, 已读: $offset)")
+                throw EOFException("配对 TLS 通道断开")
             }
             offset += read
         }
