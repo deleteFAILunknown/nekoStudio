@@ -11,7 +11,9 @@ public data class AdbPacket(
 ) {
     public val dataLength: Int get() = payload.size
     public val dataCrc32: Int get() = checksum(payload)
-    public val magic: Int get() = command inv 0
+    
+    // 使用点号调用 inv() 函数
+    public val magic: Int get() = command.inv()
 
     public fun toHeaderBytes(): ByteArray {
         return ByteBuffer.allocate(HEADER_SIZE).order(ByteOrder.LITTLE_ENDIAN).apply {
