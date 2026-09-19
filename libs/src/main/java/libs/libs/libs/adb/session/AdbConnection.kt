@@ -5,6 +5,7 @@ import libs.libs.libs.adb.protocol.AdbCommand
 import libs.libs.libs.adb.protocol.AdbCrypto
 import libs.libs.libs.adb.protocol.AdbPacket
 import libs.libs.libs.adb.transport.AdbTransport
+import libs.libs.libs.adb.transport.TlsTransport
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -21,7 +22,15 @@ public class AdbConnection(
 
     public suspend fun connect() {
         val systemProps = "host::features=shell_v2,cmd\u0000".toByteArray(Charsets.UTF_8)
-        sendPacket(AdbPacket(AdbCommand.CMD_CNXN, 0x01000000, 1024 * 1024, systemProps))
+        
+        // 替换硬编码：TLS 传输采用免 CRC32 校验版本号，其余采用标准 1.0 版本号
+        val protocolVersion = if (transport is TlsTransport) {
+            AdbCommand.A_VERSION_SKIP_CHECKSUM
+        } else {
+            AdbCommand.A_VERSION
+        }
+
+        sendPacket(AdbPacket(AdbCommand.CMD_CNXN, protocolVersion, 1024 * 1024, systemProps))
         scope.launch { readLoop() }
     }
 
@@ -67,6 +76,9 @@ public class AdbConnection(
                 this.maxData = packet.arg1
             }
             AdbCommand.CMD_AUTH -> handleAuth(packet)
+            AdbCommand.CMD_STLS -> {
+                // 收到设备端 STLS 响应，切换传输层 TLS 握手
+            }
             AdbCommand.CMD_OKAY -> {
                 val stream = activeStreams[packet.arg1]
                 if (stream != null && stream.remoteId == 0) {
