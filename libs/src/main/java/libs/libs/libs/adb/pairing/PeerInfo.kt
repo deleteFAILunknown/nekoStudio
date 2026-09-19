@@ -1,8 +1,8 @@
 package libs.libs.libs.adb.pairing
 
 import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.ProtoNumber
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.protobuf.ProtoNumber
 
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
