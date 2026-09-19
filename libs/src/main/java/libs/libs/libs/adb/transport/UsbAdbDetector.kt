@@ -15,7 +15,7 @@ public object UsbAdbDetector {
         for (i in 0 until device.interfaceCount) {
             val intf = device.getInterface(i)
             if (intf.interfaceClass == ADB_CLASS &&
-                intf.interfaceSubClass == ADB_SUBCLASS &&
+                intf.interfaceSubclass == ADB_SUBCLASS &&
                 intf.interfaceProtocol == ADB_PROTOCOL) {
                 return intf
             }
