@@ -450,10 +450,8 @@ class AdbSessionService : LifecycleService() {
             notificationLogs.lastOrNull()
         }
         val line1Text = lastLog ?: "📡 暂无执行指令"
-    
-        val connectedCount = kadbInstancePool.size
-        val statusText = if (connectedCount > 0) "🟢 已连接: ${connectedCount}台设备" else "⏳ 等待设备接入"
-        val line2Text = "$statusText | ⏱️ 守护时长: $contentText"
+
+        val line2Text = "⏱️ 守护时长: $contentText"
     
         val now = System.currentTimeMillis()
         messagingStyle.addMessage(line1Text, now - 1000, anonymousSender)
