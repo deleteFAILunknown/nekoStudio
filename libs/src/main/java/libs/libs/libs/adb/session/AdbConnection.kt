@@ -20,7 +20,7 @@ public class AdbConnection(
     public var isAuthSent: Boolean = false
 
     public suspend fun connect() {
-        val systemProps = "host::features=shell_v2,cmd\0".toByteArray(Charsets.UTF_8)
+        val systemProps = "host::features=shell_v2,cmd\u0000".toByteArray(Charsets.UTF_8)
         sendPacket(AdbPacket(AdbCommand.CMD_CNXN, 0x01000000, 1024 * 1024, systemProps))
         scope.launch { readLoop() }
     }
@@ -30,7 +30,7 @@ public class AdbConnection(
         val stream = AdbStream(localId, 0, this)
         activeStreams[localId] = stream
 
-        val payload = "$destination\0".toByteArray(Charsets.UTF_8)
+        val payload = "$destination\u0000".toByteArray(Charsets.UTF_8)
         sendPacket(AdbPacket(AdbCommand.CMD_OPEN, localId, 0, payload))
         return stream
     }
