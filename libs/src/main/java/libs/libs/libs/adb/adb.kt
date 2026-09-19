@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.Flow
 import libs.libs.libs.adb.discovery.AdbMdnsDiscoverer
 import libs.libs.libs.adb.pairing.AdbPairingClient
 import libs.libs.libs.adb.protocol.AdbCrypto
-import libs.libs.libs.adb.services.AdbFileEntry
+import libs.libs.libs.adb.sync.AdbFileEntry
 import libs.libs.libs.adb.services.AdbServices
 import libs.libs.libs.adb.services.AdbShellResult
 import libs.libs.libs.adb.session.AdbConnection
