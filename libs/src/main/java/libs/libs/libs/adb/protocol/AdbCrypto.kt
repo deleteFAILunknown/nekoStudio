@@ -64,7 +64,8 @@ public class AdbCrypto(public val keyPair: KeyPair) {
             override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
         })
 
-        val keyStore = KeyStore.getInstance(KeyStore.getDefaultType()).apply {
+        // 显式指定使用内存中无锁的 "PKCS12" 格式，避免 AndroidKeyStore 拦截导致密钥无法载入
+        val keyStore = KeyStore.getInstance("PKCS12").apply {
             load(null, null)
             val cert = generateCertificate()
             setKeyEntry("adb_key", keyPair.private, "adb".toCharArray(), arrayOf(cert))
@@ -79,38 +80,30 @@ public class AdbCrypto(public val keyPair: KeyPair) {
         return sslContext
     }
 
-    /**
-     * 将密钥导出并保存为标准明文文本文件：
-     * - adbkey: 明文 PEM 格式私钥
-     * - adbkey.pub: 标准 ADB 公钥明文文本
-     */
     public fun saveToFiles(privateKeyFile: File, publicKeyFile: File) {
         privateKeyFile.parentFile?.mkdirs()
         publicKeyFile.parentFile?.mkdirs()
 
-        // 1. 私钥转化为 PEM 明文格式 (PKCS#8 Base64 每 64 字符分行)
         val privBase64 = Base64.encodeToString(keyPair.private.encoded, Base64.NO_WRAP)
         val pemBody = privBase64.chunked(64).joinToString("\n")
         val pemString = "-----BEGIN PRIVATE KEY-----\n$pemBody\n-----END PRIVATE KEY-----\n"
         privateKeyFile.writeText(pemString, Charsets.US_ASCII)
 
-        // 2. 公钥保存为 ADB 明文文本格式
         val pubBytes = getAdbPublicKey()
         publicKeyFile.writeBytes(pubBytes)
     }
 
     public companion object {
-        // 常见 DN 属性及其 OID 和 ASN.1 String 类型 Tag 映射
         private val DN_OIDS = mapOf(
-            "CN" to Pair(byteArrayOf(0x06, 0x03, 0x55, 0x04, 0x03), 0x0C.toByte()), // UTF8String
-            "O"  to Pair(byteArrayOf(0x06, 0x03, 0x55, 0x04, 0x0A), 0x0C.toByte()), // UTF8String
-            "OU" to Pair(byteArrayOf(0x06, 0x03, 0x55, 0x04, 0x0B), 0x0C.toByte()), // UTF8String
-            "C"  to Pair(byteArrayOf(0x06, 0x03, 0x55, 0x04, 0x06), 0x13.toByte()), // PrintableString (两字母国家代码)
-            "ST" to Pair(byteArrayOf(0x06, 0x03, 0x55, 0x04, 0x08), 0x0C.toByte()), // UTF8String
-            "L"  to Pair(byteArrayOf(0x06, 0x03, 0x55, 0x04, 0x07), 0x0C.toByte()), // UTF8String
+            "CN" to Pair(byteArrayOf(0x06, 0x03, 0x55, 0x04, 0x03), 0x0C.toByte()),
+            "O"  to Pair(byteArrayOf(0x06, 0x03, 0x55, 0x04, 0x0A), 0x0C.toByte()),
+            "OU" to Pair(byteArrayOf(0x06, 0x03, 0x55, 0x04, 0x0B), 0x0C.toByte()),
+            "C"  to Pair(byteArrayOf(0x06, 0x03, 0x55, 0x04, 0x06), 0x13.toByte()),
+            "ST" to Pair(byteArrayOf(0x06, 0x03, 0x55, 0x04, 0x08), 0x0C.toByte()),
+            "L"  to Pair(byteArrayOf(0x06, 0x03, 0x55, 0x04, 0x07), 0x0C.toByte()),
             "EMAIL" to Pair(
                 byteArrayOf(0x06, 0x09, 0x2A, 0x86.toByte(), 0x48, 0x86.toByte(), 0xF7.toByte(), 0x0D, 0x01, 0x09, 0x01),
-                0x16.toByte() // IA5String
+                0x16.toByte()
             )
         )
 
@@ -120,16 +113,11 @@ public class AdbCrypto(public val keyPair: KeyPair) {
             return AdbCrypto(kpg.generateKeyPair())
         }
 
-        /**
-         * 从文件读取密钥（无缝兼容 PEM 明文文本 与 旧版 DER 二进制格式）
-         */
         public fun loadFromFiles(privateKeyFile: File, publicKeyFile: File): AdbCrypto {
             val keyFactory = KeyFactory.getInstance("RSA")
 
-            // 1. 读取私钥内容
             val privateKeyContent = privateKeyFile.readText(Charsets.US_ASCII)
             val privateKeyBytes = if (privateKeyContent.contains("-----BEGIN")) {
-                // 过滤 PEM 标头标尾及换行符，提取纯 Base64 字节
                 val cleanBase64 = privateKeyContent
                     .replace("-----BEGIN PRIVATE KEY-----", "")
                     .replace("-----END PRIVATE KEY-----", "")
@@ -138,20 +126,17 @@ public class AdbCrypto(public val keyPair: KeyPair) {
                     .replace("\\s+".toRegex(), "")
                 Base64.decode(cleanBase64, Base64.DEFAULT)
             } else {
-                // 向前兼容：读取旧版本的原始二进制 DER 数据
                 privateKeyFile.readBytes()
             }
 
             val privateKeySpec = PKCS8EncodedKeySpec(privateKeyBytes)
             val privateKey: PrivateKey = keyFactory.generatePrivate(privateKeySpec)
 
-            // 2. 从 RSA 私钥直接派生对应的公钥 (RSA 私钥内含 Modulus 和 Exponent)
             val publicKey: PublicKey = runCatching {
                 val rsaPrivate = privateKey as RSAPrivateCrtKey
                 val pubSpec = RSAPublicKeySpec(rsaPrivate.modulus, rsaPrivate.publicExponent)
                 keyFactory.generatePublic(pubSpec)
             }.getOrElse {
-                // 备用兜底逻辑：读取 publicKeyFile 文本解析
                 val pubContent = publicKeyFile.readText(Charsets.US_ASCII)
                 val cleanBase64 = pubContent
                     .replace("-----BEGIN PUBLIC KEY-----", "")
@@ -184,53 +169,45 @@ public class AdbCrypto(public val keyPair: KeyPair) {
             return loadOrGenerate(context.filesDir)
         }
 
-        /**
-         * 轻量级构建符合 X.509 标准结构（TBSCertificate + SignatureAlgorithm + SignatureValue）的自签名 DER 字节流
-         */
         private fun generateSelfSignedCertDer(
             keyPair: KeyPair,
             subjectDn: String,
             validityDays: Long
         ): ByteArray {
             val now = System.currentTimeMillis()
-            val notBefore = Date(now - 86400000L) // 昨天
+            val notBefore = Date(now - 86400000L)
             val notAfter = Date(now + validityDays * 86400000L)
 
-            // TBS (To-Be-Signed) Certificate 封装
             val tbsStream = ByteArrayOutputStream()
-            // 1. Version (v3 -> 2)
             tbsStream.write(byteArrayOf(0xA0.toByte(), 0x03, 0x02, 0x01, 0x02))
-            // 2. Serial Number
+            
             val serialBytes = BigInteger.valueOf(now).toByteArray()
             tbsStream.write(0x02)
             tbsStream.write(serialBytes.size)
             tbsStream.write(serialBytes)
-            // 3. Signature AlgorithmIdentifier (SHA256withRSA: 1.2.840.113549.1.1.11)
+            
             val algId = byteArrayOf(0x30, 0x0D, 0x06, 0x09, 0x2A, 0x86.toByte(), 0x48, 0x86.toByte(), 0xF7.toByte(), 0x0D, 0x01, 0x01, 0x0B, 0x05, 0x00)
             tbsStream.write(algId)
-            // 4. Issuer & Subject Name
+            
             val nameDer = encodeName(subjectDn)
-            tbsStream.write(nameDer) // Issuer
-            // 5. Validity
+            tbsStream.write(nameDer)
+            
             val validityDer = encodeValidity(notBefore, notAfter)
             tbsStream.write(validityDer)
-            tbsStream.write(nameDer) // Subject (自签名同 Issuer)
-            // 6. SubjectPublicKeyInfo
+            tbsStream.write(nameDer)
             tbsStream.write(keyPair.public.encoded)
 
             val tbsBytes = encodeSequence(tbsStream.toByteArray())
 
-            // 用私钥对 TBS 进行签名
             val signer = Signature.getInstance("SHA256withRSA")
             signer.initSign(keyPair.private)
             signer.update(tbsBytes)
             val signatureBytes = signer.sign()
 
-            // 最终装配为 Signed Certificate Sequence
             val certStream = ByteArrayOutputStream()
             certStream.write(tbsBytes)
             certStream.write(algId)
-            // Bit String 格式签名（带 0x00 填充位）
+            
             val bitStringStream = ByteArrayOutputStream()
             bitStringStream.write(0x00)
             bitStringStream.write(signatureBytes)
@@ -250,9 +227,6 @@ public class AdbCrypto(public val keyPair: KeyPair) {
             return out.toByteArray()
         }
 
-        /**
-         * 动态解析并编码 DN 字符串（如 "CN=ADB Key, O=Android, OU=Studio, C=US"）为标准的 ASN.1 RDNSequence
-         */
         private fun encodeName(dn: String): ByteArray {
             val out = ByteArrayOutputStream()
             val pairs = dn.split(",")
@@ -276,16 +250,10 @@ public class AdbCrypto(public val keyPair: KeyPair) {
             return encodeSequence(out.toByteArray())
         }
 
-        /**
-         * 编码单个 RDN：SET { SEQUENCE { AttributeType (OID), AttributeValue } }
-         */
         private fun encodeAttribute(oid: ByteArray, tag: Byte, value: String): ByteArray {
             val attrStream = ByteArrayOutputStream()
-            
-            // 1. 写入 OID
             attrStream.write(oid)
             
-            // 2. 写入 Value (Tag + Length + UTF8/Printable/IA5 Bytes)
             val valBytes = value.toByteArray(Charsets.UTF_8)
             val valStream = ByteArrayOutputStream()
             valStream.write(tag.toInt())
@@ -294,10 +262,7 @@ public class AdbCrypto(public val keyPair: KeyPair) {
 
             attrStream.write(valStream.toByteArray())
 
-            // 3. 封装为 SEQUENCE 节点
             val seqBytes = encodeSequence(attrStream.toByteArray())
-
-            // 4. 封装为 SET 节点 (RelativeDistinguishedName)
             return encodeSet(seqBytes)
         }
 
@@ -317,7 +282,7 @@ public class AdbCrypto(public val keyPair: KeyPair) {
             fun formatDate(d: Date): ByteArray {
                 val bytes = utcFormat.format(d).toByteArray(Charsets.US_ASCII)
                 val out = ByteArrayOutputStream()
-                out.write(0x17) // UTCTime
+                out.write(0x17)
                 out.write(bytes.size)
                 out.write(bytes)
                 return out.toByteArray()

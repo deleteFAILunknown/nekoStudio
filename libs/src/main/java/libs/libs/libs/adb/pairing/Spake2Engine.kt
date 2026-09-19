@@ -58,4 +58,19 @@ public class Spake2Engine(
 
         return nonce + cipherText
     }
+
+    public fun decryptPayload(aesKey: ByteArray, encryptedData: ByteArray): ByteArray {
+        if (encryptedData.size < 12 + 16) {
+            throw IllegalArgumentException("加密 Payload 长度非法")
+        }
+        val nonce = encryptedData.copyOfRange(0, 12)
+        val cipherText = encryptedData.copyOfRange(12, encryptedData.size)
+
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        val keySpec = SecretKeySpec(aesKey, "AES")
+        val gcmSpec = GCMParameterSpec(128, nonce)
+
+        cipher.init(Cipher.DECRYPT_MODE, keySpec, gcmSpec)
+        return cipher.doFinal(cipherText)
+    }
 }
