@@ -29,7 +29,7 @@ public class AdbCrypto(public val keyPair: KeyPair) {
     public fun getAdbPublicKey(): ByteArray {
         val pubKey = keyPair.public as RSAPublicKey
         val encoded = Base64.encodeToString(pubKey.encoded, Base64.NO_WRAP)
-        return "$encoded user@android\0".toByteArray(Charsets.UTF_8)
+        return "$encoded user@android\u0000".toByteArray(Charsets.UTF_8)
     }
 
     public fun generateCertificate(): X509Certificate {
