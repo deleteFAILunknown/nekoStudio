@@ -13,8 +13,10 @@ public class AdbPairingClient(
     public val crypto: AdbCrypto
 ) {
 
-    public const var PAIRING_REQ_TYPE: Byte = 1
-    public const var PAIRING_RESP_TYPE: Byte = 2
+    public companion object {
+        public const val PAIRING_REQ_TYPE: Byte = 1
+        public const val PAIRING_RESP_TYPE: Byte = 2
+    }
 
     public suspend fun pair(pairingCode: String, timeoutMs: Int = 10000): Boolean = withContext(Dispatchers.IO) {
         val transport = TlsTransport(host, port, crypto, timeoutMs)
