@@ -29,9 +29,7 @@ public class AdbPairingClient(
             val spake2 = Spake2Engine(pairingCode)
             var sequence = 1
 
-            // -------------------------------------------------------------
             // 1. 发送 SPAKE2_MATTER (交换客户端公钥点 X)
-            // -------------------------------------------------------------
             val req1 = PairingPacket(
                 type = PairingPacketType.SPAKE2_MATTER.value,
                 seq = sequence++,
@@ -39,9 +37,7 @@ public class AdbPairingClient(
             )
             sendFrame(transport, ProtoBuf.encodeToByteArray(PairingPacket.serializer(), req1))
 
-            // -------------------------------------------------------------
             // 2. 接收服务端的 SPAKE2_MATTER (获取服务端公钥点 Y)
-            // -------------------------------------------------------------
             val resp1Bytes = readFrame(transport)
             val resp1 = ProtoBuf.decodeFromByteArray(PairingPacket.serializer(), resp1Bytes)
 
@@ -52,9 +48,7 @@ public class AdbPairingClient(
             val serverPublicKeyY = resp1.payload
             val aesKey = spake2.deriveAesKey(serverPublicKeyY)
 
-            // -------------------------------------------------------------
             // 3. 使用推导出的 AES Key 加密 adbkey.pub 并发送 PAIRING_COMPLETE
-            // -------------------------------------------------------------
             val pubKeyBytes = crypto.getAdbPublicKey()
             val encryptedPubKey = spake2.encryptPayload(aesKey, pubKeyBytes)
 
@@ -65,9 +59,7 @@ public class AdbPairingClient(
             )
             sendFrame(transport, ProtoBuf.encodeToByteArray(PairingPacket.serializer(), req2))
 
-            // -------------------------------------------------------------
             // 4. 接收配对完成响应确认
-            // -------------------------------------------------------------
             val resp2Bytes = readFrame(transport)
             val resp2 = ProtoBuf.decodeFromByteArray(PairingPacket.serializer(), resp2Bytes)
 
@@ -80,9 +72,9 @@ public class AdbPairingClient(
     }
 
     /**
-     * 发送 Length-Prefixed 帧：[4 字节 Big-Endian 长度 Header] + [Protobuf 数据包]
+     * 发送 Length-Prefixed 帧 (已添加 suspend)
      */
-    private fun sendFrame(transport: TlsTransport, payload: ByteArray) {
+    private suspend fun sendFrame(transport: TlsTransport, payload: ByteArray) {
         val header = ByteBuffer.allocate(4)
             .order(ByteOrder.BIG_ENDIAN)
             .putInt(payload.size)
@@ -92,9 +84,9 @@ public class AdbPairingClient(
     }
 
     /**
-     * 读取 Length-Prefixed 帧
+     * 读取 Length-Prefixed 帧 (已添加 suspend)
      */
-    private fun readFrame(transport: TlsTransport): ByteArray {
+    private suspend fun readFrame(transport: TlsTransport): ByteArray {
         val lengthBuf = ByteArray(4)
         readFully(transport, lengthBuf)
         val length = ByteBuffer.wrap(lengthBuf).order(ByteOrder.BIG_ENDIAN).int
@@ -109,9 +101,9 @@ public class AdbPairingClient(
     }
 
     /**
-     * 解决 TCP 粘包/分包问题，保证读取完整字节流
+     * 解决 TCP 粘包/分包问题，保证读取完整字节流 (已添加 suspend)
      */
-    private fun readFully(transport: TlsTransport, buffer: ByteArray) {
+    private suspend fun readFully(transport: TlsTransport, buffer: ByteArray) {
         var offset = 0
         while (offset < buffer.size) {
             val read = transport.read(buffer, offset, buffer.size - offset)
