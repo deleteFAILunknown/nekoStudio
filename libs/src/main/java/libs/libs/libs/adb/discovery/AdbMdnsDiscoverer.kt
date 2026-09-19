@@ -29,32 +29,31 @@ public class AdbMdnsDiscoverer(public val context: Context) {
 
         fun resolveServiceInfo(serviceInfo: NsdServiceInfo, isPairing: Boolean) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                // Android 14+ (API 34+) 新版异步回调解析
-                nsdManager.resolveService(
-                    serviceInfo,
-                    executor,
-                    object : NsdManager.ServiceInfoCallback {
-                        override fun onServiceInfoCallbackRegistrationFailed(errorCode: Int) {}
+                // API 34+ 正确的方法名是 registerServiceInfoCallback
+                val callback = object : NsdManager.ServiceInfoCallback {
+                    override fun onServiceInfoCallbackRegistrationFailed(errorCode: Int) {}
 
-                        override fun onServiceUpdated(resolvedInfo: NsdServiceInfo) {
-                            val host = resolvedInfo.hostAddresses.firstOrNull()?.hostAddress ?: return
-                            trySend(
-                                DiscoveredService(
-                                    name = resolvedInfo.serviceName,
-                                    host = host,
-                                    port = resolvedInfo.port,
-                                    isPairingService = isPairing
-                                )
+                    override fun onServiceUpdated(resolvedInfo: NsdServiceInfo) {
+                        val host = resolvedInfo.hostAddresses.firstOrNull()?.hostAddress ?: return
+                        trySend(
+                            DiscoveredService(
+                                name = resolvedInfo.serviceName,
+                                host = host,
+                                port = resolvedInfo.port,
+                                isPairingService = isPairing
                             )
-                        }
-
-                        override fun onServiceLost() {}
-
-                        override fun onServiceInfoCallbackUnregistered() {}
+                        )
+                        // 获取解析结果后注销 Callback，防止重复回调
+                        runCatching { nsdManager.unregisterServiceInfoCallback(this) }
                     }
-                )
+
+                    override fun onServiceLost() {}
+
+                    override fun onServiceInfoCallbackUnregistered() {}
+                }
+                nsdManager.registerServiceInfoCallback(serviceInfo, executor, callback)
             } else {
-                // API < 34 旧版兼容逻辑
+                // API < 34 旧版 API
                 @Suppress("DEPRECATION")
                 nsdManager.resolveService(serviceInfo, object : NsdManager.ResolveListener {
                     override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {}
