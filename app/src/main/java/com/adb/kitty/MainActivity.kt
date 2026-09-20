@@ -188,7 +188,7 @@ class MainActivity : ComponentActivity() {
             adbService = binder.getService()
             val cmdsService = binder.getService()
             isServiceBound = true
-            appendLog("[系统] 前台物理守护进程并网成功。")
+            appendLog("[INFO] AdbSessionService Start OKAY!")
             cmdsService.onCommandReceivedListener = { cmd ->
                 cmdsServiceExec(cmd)
             }
@@ -223,7 +223,7 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
         if (isGranted) {
-            appendLog("[权限] Android 13+ 通知权限授权成功，正在激活前台服务…")
+            appendLog("[INFO] Android 13+ 通知权限校验")
             startAndBindAdbService()
         } else {
             handlePermissionDeniedSituation()
@@ -243,7 +243,7 @@ class MainActivity : ComponentActivity() {
         if (isWifiScanGranted && isLocalNetworkGranted) {
             appendLog("[INFO] Wi-Fi 所需权限已授予，已具备激活无线链路条件")
         } else {
-            appendLog("[警告] 权限被拒绝，无法自动扫描 Wi-Fi SSID")
+            appendLog("[Warn] 权限被拒绝，无法自动扫描 Wi-Fi SSID")
         }
     }
     
@@ -253,7 +253,7 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && Environment.isExternalStorageManager()) {
             appendLog("[INFO] Android 11+ 所有文件访问权限已授权")
         } else {
-            appendLog("[警告] Android 11+ 所有文件访问权限未授权")
+            appendLog("[Warn] Android 11+ 所有文件访问权限未授权")
         }
     }
 
@@ -264,7 +264,7 @@ class MainActivity : ComponentActivity() {
         if (isAllGranted) {
             appendLog("[INFO] Android 10 文件读写权限已授权")
         } else {
-            appendLog("[警告] Android 10 文件读写权限未授权")
+            appendLog("[Warn] Android 10 文件读写权限未授权")
         }
     }
     
@@ -274,7 +274,7 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) {
-            appendLog("[系统] 已成功选取视频，正在分析轨道并提取音频...")
+            appendLog("[INFO] 已成功选取视频，正在分析轨道并提取音频…")
         
             lifecycleScope.launch {
                 val resultUri = extractAudioToMusicDirectory(
@@ -287,13 +287,13 @@ class MainActivity : ComponentActivity() {
                 )
 
                 if (resultUri != null) {
-                    appendLog("[成功] 音频提取完成！已安全保存至系统的【音乐(Music)/NekoExtractor】目录")
+                    appendLog("[OKAY] 音频提取完成！已安全保存至系统的【音乐(Music)/NekoExtractor】目录")
                 } else {
-                    appendLog("[错误] 音频提取失败！可能视频中不包含有效的音频流，或多媒体架构初始化异常。")
+                    appendLog("[error] 音频提取失败！可能视频中不包含有效的音频流，或多媒体架构初始化异常。")
                 }
             }
         } else {
-            appendLog("[警告] 用户取消了视频选取。")
+            appendLog("[Warn] 用户取消了视频选取。")
         }
     }
 
@@ -308,11 +308,11 @@ class MainActivity : ComponentActivity() {
                         @Suppress("DEPRECATION") intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
                     }
                     if (device != null) {
-                        appendLog("[系统] USB 调试设备权限获取成功")
+                        appendLog("[INFO] USB 调试设备权限获取成功")
                         connectToInterface(device)
                     }
                 } else {
-                    appendLog("[警告] 用户拒绝了 USB 权限申请")
+                    appendLog("[Warn] 用户拒绝了 USB 权限申请")
                 }
             }
         }
@@ -333,7 +333,7 @@ class MainActivity : ComponentActivity() {
                     isFastbootMode = false
                     readerJob?.cancel()
                     usbConn?.close()
-                    appendLog("[警告] USB 设备已断开")
+                    appendLog("[Warn] USB 设备已断开")
                 }
             }
         }
@@ -351,7 +351,7 @@ class MainActivity : ComponentActivity() {
                     }
                     WifiManager.WIFI_STATE_DISABLED -> {
                         isWifiEnabled = false
-                        appendLog("[警告] ⏳ WLAN 已关闭")
+                        appendLog("[Warn] ⏳ WLAN 已关闭")
                     }
                 }
             }
@@ -362,10 +362,10 @@ class MainActivity : ComponentActivity() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
                 Intent.ACTION_POWER_CONNECTED -> {
-                    appendLog("[电源] 🔌 充电器已插入")
+                    appendLog("[INFO] 🔌 充电器已插入")
                 }
                 Intent.ACTION_POWER_DISCONNECTED -> {
-                    appendLog("[电源] 🔋 充电器已拔出")
+                    appendLog("[INFO] 🔋 充电器已拔出")
                 }
             }
         }
@@ -430,7 +430,7 @@ class MainActivity : ComponentActivity() {
                         onExportToFile = { content ->
                             val savedName = saveTextToFlashFolder(this@MainActivity, flashFolder, content)
                             if (savedName != null) {
-                                appendLog("[系统] 解码内容已成功全部输出至: flash/$savedName")
+                                appendLog("[INFO] 解码内容已成功全部输出至: flash/$savedName")
                             }
                             qrDecodeResult = null 
                         }
@@ -469,7 +469,7 @@ class MainActivity : ComponentActivity() {
                             // 停止录制并自动在 getExternalFilesDir/cpu/ 目录下生成 CSV 文件
                             val savedFile = pviewModel.stopRecordingAndSave(context)
                             if (savedFile != null) {
-                                appendLog("[系统] 性能日志已自动保存至: cpu/${savedFile.name}")
+                                appendLog("[INFO] 性能日志已自动保存至: cpu/${savedFile.name}")
                             }
                         },
                         onExportCsv = { csvContent ->
@@ -511,7 +511,7 @@ class MainActivity : ComponentActivity() {
                         onDismissRequest = { showAppSigBottomSheet = false },
                         onAppSelected = { selectedApp ->
                             showAppSigBottomSheet = false
-                            appendLog("[系统] 正在解析 ${selectedApp.appName} [${selectedApp.packageName}] 的 APK 签名...")
+                            appendLog("[INFO] 正在解析 ${selectedApp.appName} [${selectedApp.packageName}] 的 APK 签名…")
 
                             lifecycleScope.launch(Dispatchers.IO) {
                                 val report = NativeLibs.ApkSignature(selectedApp.apkPath)
@@ -519,13 +519,13 @@ class MainActivity : ComponentActivity() {
                                 withContext(Dispatchers.Main) {
                                     selectedSchemeText = schemeText
                                     selectedSigReport = report
-                                    appendLog("[系统] 签名解析完成")
+                                    appendLog("[INFO] 签名解析完成")
                                 }
                             }
                         },
                         onStorageApkSelected = { uri ->
                             showAppSigBottomSheet = false
-                            appendLog("[系统] 正在读取本地 APK 并解析签名...")
+                            appendLog("[INFO] 正在读取本地 APK 并解析签名…")
 
                             lifecycleScope.launch(Dispatchers.IO) {
                                 val cacheFile = File(context.cacheDir, "target_file.apk")
@@ -543,11 +543,11 @@ class MainActivity : ComponentActivity() {
                                     withContext(Dispatchers.Main) {
                                         selectedSchemeText = schemeText
                                         selectedSigReport = report
-                                        appendLog("[系统] 本地 APK 签名解析完成")
+                                        appendLog("[INFO] 本地 APK 签名解析完成")
                                     }
                                 } else {
                                     withContext(Dispatchers.Main) {
-                                        appendLog("[错误] 无法读取选中的本地文件")
+                                        appendLog("[error] 无法读取选中的本地文件")
                                     }
                                 }
                             }
@@ -628,8 +628,7 @@ class MainActivity : ComponentActivity() {
     
         when {
             cmd.startsWith("adb ") -> {
-                appendLog("[系统] ADB >> $cmd")
-                handleAdbLibraryCommand(cmd.removePrefix("adb ").trim())
+                appendLog("[INFO] ADB >> $cmd")
             }
 
             cmd.startsWith("neko ") -> {
@@ -641,36 +640,36 @@ class MainActivity : ComponentActivity() {
             }
             
             cmd == "neko-sig" || cmd == "apk-sig" -> {
-                appendLog("[系统] 扩展指令 >> $cmd")
-                appendLog("[系统] 正在读取安装应用列表...")
+                appendLog("[INFO] 扩展指令 >> $cmd")
+                appendLog("[INFO] 正在读取安装应用列表...")
                 showAppSigBottomSheet = true
             }
             
             cmd.startsWith("neko-intent ") -> {
-                appendLog("[系统] 扩展指令 >> $cmd")
+                appendLog("[INFO] 扩展指令 >> $cmd")
                 val argsText = cmd.removePrefix("neko-intent ").trim()
                 val parts = argsText.split("|")
                 val content = parts[0].trim()
                 val packageName = if (parts.size > 1) parts[1].trim() else ""
 
                 if (content.isEmpty()) {
-                    appendLog("[错误] 内容或链接不能为空！")
+                    appendLog("[error] 内容或链接不能为空！")
                     return
                 }
 
-                appendLog("[系统] 正在构建智能 Intent 执行管道...")
+                appendLog("[INFO] 正在构建智能 Intent 执行管道...")
                 executeSmartIntent(this, content, packageName)
             }
             
             cmd.startsWith("neko-audio") -> {
-                appendLog("[系统] 扩展指令 >> $cmd")
+                appendLog("[INFO] 扩展指令 >> $cmd")
                 
                 val nameArg = cmd.removePrefix("neko-audio").trim()
                 pendingAudioBaseName = nameArg.ifEmpty {
                     "NekoAudio_${System.currentTimeMillis()}"
                 }
 
-                appendLog("[系统] 正在唤醒系统的媒体选择器…")
+                appendLog("[INFO] 正在唤醒系统的媒体选择器…")
                 
                 pickVideoLauncher.launch(
                     PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)
@@ -678,10 +677,10 @@ class MainActivity : ComponentActivity() {
             }
 
             cmd.startsWith("download ") -> {
-                appendLog("[系统] 扩展指令 >> $cmd")
+                appendLog("[INFO] 扩展指令 >> $cmd")
                 val urlArg = cmd.removePrefix("download ").trim()
                 if (urlArg.isEmpty() || urlArg == "download") {
-                    appendLog("[错误] download 指令缺少参数！用法: download <文件的URL地址>")
+                    appendLog("[error] download 指令缺少参数！用法: download <文件的URL地址>")
                 } else {
                     executeDownload(urlArg)
                 }
@@ -695,15 +694,15 @@ class MainActivity : ComponentActivity() {
             cmd == "userkitty-log-export" -> exportLogToFlashFolder()
         
             cmd == "ip-test" -> {
-                appendLog("[系统] 扩展指令 >> $cmd")
+                appendLog("[INFO] 扩展指令 >> $cmd")
                 startIpNetworkTest()
             }
             cmd == "usb-host" -> {
-                appendLog("[系统] 扩展指令 >> $cmd")
+                appendLog("[INFO] 扩展指令 >> $cmd")
                 findHostDevice()
             }
             cmd == "query-apm" -> {
-                appendLog("[系统] 扩展指令 >> $cmd")
+                appendLog("[INFO] 扩展指令 >> $cmd")
                 handleApmQuery()
             }
 
@@ -734,25 +733,25 @@ class MainActivity : ComponentActivity() {
 
             if (packageName.isNotEmpty()) {
                 activityContext.startActivity(intent)
-                appendLog("[系统] Intent 指令已精准发送至: $packageName")
+                appendLog("[INFO] Intent 指令已精准发送至: $packageName")
             } else {
                 val chooserTitle = if (isUrl) "选择要打开的应用" else "Neko Intent 分享"
                 val chooser = Intent.createChooser(intent, chooserTitle)
                 activityContext.startActivity(chooser)
-                appendLog("[系统] 已经成功唤起应用选择面板。")
+                appendLog("[INFO] 已经成功唤起应用选择面板。")
             }
 
         } catch (e: Exception) {
-            appendLog("[错误] 执行失败！请检查链接格式或确认目标应用已安装。")
+            appendLog("[error] 执行失败！请检查链接格式或确认目标应用已安装。")
         }
     }
 
     private fun handleCryptoCommand(cmd: String, isEncrypt: Boolean) {
-        appendLog("[系统] 扩展指令 >> $cmd")
+        appendLog("[INFO] 扩展指令 >> $cmd")
         val prefix = if (isEncrypt) "encrypt " else "decrypt "
         val args = cmd.removePrefix(prefix).trim().split(" ")
         if (args.size < 2) {
-            appendLog("[错误] 用法: ${prefix.trim()} 文件名 密码")
+            appendLog("[error] 用法: ${prefix.trim()} 文件名 密码")
             return
         }
         val fileName = args[0]
@@ -760,63 +759,63 @@ class MainActivity : ComponentActivity() {
         val targetFile = File(flashFolder, fileName)
 
         if (!targetFile.exists() || !targetFile.isFile) {
-            appendLog("[错误] 未找到文件: flash/$fileName")
+            appendLog("[error] 未找到文件: flash/$fileName")
             return
         }
 
         if (isEncrypt) {
             val outputFile = File(flashFolder, "$fileName.enc")
-            appendLog("[系统] 正在对 ${fileName} 执行 AES-256 加密...")
+            appendLog("[INFO] 正在对 ${fileName} 执行 AES-256 加密...")
             lifecycleScope.launch {
                 val success = withContext(Dispatchers.IO) { CryptoUtils.encryptFile(targetFile, outputFile, password) }
-                if (success) appendLog("[系统] 加密成功！输出文件: flash/${outputFile.name}")
-                else appendLog("[错误] 加密失败，请检查异常日志")
+                if (success) appendLog("[INFO] 加密成功！输出文件: flash/${outputFile.name}")
+                else appendLog("[error] 加密失败，请检查异常日志")
             }
         } else {
             val outName = if (fileName.endsWith(".enc")) fileName.removeSuffix(".enc") else "$fileName.dec"
             val outputFile = File(flashFolder, outName)
-            appendLog("[系统] 正在解密文件: $fileName ...")
+            appendLog("[INFO] 正在解密文件: $fileName ...")
             lifecycleScope.launch {
                 val success = withContext(Dispatchers.IO) { CryptoUtils.decryptFile(targetFile, outputFile, password) }
-                if (success) appendLog("[系统] 解密成功！已还原为: flash/$outName")
-                else appendLog("[错误] 解密失败！可能是密码错误或文件已被篡改！")
+                if (success) appendLog("[INFO] 解密成功！已还原为: flash/$outName")
+                else appendLog("[error] 解密失败！可能是密码错误或文件已被篡改！")
             }
         }
     }
     
     private fun handleQrGenCommand(cmd: String) {
-        appendLog("[系统] 扩展指令 >> $cmd")
+        appendLog("[INFO] 扩展指令 >> $cmd")
         val arg = cmd.removePrefix("qr-gen ").trim()
         if (arg.isEmpty()) {
-            appendLog("[错误] qr-gen 指令缺少参数！用法: qr-gen 文本或文件名")
+            appendLog("[error] qr-gen 指令缺少参数！用法: qr-gen 文本或文件名")
             return
         }
         val fileInFlash = File(flashFolder, arg)
         val targetFile = if (fileInFlash.exists() && fileInFlash.isFile) fileInFlash else if (File(arg).exists() && File(arg).isFile) File(arg) else null
 
         if (targetFile != null) {
-            appendLog("[系统] 匹配到本地文件: ${targetFile.absolutePath}")
+            appendLog("[INFO] 匹配到本地文件: ${targetFile.absolutePath}")
             runCatching {
                 if (targetFile.length() > 2000) {
-                    appendLog("[警告] 文件过大，已自动降级为【生成文件名二维码】")
+                    appendLog("[Warn] 文件过大，已自动降级为【生成文件名二维码】")
                     qrCodeDialogContent = if (targetFile.parentFile?.name == "flash") arg else targetFile.name
                 } else {
                     val fileText = targetFile.readText(Charsets.UTF_8).trim()
-                    if (fileText.isEmpty()) appendLog("[错误] 文件内容为空") 
+                    if (fileText.isEmpty()) appendLog("[error] 文件内容为空") 
                     else qrCodeDialogContent = fileText
                 }
             }.onFailure {
-                appendLog("[错误] 读取文件失败，转为对参数文本生成二维码")
+                appendLog("[error] 读取文件失败，转为对参数文本生成二维码")
                 qrCodeDialogContent = arg
             }
         } else {
-            if (arg.length > 2000) appendLog("[错误] 输入文本过长！") 
+            if (arg.length > 2000) appendLog("[error] 输入文本过长！") 
             else qrCodeDialogContent = arg
         }
     }
 
     private fun handleQrDecodeCommand(cmd: String) {
-        appendLog("[系统] 扩展指令 >> $cmd")
+        appendLog("[INFO] 扩展指令 >> $cmd")
         val arg = cmd.removePrefix("qr-decode ").trim()
         if (arg.isEmpty()) return
         if (arg == "--system") {
@@ -829,9 +828,9 @@ class MainActivity : ComponentActivity() {
         if (targetFile != null) {
             val result = QrCodeUtils.decodeQrCode(targetFile)
             if (result != null) { qrDecodeResult = result } 
-            else appendLog("[错误] 二维码解析失败")
+            else appendLog("[error] 二维码解析失败")
         } else {
-            appendLog("[错误] 未找到指定图片文件: $arg")
+            appendLog("[error] 未找到指定图片文件: $arg")
         }
     }
 
@@ -840,10 +839,10 @@ class MainActivity : ComponentActivity() {
             runCatching {
                 val apm = getSystemService(android.security.advancedprotection.AdvancedProtectionManager::class.java)
                 val isEnabled = apm?.isAdvancedProtectionEnabled ?: false
-                appendLog("[系统] 高级保护模式 (AAPM) 状态: ${if (isEnabled) "【已开启 🛡️】" else "【已关闭 🔓】"}")
-            }.onFailure { appendLog("[错误] 查询失败: ${it.message}") }
+                appendLog("[INFO] 高级保护模式 (AAPM) 状态: ${if (isEnabled) "【已开启 🛡️】" else "【已关闭 🔓】"}")
+            }.onFailure { appendLog("[error] 查询失败: ${it.message}") }
         } else {
-            appendLog("[提示] 当前系统级别低于 API 36，不支持高级保护模式。")
+            appendLog("[Warn] 当前系统级别低于 API 36，不支持高级保护模式。")
         }
     }
 
@@ -853,7 +852,7 @@ class MainActivity : ComponentActivity() {
         val rawCmd = cmd.trim()
         if (rawCmd.isEmpty()) return
 
-        appendLog("[系统] Shell >> $rawCmd")
+        appendLog("[INFO] Shell >> $rawCmd")
 
         var realLocalCmd = rawCmd
         var requestRoot = false
@@ -942,13 +941,13 @@ class MainActivity : ComponentActivity() {
                     }
                 } catch (e: Exception) {
                     if (isActive) {
-                        appendLog("[错误] 执行异常: ${e.message}")
+                        appendLog("[error] 执行异常: ${e.message}")
                     }
                 } finally {
                     runCatching { pfd?.close() }
                 }
             } else {
-                appendLog("[错误] 前台守护进程服务未就绪！")
+                appendLog("[error] 前台守护进程服务未就绪！")
             }
         }
     }
@@ -957,7 +956,7 @@ class MainActivity : ComponentActivity() {
         val job = currentShellJob
 
         if (job == null || !job.isActive) {
-            appendLog("[系统] 当前没有正在执行的命令")
+            appendLog("[INFO] 当前没有正在执行的命令")
             return
         }
 
@@ -970,16 +969,16 @@ class MainActivity : ComponentActivity() {
                 runCatching {
                     service.terminateCurrentCommand()
                     withContext(Dispatchers.Main) {
-                        appendLog("[系统] 用户强制终止了当前命令")
+                        appendLog("[INFO] 用户强制终止了当前命令")
                     }
                 }.onFailure { e ->
                     withContext(Dispatchers.Main) {
-                        appendLog("[错误] 终止命令失败: ${e.message}")
+                        appendLog("[error] 终止命令失败: ${e.message}")
                     }
                 }
             } else {
                 withContext(Dispatchers.Main) {
-                    appendLog("[警告] 服务未连接，已取消前端日志读取")
+                    appendLog("[Warn] 服务未连接，已取消前端日志读取")
                 }
             }
         }
@@ -989,28 +988,28 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             when {
                 cmd.startsWith("usb-selinux") -> {
-                    appendLog("[发送] FB >> $cmd")
-                    appendLog("[系统] 正在尝试设置 SeLinux 为宽容模式, 该指令由 app 提供")
+                    appendLog("[INFO] FB >> $cmd")
+                    appendLog("[INFO] 正在尝试设置 SeLinux 为宽容模式, 该指令由 app 提供")
                     FbSeLinuxCmd()
 
                     return@launch
                 }
 
                 cmd.startsWith("fastboot") -> {
-                    appendLog("[发送] FB >> $cmd")
+                    appendLog("[INFO] FB >> $cmd")
 
                     runCatching { viewModel.runCommand(cmd) }
-                        .onFailure { appendLog("[错误] ${it.message}") }
+                        .onFailure { appendLog("[error] ${it.message}") }
 
                     return@launch
                 }
 
                 else -> {
                     if (isFastbootMode) {
-                        appendLog("[发送] FB >> $cmd")
+                        appendLog("[INFO] FB >> $cmd")
 
                         runCatching { viewModel.runCommand(cmd) }
-                            .onFailure { appendLog("[错误] ${it.message}") }
+                            .onFailure { appendLog("[error] ${it.message}") }
                     } else {
                         handleLocalShellPipeline(cmd)
                     }
@@ -1018,230 +1017,6 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-
-private var activeAdbSession: Adb? = null
-private var activeAdbHost: String = "127.0.0.1"
-private var activeAdbPort: Int = 5555
-
-private fun handleAdbLibraryCommand(subCmd: String) {
-    val trimmedCmd = subCmd.trim()
-    if (trimmedCmd.isEmpty()) return
-
-    lifecycleScope.launch(Dispatchers.IO) {
-        try {
-            when {
-                // 1. 无线 TCP/IP Socket 连接: adb connect <host>[:port] 或 adb connect <host> [port]
-                trimmedCmd.startsWith("connect") -> {
-                    val rawArgs = trimmedCmd.removePrefix("connect").trim()
-                    val (host, port) = parseHostAndPort(rawArgs, defaultPort = 5555) ?: run {
-                        log("[错误] 用法: adb connect <host>:[port] 或 adb connect <host> [port]")
-                        return@launch
-                    }
-
-                    log("[Adb] 正在通过 Socket 连接 $host:$port ...")
-                    closeActiveSession()
-
-                    activeAdbSession = Adb.connectSocket(this@MainActivity, host, port)
-                    activeAdbHost = host
-                    activeAdbPort = port
-                    log("[成功] 已成功建立标准 Socket Adb 连接！")
-                }
-
-                // 2. 无线 TLS 安全连接 (Android 11+): adb tls <host>[:port] 或 adb tls <host> [port]
-                trimmedCmd.startsWith("tls") -> {
-                    val rawArgs = trimmedCmd.removePrefix("tls").trim()
-                    val (host, port) = parseHostAndPort(rawArgs, defaultPort = 5555) ?: run {
-                        log("[错误] 用法: adb tls <host>:<port> 或 adb tls <host> <port>")
-                        return@launch
-                    }
-
-                    log("[Adb] 正在通过 TLS 建立安全加密通道 $host:$port ...")
-                    closeActiveSession()
-
-                    activeAdbSession = Adb.connectTlsSocket(this@MainActivity, host, port)
-                    activeAdbHost = host
-                    activeAdbPort = port
-                    log("[成功] TLS 加密 Adb 握手成功！")
-                }
-
-                // 3. SPAKE2 无线配对: adb pair <host>:<port> <codePath> 或 adb pair <host> <port> <code>
-                trimmedCmd.startsWith("pair") -> {
-                    val args = trimmedCmd.removePrefix("pair").trim().split("\\s+".toRegex())
-                    val (host, port, code) = parsePairingArgs(args) ?: run {
-                        log("[错误] 用法: adb pair <host:port> <pairingCode> 或 adb pair <host> <port> <pairingCode>")
-                        return@launch
-                    }
-
-                    log("[Adb] 正在与 $host:$port 进行无线 SPAKE2 握手配对...")
-                    val success = Adb.pair(this@MainActivity, host, port, code)
-                    if (success) {
-                        log("[成功] 无线配对成功！请使用 [adb tls $host:$port] 进行安全连接")
-                    } else {
-                        log("[错误] 配对失败，请检查配对码、端口或网络设置")
-                    }
-                }
-
-                // 4. 执行 Shell 命令: adb shell <command>
-                trimmedCmd.startsWith("shell") -> {
-                    val shellCmd = trimmedCmd.removePrefix("shell").trim()
-                    if (shellCmd.isEmpty()) {
-                        log("[错误] 用法: adb shell <command>")
-                        return@launch
-                    }
-                    val adb = getActiveAdbOrLog() ?: return@launch
-
-                    log("[Adb Exec] $shellCmd")
-                    val result = adb.shellResult(shellCmd)
-                    if (result.stdout.isNotEmpty()) {
-                        log(result.stdout)
-                    }
-                    if (result.stderr.isNotEmpty()) {
-                        log("[Stderr]: ${result.stderr}")
-                    }
-                    log("[退出码] exitCode = ${result.exitCode}")
-                }
-
-                // 5. 应用极速安装: adb install <filename.apk>
-                trimmedCmd.startsWith("install") -> {
-                    val fileName = trimmedCmd.removePrefix("install").trim()
-                    if (fileName.isEmpty()) {
-                        log("[错误] 用法: adb install <filename.apk>")
-                        return@launch
-                    }
-                    val apkFile = File(flashFolder, fileName)
-                    if (!apkFile.exists()) {
-                        log("[错误] 未在 flash 目录下找到文件: $fileName")
-                        return@launch
-                    }
-                    val adb = getActiveAdbOrLog() ?: return@launch
-                    log("[Adb ABB] 正在通过 ABB 协议极速安装 $fileName ...")
-                    val res = adb.installApp(apkFile)
-                    log("[安装结果] $res")
-                }
-
-                // 6. 设备重启: adb reboot [target] (如 bootloader / recovery)
-                trimmedCmd.startsWith("reboot") -> {
-                    val target = trimmedCmd.removePrefix("reboot").trim()
-                    val adb = getActiveAdbOrLog() ?: return@launch
-                    log("[Adb] 正在重启设备 (目标: ${target.ifEmpty { "正常重启" }}) ...")
-                    val ok = adb.reboot(target)
-                    log(if (ok) "[成功] 重启指令已发送" else "[错误] 重启失败")
-                }
-
-                // 7. Root 模式控制: adb root / adb unroot
-                trimmedCmd == "root" -> {
-                    val adb = getActiveAdbOrLog() ?: return@launch
-                    val msg = adb.root()
-                    log("[Adb Root] $msg")
-                }
-                trimmedCmd == "unroot" -> {
-                    val adb = getActiveAdbOrLog() ?: return@launch
-                    val msg = adb.unroot()
-                    log("[Adb Unroot] $msg")
-                }
-
-                // 8. 重新挂载系统分区: adb remount
-                trimmedCmd == "remount" -> {
-                    val adb = getActiveAdbOrLog() ?: return@launch
-                    val msg = adb.remount()
-                    log("[Adb Remount] $msg")
-                }
-
-                // 9. 查询 System Property 属性: adb getprop <key>
-                trimmedCmd.startsWith("getprop") -> {
-                    val key = trimmedCmd.removePrefix("getprop").trim()
-                    if (key.isEmpty()) {
-                        log("[错误] 用法: adb getprop <key>")
-                        return@launch
-                    }
-                    val adb = getActiveAdbOrLog() ?: return@launch
-                    val propValue = adb.getProperty(key)
-                    log("[Property] $key = $propValue")
-                }
-
-                // 10. 断开当前会话: adb disconnect
-                trimmedCmd == "disconnect" -> {
-                    closeActiveSession()
-                    log("[系统] 已断开当前 Adb 会话连接。")
-                }
-
-                else -> {
-                    log("[错误] 未知的 adb 指令分支: adb $subCmd")
-                    log("[提示] 支持的子指令: connect, tls, pair, shell, install, reboot, root, unroot, remount, getprop, disconnect")
-                }
-            }
-        } catch (e: Exception) {
-            log("[Adb 异常] ${e.localizedMessage ?: e.message}")
-        }
-    }
-}
-
-/**
- * 线程安全的日志输出函数（确保切回主线程追加日志）
- */
-private suspend fun log(message: String) {
-    withContext(Dispatchers.Main) {
-        appendLog(message)
-    }
-}
-
-/**
- * 安全关闭当前激活的 Adb 会话
- */
-private fun closeActiveSession() {
-    activeAdbSession?.close()
-    activeAdbSession = null
-}
-
-/**
- * 获取活跃会话，不存在则向界面日志输出错误
- */
-private suspend fun getActiveAdbOrLog(): Adb? {
-    val session = activeAdbSession
-    if (session == null) {
-        log("[错误] 当前没有激活的 Adb 会话！请先执行 【adb connect <ip> <port>】 或 【adb tls <ip> <port>】")
-        return null
-    }
-    return session
-}
-
-/**
- * 解析 Host 与 Port 参数（兼容 "192.168.1.100:5555" 和 "192.168.1.100 5555"）
- */
-private fun parseHostAndPort(rawInput: String, defaultPort: Int): kotlin.Pair<String, Int>? {
-    if (rawInput.isEmpty()) return null
-    val parts = rawInput.split("\\s+".toRegex())
-    return if (parts[0].contains(":")) {
-        val hostPort = parts[0].split(":")
-        val host = hostPort[0]
-        val port = hostPort.getOrNull(1)?.toIntOrNull() ?: defaultPort
-        Pair(host, port)
-    } else {
-        val host = parts[0]
-        val port = parts.getOrNull(1)?.toIntOrNull() ?: defaultPort
-        Pair(host, port)
-    }
-}
-
-/**
- * 解析 配对 参数（兼容 "192.168.1.100:37123 123456" 与 "192.168.1.100 37123 123456"）
- */
-private fun parsePairingArgs(args: List<String>): Triple<String, Int, String>? {
-    if (args.isEmpty()) return null
-    return if (args[0].contains(":")) {
-        val hostPort = args[0].split(":")
-        val host = hostPort[0]
-        val port = hostPort.getOrNull(1)?.toIntOrNull() ?: return null
-        val code = args.getOrNull(1) ?: return null
-        Triple(host, port, code)
-    } else {
-        if (args.size < 3) return null
-        val host = args[0]
-        val port = args[1].toIntOrNull() ?: return null
-        val code = args[2]
-        Triple(host, port, code)
-    }
-}
 
     fun triggerStoragePermissionCheck() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -1274,18 +1049,18 @@ private fun parsePairingArgs(args: List<String>): Triple<String, Int, String>? {
     
     private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri != null) {
-            appendLog("[系统] 已选择图片，开始解码...")
+            appendLog("[INFO] 已选择图片，开始解码...")
         
             val result = QrCodeUtils.decodeQrCodes(this, uri) 
         
             if (result != null) {
-                appendLog("[系统] 二维码解码成功！")
+                appendLog("[INFO] 二维码解码成功！")
                 qrDecodeResult = result
             } else {
-                appendLog("[错误] 二维码解析失败，请确保图片清晰且确实包含二维码")
+                appendLog("[error] 二维码解析失败，请确保图片清晰且确实包含二维码")
             }
         } else {
-            appendLog("[提示] 取消了系统图片选择。")
+            appendLog("[Warn] 取消了系统图片选择。")
         }
     }
 
@@ -1293,7 +1068,7 @@ private fun parsePairingArgs(args: List<String>): Triple<String, Int, String>? {
         try {
             pickImageLauncher.launch("image/*")
         } catch (e: Exception) {
-            appendLog("[错误] 无法打开系统图片选择器: ${e.localizedMessage}")
+            appendLog("[error] 无法打开系统图片选择器: ${e.localizedMessage}")
         }
     }
     
@@ -1304,12 +1079,12 @@ private fun parsePairingArgs(args: List<String>): Triple<String, Int, String>? {
             if (permissionCheck == PackageManager.PERMISSION_GRANTED) {
                 startAndBindAdbService()
             } else {
-                appendLog("[权限] 正在申请 Android 13+ 前台服务通知权限")
+                appendLog("[INFO] 正在申请 Android 13+ 前台服务通知权限")
                 requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
         } else {
             if (NotificationManagerCompat.from(this).areNotificationsEnabled()) {
-                appendLog("[系统] 检查通过：常驻通知总线完好，正在激活前台服务")
+                appendLog("[INFO] 检查通过：常驻通知总线完好，正在激活前台服务")
                 startAndBindAdbService()
             } else {
                 handlePermissionDeniedSituation()
@@ -1319,8 +1094,8 @@ private fun parsePairingArgs(args: List<String>): Triple<String, Int, String>? {
     }
     
     private fun handlePermissionDeniedSituation() {
-        appendLog("[错误] ❌ 通知权限被拦截/拒绝！")
-        appendLog("[提示] ⚠️ 前台服务将尝试在没有通知权限的情况下静默启动")
+        appendLog("[error] ❌ 通知权限被拦截/拒绝！")
+        appendLog("[Warn] ⚠️ 前台服务将尝试在没有通知权限的情况下静默启动")
     }
     
     private fun startAndBindAdbService() {
@@ -1339,7 +1114,7 @@ private fun parsePairingArgs(args: List<String>): Triple<String, Int, String>? {
         val uri = urlStr.toUri()
         val scheme = uri.scheme?.lowercase()
         if (scheme != "http" && scheme != "https") {
-            appendLog("[错误] 下载失败！该指令仅支持 http:// 或 https:// 的网络地址")
+            appendLog("[error] 下载失败！该指令仅支持 http:// 或 https:// 的网络地址")
             return
         }
 
@@ -1349,13 +1124,13 @@ private fun parsePairingArgs(args: List<String>): Triple<String, Int, String>? {
                 appendLog(logText)
             }
         } else {
-            appendLog("[错误] 核心前台进程未并网或已断开，拒绝执行网络下载")
+            appendLog("[error] 核心前台进程未并网或已断开，拒绝执行网络下载")
         }
     }
 
     fun FbSeLinuxCmd() {
         if (!isFastbootMode) {
-             appendLog("[警告] 该命令只能在 Fastboot 模式使用")
+             appendLog("[Warn] 该命令只能在 Fastboot 模式使用")
            return
         }
         lifecycleScope.launch(Dispatchers.IO) {
@@ -1366,7 +1141,7 @@ private fun parsePairingArgs(args: List<String>): Triple<String, Int, String>? {
             for (cmd in cmds) {
                // 1. 先把要发的命令打印出来
                withContext(Dispatchers.Main) { 
-                  appendLog("[发送] FB >> $cmd") 
+                  appendLog("[INFO] FB >> $cmd") 
                }
                // 2. 发送原始指令 (调用临时执行方法)
                viewModel.runCommand(cmd)
@@ -1433,7 +1208,7 @@ private fun parsePairingArgs(args: List<String>): Triple<String, Int, String>? {
                         usbManager.requestPermission(device, pi)
                         
                     } else {
-                        appendLog("[Serial] 硬件序列号: ${device.serialNumber ?: "unknown"}")
+                        appendLog("[INFO] 硬件序列号: ${device.serialNumber ?: "unknown"}")
                         connectToInterface(device)
                     }
                     return
@@ -1473,7 +1248,7 @@ private fun parsePairingArgs(args: List<String>): Triple<String, Int, String>? {
 
         if (isFastbootMode) {
             setupFastboot()
-            appendLog("[系统] Fastboot 物理信道就绪 | 序列号: $serialNumber")
+            appendLog("[INFO] Fastboot 物理信道就绪 | 序列号: $serialNumber")
         } else {
             isAdbAuthorized = true
             lifecycleScope.launch(Dispatchers.IO) {
@@ -1510,7 +1285,7 @@ private fun parsePairingArgs(args: List<String>): Triple<String, Int, String>? {
 
     private fun exportLogToFlashFolder() {
         if (viewModel.isLogEmpty) {
-            appendLog("[提示] 当前控制台日志空空如也")
+            appendLog("[Warn] 当前控制台日志空空如也")
             return
         }
 
@@ -1527,9 +1302,9 @@ private fun parsePairingArgs(args: List<String>): Triple<String, Int, String>? {
             val isSuccess = viewModel.exportFullLogToFile(targetFile)
 
             if (isSuccess) {
-                appendLog("[系统] 🎉 日志已成功安全写入文件：${targetFile.absolutePath}")
+                appendLog("[INFO] 🎉 日志已成功安全写入文件：${targetFile.absolutePath}")
             } else {
-                appendLog("[错误] ❌ 写入文件时发生异常，请检查磁盘权限或空间是否充足。")
+                appendLog("[error] ❌ 写入文件时发生异常，请检查磁盘权限或空间是否充足。")
             }
         }
     }
@@ -1545,7 +1320,7 @@ private fun parsePairingArgs(args: List<String>): Triple<String, Int, String>? {
     fun startIpNetworkTest() {
         // 合并为一个统一的 IO 协程流，确保控制台输出的时序绝对工整不乱序
         lifecycleScope.launch(Dispatchers.Main) {
-            appendLog("[网络探针] 正在唤醒底层网络数据透视...")
+            appendLog("[网络探针] 正在唤醒底层网络数据透视…")
 
             val ipManager = IpManager()
             

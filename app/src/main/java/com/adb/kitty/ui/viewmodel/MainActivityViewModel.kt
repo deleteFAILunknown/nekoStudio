@@ -243,7 +243,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
                 flashFolder = flashFolder
             )
             _fastbootManager?.startFastbootReader()
-            appendLog("[系统] 宿主 ViewModel 成功并网 Fastboot 物理总线。")
+            appendLog("[INFO] 宿主 ViewModel 成功并网 Fastboot 物理总线。")
         }
     }
 
@@ -251,13 +251,13 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         viewModelScope.launch(Dispatchers.IO) {
             val manager = _fastbootManager
             if (manager == null) {
-                appendLog("[错误] Fastboot 驱动未就绪，请检查硬件通信。")
+                appendLog("[error] Fastboot 驱动未就绪，请检查硬件通信。")
                 return@launch
             }
             try {
                 manager.executeCommandSync(cmd)
             } catch (e: Exception) {
-                appendLog("[错误] 物理管道执行崩溃: ${e.message}")
+                appendLog("[error] 物理管道执行崩溃: ${e.message}")
             }
         }
     }
