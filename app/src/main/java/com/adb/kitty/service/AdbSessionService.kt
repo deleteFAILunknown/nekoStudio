@@ -124,11 +124,13 @@ class AdbSessionService : Service() {
     }
 
     private var currentText: String = "00:00:00"
-    // 记录已注册的前台服务类型集合
     private var activeForegroundTypes: Int = 0
+    private var serviceStartTime = 0L
 
     override fun onCreate() {
         super.onCreate()
+        serviceStartTime = SystemClock.elapsedRealtime()
+
         createNotificationChannel()
 
         // 1. 初始注册前台服务（传入默认 0 增量）
@@ -237,7 +239,7 @@ class AdbSessionService : Service() {
 
         if (!inputText.isNullOrBlank()) {
             lastCommand = inputText
-            
+
             serviceScope.launch(Dispatchers.IO) {
                 withContext(Dispatchers.Main) {
                     onCommandReceivedListener?.invoke(inputText)
@@ -270,20 +272,22 @@ class AdbSessionService : Service() {
         wakeLock = null
     }
 
-    private var totalSeconds = 0
     private fun startNotificationTicker() {
         refreshJob?.cancel()
         refreshJob = serviceScope.launch {
             while (isActive) {
                 updateTickerNotification()
-                // CPU进入深度睡眠之后，delay 会被无条件暂停
-                delay(52000)
-                totalSeconds += 52
+                // 此时 delay 被睡眠暂停也没关系，醒来后计算差值依旧准确
+                delay(52000) 
             }
         }
     }
-    
+
     private fun updateTickerNotification() {
+        // 始终使用当前硬件时间减去服务最初创建的时间
+        val elapsedMillis = SystemClock.elapsedRealtime() - serviceStartTime
+        val totalSeconds = (elapsedMillis / 1000).toInt()
+
         val hours = totalSeconds / 3600
         val minutes = (totalSeconds % 3600) / 60
         val seconds = totalSeconds % 60
@@ -297,7 +301,7 @@ class AdbSessionService : Service() {
             updateTickerNotification()
         }
     }
-    
+
     private fun updateNotification(contentText: String) {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.notify(NOTIFICATION_ID, buildNotification(contentText))
@@ -361,7 +365,7 @@ class AdbSessionService : Service() {
         if (openAction == null) {
             val openIntent = Intent(this, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            
+
                 // 国产厂商（小米/HyperOS、OPPO、vivo 等）自由窗口 Intent Extra 兼容
                 putExtra("miui.intent.extra.open_in_freeform", true)
                 putExtra("intent_flag_miui_freeform", true)
@@ -439,14 +443,14 @@ class AdbSessionService : Service() {
 
         val messagingStyle = NotificationCompat.MessagingStyle(consoleUser)
             .setConversationTitle(getString(R.string.action_service_aae))
-        
+
         val lastLog = synchronized(notificationLogs) {
             notificationLogs.lastOrNull()
         }
         val line1Text = lastLog ?: "📡 暂无执行指令"
 
         val line2Text = "⏱️ 守护时长: $contentText"
-    
+
         val now = System.currentTimeMillis()
         messagingStyle.addMessage(line1Text, now - 1000, anonymousSender)
         messagingStyle.addMessage(line2Text, now, anonymousSender)
@@ -525,7 +529,7 @@ class AdbSessionService : Service() {
             runCatching {
                 val options = BitmapFactory.Options().apply { inSampleSize = 4 }
                 val tempBitmap = BitmapFactory.decodeResource(resources, R.mipmap.ic_service_icon, options)
-            
+
                 tempBitmap?.let {
                     val size = Math.min(it.width, it.height)
                     val dstBitmap = createBitmap(size, size)
@@ -546,7 +550,7 @@ class AdbSessionService : Service() {
         cachedCircularIcon = finalIcon
         return finalIcon
     }
-    
+
     fun executeDownloadFromService(urlStr: String, flashFolder: File, onLog: (String) -> Unit) {
         val uri = urlStr.toUri()
         val scheme = uri.scheme?.lowercase()
@@ -574,13 +578,13 @@ class AdbSessionService : Service() {
                         val extension = MimeTypeMap.getSingleton().getExtensionFromMimeType(contentType) ?: "bin"
                         fileName = "download_${System.currentTimeMillis()}.$extension"
                     }
-            
+   
                     val targetFile = File(flashFolder, fileName)
 
                     val buffer = ByteArray(8 * 1024)
                     var bytesRead: Int
                     var totalBytesRead = 0L
-                
+
                     val startTime = System.currentTimeMillis()
                     var lastLogTime = startTime
 
@@ -594,7 +598,7 @@ class AdbSessionService : Service() {
                                 if (now - lastLogTime >= 500) {
                                     val elapsedSec = (now - startTime) / 1000.0
                                     val speedMbPerSec = if (elapsedSec > 0) (totalBytesRead / (1024.0 * 1024.0)) / elapsedSec else 0.0
-                                
+
                                     withContext(Dispatchers.Main) {
                                         if (contentLength > 0) {
                                             val progress = (totalBytesRead.toDouble() / contentLength * 100).toInt()
@@ -633,7 +637,7 @@ class AdbSessionService : Service() {
             }
         }
     }
-    
+
     fun executeShellStream(context: Context, cmd: String, useRoot: Boolean): ParcelFileDescriptor {
         terminateCurrentCommand()
 
@@ -722,7 +726,6 @@ class AdbSessionService : Service() {
                         }
                     }
                 )
-
             } catch (e: Exception) {
                 runCatching {
                     OutputStreamWriter(ParcelFileDescriptor.AutoCloseOutputStream(writeSide), "UTF-8").use { writer ->
@@ -970,7 +973,7 @@ class AdbSessionService : Service() {
         }
         return tokens
     }
-    
+
     override fun onDestroy() {
         serviceScope.cancel()
         releaseWakeLock()

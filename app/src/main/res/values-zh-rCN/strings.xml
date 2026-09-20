@@ -33,7 +33,7 @@
     <string name="action_qr_osc">🔍 二维码解析结果</string>
     <string name="action_service_aaa">控制台</string>
     <string name="action_service_aab">发送指令</string>
-    <string name="action_service_aac">返回界面</string>
+    <string name="action_service_aac">自由窗口</string>
     <string name="action_service_aad">输入需要发送的快捷指令</string>
     <string name="action_service_aae">核心控制台</string>
     <string name="action_service_aaf">核心服务</string>

@@ -35,7 +35,7 @@
     <string name="action_qr_osc">🔍 QR code analysis results</string>
     <string name="action_service_aaa">console</string>
     <string name="action_service_aab">Send cmd</string>
-    <string name="action_service_aac">Return interface</string>
+    <string name="action_service_aac">free window</string>
     <string name="action_service_aad">Enter the shortcut command to be sent</string>
     <string name="action_service_aae">core console</string>
     <string name="action_service_aaf">Core Service</string>
