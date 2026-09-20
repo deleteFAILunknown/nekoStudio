@@ -43,6 +43,17 @@ android {
         targetCompatibility = JavaVersion.VERSION_25
     }
 
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            vcsInfo.include = false
+        }
+        debug {
+            isMinifyEnabled = false
+            isDebuggable = true
+        }
+    }
+
     buildFeatures {
         aidl = true
         prefab = true
