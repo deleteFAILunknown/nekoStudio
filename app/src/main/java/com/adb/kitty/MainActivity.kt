@@ -1422,7 +1422,6 @@ class MainActivity : ComponentActivity() {
             isServiceBound = false
         }
         stopAdbService()
-        activeAdbSession?.close()
         currentShellJob?.cancel()
         super.onDestroy()
         readerJob?.cancel()
