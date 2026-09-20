@@ -44,8 +44,6 @@ import androidx.core.graphics.drawable.IconCompat
 import androidx.core.graphics.createBitmap
 import androidx.window.layout.WindowMetricsCalculator
 import android.webkit.MimeTypeMap
-import androidx.lifecycle.LifecycleService
-import androidx.lifecycle.ViewModelProvider
 import android.annotation.SuppressLint
 import androidx.annotation.RequiresApi
 import androidx.annotation.CallSuper
@@ -64,7 +62,7 @@ import java.net.*
 import java.lang.reflect.*
 
 @Keep
-class AdbSessionService : LifecycleService() {
+class AdbSessionService : Service() {
 
     private val NOTIFICATION_ID = 101
     private val CHANNEL_ID = "com.adb.kitty.core_service_channel_v1"
@@ -101,11 +99,7 @@ class AdbSessionService : LifecycleService() {
         fun getService(): AdbSessionService = this@AdbSessionService
     }
 
-    @CallSuper
-    override fun onBind(intent: Intent): IBinder? {
-        super.onBind(intent)
-        return binder
-    }
+    override fun onBind(intent: Intent?): IBinder = binder
 
     fun logToNotification(log: String) {
         synchronized(notificationLogs) {
@@ -229,12 +223,11 @@ class AdbSessionService : LifecycleService() {
     private var wakeLock: PowerManager.WakeLock? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        super.onStartCommand(intent, flags, startId)
-            when (intent?.action) {
-                ACTION_REPLY_COMMAND -> handleNotificationInput(intent)
-                ACTION_START_RECORDING -> acquireWakeLock()
-                ACTION_STOP_RECORDING -> releaseWakeLock()
-            }
+        when (intent?.action) {
+            ACTION_REPLY_COMMAND -> handleNotificationInput(intent)
+            ACTION_START_RECORDING -> acquireWakeLock()
+            ACTION_STOP_RECORDING -> releaseWakeLock()
+        }
         return START_STICKY
     }
 
@@ -283,6 +276,7 @@ class AdbSessionService : LifecycleService() {
         refreshJob = serviceScope.launch {
             while (isActive) {
                 updateTickerNotification()
+                // CPU进入深度睡眠之后，delay 会被无条件暂停
                 delay(52000)
                 totalSeconds += 52
             }

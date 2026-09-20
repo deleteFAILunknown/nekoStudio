@@ -26,7 +26,6 @@ add_library(native-lib SHARED
       common.cpp
       textlogs/native_engine.cpp
       uid/linux_uid.cpp
-      adb/adb_spake2.cpp
 )
 
 target_link_libraries(native-lib PRIVATE
