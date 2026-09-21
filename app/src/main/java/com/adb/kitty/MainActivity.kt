@@ -365,7 +365,7 @@ class MainActivity : ComponentActivity() {
                     appendLog("[INFO] 🔌 充电器已插入")
                 }
                 Intent.ACTION_POWER_DISCONNECTED -> {
-                    appendLog("[INFO] 🔋 充电器已拔出")
+                    appendLog("[Warn] 🔋 充电器已拔出")
                 }
             }
         }

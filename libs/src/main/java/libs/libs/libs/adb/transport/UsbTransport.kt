@@ -31,7 +31,7 @@ public class UsbTransport(
             val chunkSize = minOf(maxChunkSize, length - totalWritten)
             val chunk = buffer.copyOfRange(offset + totalWritten, offset + totalWritten + chunkSize)
             val written = connection.bulkTransfer(outEndpoint, chunk, chunkSize, timeoutMs)
-            if (written < 0) throw IllegalStateException("USB 写入失败")
+            if (written < 0) throw IllegalStateException("USB write error")
             totalWritten += written
         }
     }

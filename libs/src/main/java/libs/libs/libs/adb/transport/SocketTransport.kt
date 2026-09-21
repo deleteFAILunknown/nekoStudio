@@ -32,7 +32,7 @@ public class SocketTransport(
     }
 
     override suspend fun read(buffer: ByteArray, offset: Int, length: Int): Int = withContext(Dispatchers.IO) {
-        val input = inputStream ?: throw IllegalStateException("Socket 未连接")
+        val input = inputStream ?: throw IllegalStateException("Socket Nullify")
         var totalRead = 0
         while (totalRead < length) {
             val bytes = input.read(buffer, offset + totalRead, length - totalRead)
@@ -43,13 +43,13 @@ public class SocketTransport(
     }
 
     override suspend fun write(buffer: ByteArray, offset: Int, length: Int): Unit = withContext(Dispatchers.IO) {
-        val output = outputStream ?: throw IllegalStateException("Socket 未连接")
+        val output = outputStream ?: throw IllegalStateException("Socket Nullify")
         output.write(buffer, offset, length)
         output.flush()
     }
 
     override suspend fun startTls(crypto: AdbCrypto): Unit = withContext(Dispatchers.IO) {
-        val currentSocket = rawSocket ?: throw IllegalStateException("Socket 未连接")
+        val currentSocket = rawSocket ?: throw IllegalStateException("Socket Nullify")
         val sslContext = crypto.createSslContext()
         val sslSocket = sslContext.socketFactory.createSocket(
             currentSocket,
