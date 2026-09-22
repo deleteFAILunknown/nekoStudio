@@ -105,9 +105,6 @@ import com.adb.kitty.data.help.*
 import com.adb.kitty.service.*
 import com.adb.kitty.R
 
-import libs.libs.libs.adb.Adb
-import libs.libs.libs.adb.protocol.AdbCrypto
-
 @Keep
 class MainActivity : ComponentActivity() {
     companion object {
