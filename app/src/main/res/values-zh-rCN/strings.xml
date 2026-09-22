@@ -37,6 +37,7 @@
     <string name="action_service_aad">输入需要发送的快捷指令</string>
     <string name="action_service_aae">核心控制台</string>
     <string name="action_service_aaf">核心服务</string>
+    <string name="action_service_aaj">运行时长</string>
     <string name="action_service_aag">前台核心服务</string>
     <string name="action_service_aah">此服务可以确保在退后台或返回桌面时连接不断开、网络不断开</string>
     <string name="permission_label">独立私有 API</string>

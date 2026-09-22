@@ -247,7 +247,7 @@ class AdbSessionService : Service() {
                 }
             }
 
-            logToNotification("📡 已发送: $inputText")
+            logToNotification("📡 OKAY: $inputText")
         }
     }
 
@@ -448,9 +448,10 @@ class AdbSessionService : Service() {
         val lastLog = synchronized(notificationLogs) {
             notificationLogs.lastOrNull()
         }
-        val line1Text = lastLog ?: "📡 Null"
+        val line1Text = lastLog ?: "📡 Nullify"
 
-        val line2Text = "⏱️ Running time: $contentText"
+        val timeText = getString(R.string.action_service_aaj)
+        val line2Text = "⏱️ $timeText: $contentText"
 
         val now = System.currentTimeMillis()
         messagingStyle.addMessage(line1Text, now - 1000, anonymousSender)
@@ -556,11 +557,11 @@ class AdbSessionService : Service() {
         val uri = urlStr.toUri()
         val scheme = uri.scheme?.lowercase()
         if (scheme != "http" && scheme != "https") {
-            onLog("[error] 下载失败！该指令仅支持 http:// 或 https:// 的网络地址")
+            onLog("[error] No is http:// & https:// Link")
             return
         }
 
-        onLog("[INFO] 正在建立网络连接…")
+        onLog("[INFO] Start downloading")
 
         refreshJob = serviceScope.launch(Dispatchers.IO) {
             try {
@@ -603,10 +604,10 @@ class AdbSessionService : Service() {
                                     withContext(Dispatchers.Main) {
                                         if (contentLength > 0) {
                                             val progress = (totalBytesRead.toDouble() / contentLength * 100).toInt()
-                                            onLog(String.format(Locale.US, "[INFO] ⚡ 下载中: %d%% | 速度: %.2f MB/s | 已用时: %.1f 秒", progress, speedMbPerSec, elapsedSec))
+                                            onLog(String.format(Locale.US, "[INFO] ⚡ Ongoing: %d%% | speed: %.2f MB/s | time: %.1f 秒", progress, speedMbPerSec, elapsedSec))
                                         } else {
                                             val downloadedMb = totalBytesRead / (1024.0 * 1024.0)
-                                            onLog(String.format(Locale.US, "[INFO] ⚡ 已下载: %.2f MB | 速度: %.2f MB/s | 已用时: %.1f 秒", downloadedMb, speedMbPerSec, elapsedSec))
+                                            onLog(String.format(Locale.US, "[INFO] ⚡ Ongoing: %.2f MB | speed: %.2f MB/s | time: %.1f 秒", downloadedMb, speedMbPerSec, elapsedSec))
                                         }
                                     }
                                     lastLogTime = now
@@ -620,18 +621,18 @@ class AdbSessionService : Service() {
                     val avgSpeed = if (totalTimeSec > 0) (totalBytesRead / (1024.0 * 1024.0)) / totalTimeSec else 0.0
 
                     withContext(Dispatchers.Main) {
-                        onLog("[OKAY] 🎉 文件下载成功！")
-                        onLog("[OKAY] 已保存至 flash 目录: ${targetFile.name}")
-                        onLog(String.format(Locale.US, "[系统] 总用时: %.2f 秒 | 平均速度: %.2f MB/s", totalTimeSec, avgSpeed))
+                        onLog("[OKAY] 🎉 download OKAY！")
+                        onLog("[OKAY] Save to flach directory: ${targetFile.name}")
+                        onLog(String.format(Locale.US, "[INFO] Total duration: %.2f 秒 | mean velocity: %.2f MB/s", totalTimeSec, avgSpeed))
                     }
                 } else {
                     withContext(Dispatchers.Main) {
-                        onLog("[error] 下载失败，服务器拒绝响应，状态码: ${connection.responseCode}")
+                        onLog("[error] Status code: ${connection.responseCode}")
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    onLog("[error] 网络连接异常: ${e.localizedMessage}")
+                    onLog("[error] network: ${e.localizedMessage}")
                 }
             }
         }
@@ -947,7 +948,7 @@ class AdbSessionService : Service() {
         }
 
         currentWorkingDirectory = canonicalDir
-        return "[INFO] 工作目录已成功切至: ${currentWorkingDirectory.absolutePath}"
+        return "[INFO] Working directory switching: ${currentWorkingDirectory.absolutePath}"
     }
 
     private fun parseCommandLine(cmd: String): List<String> {

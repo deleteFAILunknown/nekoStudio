@@ -39,6 +39,7 @@
     <string name="action_service_aad">Enter the shortcut command to be sent</string>
     <string name="action_service_aae">core console</string>
     <string name="action_service_aaf">Core Service</string>
+    <string name="action_service_aaj">Running time</string>
     <string name="action_service_aag">Front desk core services</string>
     <string name="action_service_aah">This service can ensure that the connection and network are not disconnected when exiting the background or returning to the desktop.</string>
     <string name="permission_label">Standalone private API</string>

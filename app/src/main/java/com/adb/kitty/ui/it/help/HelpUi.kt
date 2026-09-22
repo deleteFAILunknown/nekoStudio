@@ -75,6 +75,14 @@ fun CommandHelpBottomSheet(
                     ),
                     CommandOption(
                         flag = "adb root",
+                        description = "adb root 会话"
+                    ),
+                    CommandOption(
+                        flag = "adb unroot",
+                        description = "降级为 adb shell 会话"
+                    ),
+                    CommandOption(
+                        flag = "adb reboot",
                         description = "重启设备"
                     ),
                     CommandOption(

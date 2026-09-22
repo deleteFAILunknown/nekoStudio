@@ -102,7 +102,7 @@ fun SignatureResultBottomSheet(
                     Text("复制文本")
                 }
                 Button(onClick = onDismiss) {
-                    Text("完成")
+                    Text("OKAY")
                 }
             }
         }

@@ -839,10 +839,10 @@ class MainActivity : ComponentActivity() {
             runCatching {
                 val apm = getSystemService(android.security.advancedprotection.AdvancedProtectionManager::class.java)
                 val isEnabled = apm?.isAdvancedProtectionEnabled ?: false
-                appendLog("[INFO] 高级保护模式 (AAPM) 状态: ${if (isEnabled) "【已开启 🛡️】" else "【已关闭 🔓】"}")
-            }.onFailure { appendLog("[error] 查询失败: ${it.message}") }
+                appendLog("[INFO] Android 16+ AAPM: ${if (isEnabled) "【Start 🛡️】" else "【Stop 🔓】"}")
+            }.onFailure { appendLog("[error] PM: ${it.message}") }
         } else {
-            appendLog("[Warn] 当前系统级别低于 API 36，不支持高级保护模式。")
+            appendLog("[Warn] No is not Supposed")
         }
     }
 
@@ -868,7 +868,7 @@ class MainActivity : ComponentActivity() {
             requestRoot = true
         }
 
-        appendLog(if (requestRoot) "[Root管道] 请求身份变更执行实时流..." else "[本地管道] 开始执行流式命令...")
+        appendLog(if (requestRoot) "[Root] Start" else "[Shell] Start")
 
         currentShellJob = lifecycleScope.launch {
             val service = adbService
@@ -941,13 +941,13 @@ class MainActivity : ComponentActivity() {
                     }
                 } catch (e: Exception) {
                     if (isActive) {
-                        appendLog("[error] 执行异常: ${e.message}")
+                        appendLog("[error] E: ${e.message}")
                     }
                 } finally {
                     runCatching { pfd?.close() }
                 }
             } else {
-                appendLog("[error] 前台守护进程服务未就绪！")
+                appendLog("[error] Service is not running")
             }
         }
     }
@@ -956,7 +956,7 @@ class MainActivity : ComponentActivity() {
         val job = currentShellJob
 
         if (job == null || !job.isActive) {
-            appendLog("[INFO] 当前没有正在执行的命令")
+            appendLog("[INFO] Nullify")
             return
         }
 
@@ -969,16 +969,16 @@ class MainActivity : ComponentActivity() {
                 runCatching {
                     service.terminateCurrentCommand()
                     withContext(Dispatchers.Main) {
-                        appendLog("[INFO] 用户强制终止了当前命令")
+                        appendLog("[INFO] Stop OKAY")
                     }
                 }.onFailure { e ->
                     withContext(Dispatchers.Main) {
-                        appendLog("[error] 终止命令失败: ${e.message}")
+                        appendLog("[error] cmd E: ${e.message}")
                     }
                 }
             } else {
                 withContext(Dispatchers.Main) {
-                    appendLog("[Warn] 服务未连接，已取消前端日志读取")
+                    appendLog("[Warn] Service is not running")
                 }
             }
         }
@@ -989,7 +989,7 @@ class MainActivity : ComponentActivity() {
             when {
                 cmd.startsWith("usb-selinux") -> {
                     appendLog("[INFO] FB >> $cmd")
-                    appendLog("[INFO] 正在尝试设置 SeLinux 为宽容模式, 该指令由 app 提供")
+                    appendLog("[INFO] 正在尝试设置 SeLinux 为宽容模式")
                     FbSeLinuxCmd()
 
                     return@launch
@@ -1021,7 +1021,7 @@ class MainActivity : ComponentActivity() {
     fun triggerStoragePermissionCheck() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             if (Environment.isExternalStorageManager()) {
-                appendLog("[INFO] Android 11+ 所有文件读写权限已就绪")
+                appendLog("[INFO] Android 11+ File MANAGE OKAY")
             } else {
                 runCatching {
                     val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
@@ -1040,7 +1040,7 @@ class MainActivity : ComponentActivity() {
             }
 
             if (hasPermission) {
-                appendLog("[INFO] Android 10 文件读写权限已就绪")
+                appendLog("[INFO] Android 10 File STORAGE OKAY")
             } else {
                 legacyStorageLauncher.launch(permissions)
             }
@@ -1079,12 +1079,12 @@ class MainActivity : ComponentActivity() {
             if (permissionCheck == PackageManager.PERMISSION_GRANTED) {
                 startAndBindAdbService()
             } else {
-                appendLog("[INFO] 正在申请 Android 13+ 前台服务通知权限")
+                appendLog("[INFO] Android 13+ Notification OKAY")
                 requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
         } else {
             if (NotificationManagerCompat.from(this).areNotificationsEnabled()) {
-                appendLog("[INFO] 检查通过：常驻通知总线完好，正在激活前台服务")
+                appendLog("[INFO] Notification OKAY")
                 startAndBindAdbService()
             } else {
                 handlePermissionDeniedSituation()
@@ -1094,8 +1094,8 @@ class MainActivity : ComponentActivity() {
     }
     
     private fun handlePermissionDeniedSituation() {
-        appendLog("[error] ❌ 通知权限被拦截/拒绝！")
-        appendLog("[Warn] ⚠️ 前台服务将尝试在没有通知权限的情况下静默启动")
+        appendLog("[error] ❌ Notification pm")
+        appendLog("[Warn] ⚠️ Notification")
     }
     
     private fun startAndBindAdbService() {
