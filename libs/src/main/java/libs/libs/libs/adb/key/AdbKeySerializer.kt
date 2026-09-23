@@ -12,7 +12,7 @@ import java.io.StringWriter
 public object AdbKeySerializer {
 
     /**
-     * 将 BC 私钥对象导出为包含 -----BEGIN PRIVATE KEY----- 的标准的 PKCS#8 PEM 文本
+     * 将 BC 私钥对象导出为包含 -----BEGIN PRIVATE KEY----- 的 PKCS#8 PEM 格式文本 (`adbkey`)
      */
     public fun privateKeyToPem(privateKey: AsymmetricKeyParameter): String {
         val stringWriter = StringWriter()
@@ -24,7 +24,7 @@ public object AdbKeySerializer {
     }
 
     /**
-     * 从 Pem 格式文本解析私钥
+     * 从 PEM 格式文本解析私钥
      */
     public fun privateKeyFromPem(pemString: String): AsymmetricKeyParameter {
         PemReader(StringReader(pemString)).use { pemReader ->
