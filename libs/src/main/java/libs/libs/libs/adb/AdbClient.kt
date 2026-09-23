@@ -209,9 +209,13 @@ public class AdbClient(
                             val tempPath = "/data/local/tmp/temp_split_${index}_${System.currentTimeMillis()}.apk"
 
                             zip.getInputStream(entry).use { inputStream ->
-                                sync.push(inputStream, tempPath, entry.size) { read, _ ->
-                                    onProgress?.invoke(globalWritten + read, totalBytes)
-                                }
+                                sync.push(
+                                    inputStream = inputStream,
+                                    remotePath = tempPath,
+                                    onProgress = { read, _ ->
+                                        onProgress?.invoke(globalWritten + read, totalBytes)
+                                    }
+                                )
                             }
                             globalWritten += entry.size
 
