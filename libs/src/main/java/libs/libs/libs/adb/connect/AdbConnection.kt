@@ -17,23 +17,11 @@ public class AdbConnection(private val keyManager: AdbKeyManager) {
     public val state: StateFlow<AdbConnectionState> = _state.asStateFlow()
 
     // 记录握手协商后的实际协议版本，默认最小版本
-    private var negotiatedVersion: Int = A_VERSION_MIN
+    private var negotiatedVersion: Int = AdbCommand.A_VERSION
 
     // 是否需要跳过 Checksum 计算
     public val isSkipChecksum: Boolean 
-        get() = negotiatedVersion >= A_VERSION_SKIP_CHECKSUM
-
-    companion object {
-        public const val A_VERSION_MIN: Int = 0x01000000
-        public const val A_VERSION_SKIP_CHECKSUM: Int = 0x01000001
-        public const val A_VERSION: Int = 0x01000001 // 默认期望请求的最高版本
-
-        public const val MAX_PAYLOAD: Int = 1048576   // 1MB
-
-        private const val ADB_AUTH_TOKEN = 1
-        private const val ADB_AUTH_SIGNATURE = 2
-        private const val ADB_AUTH_RSAPUBLICKEY = 3
-    }
+        get() = negotiatedVersion >= AdbCommand.A_VERSION_SKIP_CHECKSUM
 
     /**
      * 发起连接并完成 CNXN / AUTH 握手
@@ -48,12 +36,12 @@ public class AdbConnection(private val keyManager: AdbKeyManager) {
             _state.value = AdbConnectionState.Connecting
             socket.connect(host, port, timeoutMs)
 
-            // 1. 发送 CNXN 请求，宣称支持 0x01000001 (A_VERSION_SKIP_CHECKSUM)
+            // 1. 发送 CNXN 请求，宣称支持 A_VERSION_SKIP_CHECKSUM
             val systemBanner = "$systemIdentity\u0000".toByteArray(Charsets.UTF_8)
             val cnxnPacket = AdbPacket(
-                command = AdbCommand.CNXN,
-                arg0 = A_VERSION, // 0x01000001
-                arg1 = MAX_PAYLOAD,
+                command = AdbCommand.CMD_CNXN,
+                arg0 = AdbCommand.A_VERSION_SKIP_CHECKSUM,
+                arg1 = AdbCommand.MAX_PAYLOAD,
                 payload = systemBanner
             )
             // 握手包 CNXN 本身发送时也遵循 skipChecksum
@@ -66,7 +54,7 @@ public class AdbConnection(private val keyManager: AdbKeyManager) {
                 val response = socket.readPacket()
 
                 when (response.command) {
-                    AdbCommand.CNXN -> {
+                    AdbCommand.CMD_CNXN -> {
                         // 设备端确认 CNXN，response.arg0 即为设备端同意的协议版本
                         negotiatedVersion = response.arg0
 
@@ -75,15 +63,15 @@ public class AdbConnection(private val keyManager: AdbKeyManager) {
                         isHandshakeDone = true
                     }
 
-                    AdbCommand.AUTH -> {
+                    AdbCommand.CMD_AUTH -> {
                         _state.value = AdbConnectionState.Authenticating
 
-                        if (response.arg0 == ADB_AUTH_TOKEN) {
+                        if (response.arg0 == AdbCommand.AUTH_TOKEN) {
                             if (!sentPublicKey) {
                                 val signature = keyManager.signToken(response.payload)
                                 val authSignaturePacket = AdbPacket(
-                                    command = AdbCommand.AUTH,
-                                    arg0 = ADB_AUTH_SIGNATURE,
+                                    command = AdbCommand.CMD_AUTH,
+                                    arg0 = AdbCommand.AUTH_SIGNATURE,
                                     arg1 = 0,
                                     payload = signature
                                 )
@@ -94,8 +82,8 @@ public class AdbConnection(private val keyManager: AdbKeyManager) {
                         } else {
                             val pubKeyBytes = keyManager.getAdbPublicKeyBytes()
                             val authPubKeyPacket = AdbPacket(
-                                command = AdbCommand.AUTH,
-                                arg0 = ADB_AUTH_RSAPUBLICKEY,
+                                command = AdbCommand.CMD_AUTH,
+                                arg0 = AdbCommand.AUTH_RSAPUBLICKEY,
                                 arg1 = 0,
                                 payload = pubKeyBytes
                             )
