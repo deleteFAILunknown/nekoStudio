@@ -212,6 +212,7 @@ public class AdbClient(
                                 sync.push(
                                     inputStream = inputStream,
                                     remotePath = tempPath,
+                                    totalSize = entry.size,
                                     onProgress = { read, _ ->
                                         onProgress?.invoke(globalWritten + read, totalBytes)
                                     }
