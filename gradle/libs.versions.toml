@@ -16,7 +16,7 @@ android-buildTools-version = "37.0.0"
 cmake-version = "4.4.2"
 
 kotlinxCoroutines = "1.11.0"
-annotation = "1.11.0"
+annotation = "1.10.0"
 coreKtx = "1.19.0"
 collection = "1.6.0"
 window = "1.5.1"
