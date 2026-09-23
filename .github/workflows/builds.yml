@@ -31,7 +31,7 @@ jobs:
       - name: Cache ndk
         uses: nttld/setup-ndk@v1
         with:
-          ndk-version: 30.0.16248370
+          ndk-version: r30
           local-cache: true
           link-to-sdk: true
 
