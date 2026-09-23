@@ -3,6 +3,7 @@ package libs.libs.libs.adb.mdns
 import android.content.Context
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
+import android.os.Build
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.channels.trySendBlocking
 import kotlinx.coroutines.flow.Flow
@@ -10,6 +11,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.net.InetAddress
 import java.nio.charset.StandardCharsets
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
@@ -78,6 +80,7 @@ public class AdbMdnsManager(context: Context) {
     /**
      * 安全地异步解析 NsdServiceInfo（带有 Mutex 互斥锁）
      */
+    @Suppress("DEPRECATION")
     private suspend fun resolveServiceSafely(
         serviceInfo: NsdServiceInfo,
         type: AdbMdnsType
@@ -98,10 +101,17 @@ public class AdbMdnsManager(context: Context) {
                         }
                     }
 
+                    // API 34+ 使用 hostAddresses 列表，旧版本降级使用 host
+                    val hostAddress: InetAddress? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                        resolvedInfo.hostAddresses.firstOrNull()
+                    } else {
+                        resolvedInfo.host
+                    }
+
                     val result = AdbMdnsServiceInfo(
                         name = resolvedInfo.serviceName,
                         type = type,
-                        host = resolvedInfo.host,
+                        host = hostAddress,
                         port = resolvedInfo.port,
                         attributes = attributesMap
                     )
