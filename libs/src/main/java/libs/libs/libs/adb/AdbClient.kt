@@ -1,6 +1,8 @@
 package libs.libs.libs.adb
 
 import android.content.Context
+import android.hardware.usb.UsbDevice
+import android.hardware.usb.UsbManager
 import libs.libs.libs.adb.abb.AdbAbbClient
 import libs.libs.libs.adb.abb.AbbInstallOptions
 import libs.libs.libs.adb.connect.AdbConnection
@@ -22,7 +24,7 @@ import java.io.File
 
 /**
  * 统一 ADB 客户端门面 (Facade)
- * 直接整合项目中已存在的 12 个子系统模块
+ * 整合 Connection、Pair、Shell、ABB、Sync、Root 以及 USB Host/Accessory 模块
  */
 public class AdbClient(
     public val keyManager: AdbKeyManager,
@@ -34,19 +36,38 @@ public class AdbClient(
     public val sync: AdbSyncClientV2 by lazy { AdbSyncClientV2(connection) }
     public val rootClient: AdbRootClient by lazy { AdbRootClient(connection) }
 
-    // 2. 连接与发现/配对子模块
+    // 2. 配对与 mDNS 搜索子模块
     public val pairingManager: AdbPairingManager by lazy { AdbPairingManager(keyManager) }
-    public val usbHost: AdbUsbHostConnection by lazy { AdbUsbHostConnection(keyManager) }
-    public val usbAccessory: AdbUsbAccessoryManager by lazy { AdbUsbAccessoryManager() }
 
     public fun createMdnsManager(context: Context): AdbMdnsManager = AdbMdnsManager(context)
+
+    // 3. USB 扩展模块（按需动态构建）
+    public fun createUsbHostConnection(context: Context, device: UsbDevice): AdbUsbHostConnection {
+        val usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
+        return AdbUsbHostConnection(usbManager, device)
+    }
+
+    public fun createUsbHostConnection(usbManager: UsbManager, device: UsbDevice): AdbUsbHostConnection {
+        return AdbUsbHostConnection(usbManager, device)
+    }
+
+    public fun createUsbAccessoryManager(context: Context): AdbUsbAccessoryManager {
+        val usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
+        return AdbUsbAccessoryManager(usbManager)
+    }
+
+    public fun createUsbAccessoryManager(usbManager: UsbManager): AdbUsbAccessoryManager {
+        return AdbUsbAccessoryManager(usbManager)
+    }
 
     // 连接状态与 Feature 观察
     public val state: StateFlow<AdbConnectionState> get() = connection.state
     public val features: Set<String> get() = connection.features
     public fun hasFeature(feature: String): Boolean = connection.hasFeature(feature)
 
+    // =========================================================================
     // 连接与配对 API (直接对接 mdns & pair 模块)
+    // =========================================================================
 
     /**
      * 无线配对 (调用 pair/AdbPairingManager)
@@ -75,7 +96,9 @@ public class AdbClient(
         connection.disconnect()
     }
 
+    // =========================================================================
     // 提权与重启 API (直接对接 root 模块)
+    // =========================================================================
 
     public suspend fun getProp(property: String): String {
         return shell.execV2("getprop $property").stdout.trim()
@@ -97,7 +120,9 @@ public class AdbClient(
         return success
     }
 
+    // =========================================================================
     // 应用安装与传输 API (对接 abb & sync 模块)
+    // =========================================================================
 
     /**
      * 安装 APK（优先走 ABB，不支持则降级走 Sync + Shell pm install）
@@ -150,7 +175,9 @@ public class AdbClient(
 
     public suspend fun listFiles(remotePath: String): List<FileStatV2> = sync.listV2(remotePath)
 
+    // =========================================================================
     // Shell 与日志流 API (对接 shell 模块)
+    // =========================================================================
 
     public fun streamLogcat(args: String = "-v time"): Flow<ShellStreamChunk> {
         return shell.execV2Stream("logcat $args")
