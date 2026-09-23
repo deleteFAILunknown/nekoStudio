@@ -6,9 +6,14 @@ import org.bouncycastle.crypto.generators.RSAKeyPairGenerator
 import org.bouncycastle.crypto.params.AsymmetricKeyParameter
 import org.bouncycastle.crypto.params.RSAKeyGenerationParameters
 import org.bouncycastle.crypto.params.RSAKeyParameters
+import org.bouncycastle.crypto.params.RSAPrivateCrtKeyParameters
 import org.bouncycastle.crypto.signers.RSADigestSigner
 import java.math.BigInteger
+import java.security.KeyFactory
+import java.security.KeyPair
 import java.security.SecureRandom
+import java.security.spec.RSAPrivateCrtKeySpec
+import java.security.spec.RSAPublicKeySpec
 
 public class AdbKeyManager {
 
@@ -68,5 +73,36 @@ public class AdbKeyManager {
     public fun getAdbPublicKeyBytes(): ByteArray {
         val keyStr = getAdbPublicKeyString()
         return "$keyStr\u0000".toByteArray(Charsets.UTF_8)
+    }
+
+    /**
+     * 将 BouncyCastle 的 AsymmetricKeyParameter 转换为 Java 标准 java.security.KeyPair
+     * 供 AdbTlsSocket / AdbPairingManager 创建 TLS 1.3 KeyStore 使用
+     */
+    public fun getKeyPair(): KeyPair {
+        val privParams = (privateKey as? RSAPrivateCrtKeyParameters)
+            ?: throw IllegalStateException("PrivateKey is not loaded or not a valid RSAPrivateCrtKeyParameters")
+
+        val keyFactory = KeyFactory.getInstance("RSA")
+
+        val privSpec = RSAPrivateCrtKeySpec(
+            privParams.modulus,
+            privParams.publicExponent,
+            privParams.exponent,
+            privParams.p,
+            privParams.q,
+            privParams.dp,
+            privParams.dq,
+            privParams.qInv
+        )
+        val pubSpec = RSAPublicKeySpec(
+            privParams.modulus,
+            privParams.publicExponent
+        )
+
+        val javaPrivateKey = keyFactory.generatePrivate(privSpec)
+        val javaPublicKey = keyFactory.generatePublic(pubSpec)
+
+        return KeyPair(javaPublicKey, javaPrivateKey)
     }
 }
