@@ -76,8 +76,10 @@ public class AdbClient(
         host: String,
         port: Int,
         pairingCode: String
-    ): Result<Boolean> {
-        return pairingManager.pair(host, port, pairingCode)
+    ): Result<Boolean> = runCatching {
+        // 如果 pairingManager.pair() 返回 Boolean，使用 runCatching 可以自动将其包裹为 Result.success(Boolean)
+        // 若抛出异常则自动捕获并返回 Result.failure(exception)
+        pairingManager.pair(host, port, pairingCode)
     }
 
     /**
