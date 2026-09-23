@@ -20,12 +20,15 @@ import libs.libs.libs.adb.usb.accessory.AdbUsbAccessoryManager
 import libs.libs.libs.adb.usb.host.AdbUsbHostConnection
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlin.OptIn
 import java.io.File
 
 /**
  * 统一 ADB 客户端门面 (Facade)
  * 整合 Connection、Pair、Shell、ABB、Sync、Root 以及 USB Host/Accessory 模块
  */
+@OptIn(ExperimentalSerializationApi::class)
 public class AdbClient(
     public val keyManager: AdbKeyManager,
     public val connection: AdbConnection = AdbConnection(keyManager)
