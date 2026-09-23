@@ -29,8 +29,7 @@ jobs:
           cache: 'gradle'
 
       - name: Cache ndk
-        - uses: actions/checkout@v6
-        - uses: nttld/setup-ndk@v1
+        uses: nttld/setup-ndk@v1
         with:
           ndk-version: 30.0.16248370
           local-cache: true
