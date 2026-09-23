@@ -28,7 +28,7 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'
 
-      steps:
+      - name: Cache ndk
         - uses: actions/checkout@v6
         - uses: nttld/setup-ndk@v1
         with:
