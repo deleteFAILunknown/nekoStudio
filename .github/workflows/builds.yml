@@ -33,7 +33,6 @@ jobs:
         with:
           ndk-version: r30
           local-cache: true
-          link-to-sdk: true
 
       - name: Setup CMake
         uses: lukka/get-cmake@v4.4.2
