@@ -68,9 +68,7 @@ public class AdbClient(
     public val features: Set<String> get() = connection.features
     public fun hasFeature(feature: String): Boolean = connection.hasFeature(feature)
 
-    // =========================================================================
     // 连接与配对 API (直接对接 mdns & pair 模块)
-    // =========================================================================
 
     /**
      * 无线配对 (调用 pair/AdbPairingManager)
@@ -101,9 +99,7 @@ public class AdbClient(
         connection.disconnect()
     }
 
-    // =========================================================================
     // 提权与重启 API (直接对接 root 模块)
-    // =========================================================================
 
     public suspend fun getProp(property: String): String {
         return shell.execV2("getprop $property").stdout.trim()
@@ -148,9 +144,7 @@ public class AdbClient(
         return success
     }
 
-    // =========================================================================
     // 应用安装与传输 API (对接 abb & sync 模块)
-    // =========================================================================
 
     /**
      * 安装 APK（优先走 ABB，不支持则降级走 Sync + Shell pm install）
@@ -203,9 +197,7 @@ public class AdbClient(
 
     public suspend fun listFiles(remotePath: String): List<FileStatV2> = sync.listV2(remotePath)
 
-    // =========================================================================
     // Shell 与日志流 API (对接 shell 模块)
-    // =========================================================================
 
     public fun streamLogcat(args: String = "-v time"): Flow<ShellStreamChunk> {
         return shell.execV2Stream("logcat $args")
