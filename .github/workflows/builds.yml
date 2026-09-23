@@ -28,6 +28,14 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'
 
+      steps:
+        - uses: actions/checkout@v6
+        - uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: 30.0.16248370
+          local-cache: true
+          link-to-sdk: true
+
       - name: Setup CMake
         uses: lukka/get-cmake@v4.4.2
         with:
