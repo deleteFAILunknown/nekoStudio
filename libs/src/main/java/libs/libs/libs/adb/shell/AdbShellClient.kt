@@ -13,8 +13,9 @@ import java.io.ByteArrayOutputStream
 
 @OptIn(ExperimentalSerializationApi::class)
 public class AdbShellClient(
-    private val connection: AdbConnection,
-    private val protoBuf: ProtoBuf = ProtoBuf
+    // 标记为 @PublishedApi internal val，允许 public inline 函数访问
+    @PublishedApi internal val connection: AdbConnection,
+    @PublishedApi internal val protoBuf: ProtoBuf = ProtoBuf
 ) {
 
     /**
@@ -23,7 +24,6 @@ public class AdbShellClient(
      */
     public suspend fun execV2(command: String): ShellCommandResult = withContext(Dispatchers.IO) {
         val startTime = System.currentTimeMillis()
-        // raw 模式禁用 pty 控制终端转义
         val stream = connection.openStream("shell,v2,raw:$command")
             ?: return@withContext ShellCommandResult(
                 exitCode = -1,
@@ -43,7 +43,6 @@ public class AdbShellClient(
                 if (data.isNotEmpty()) {
                     v2Buffer.append(data)
 
-                    // 循环读取缓冲区中所有完整的 V2 帧
                     while (true) {
                         val packet = v2Buffer.pollPacket() ?: break
                         when (packet.id) {
@@ -71,7 +70,7 @@ public class AdbShellClient(
     }
 
     /**
-     * 执行 Shell V2 指令，并将精准提取出的 STDOUT 二进制流直接通过 Protobuf 反序列化为对象 [T]
+     * 执行 Shell V2 指令，并将 STDOUT 二进制流直接通过 Protobuf 反序列化为对象 [T]
      */
     public suspend inline fun <reified T> execV2Proto(command: String): Result<T> = withContext(Dispatchers.IO) {
         runCatching {
@@ -130,10 +129,7 @@ public class AdbShellClient(
                         when (packet.id) {
                             ShellV2Packet.ID_STDOUT -> emit(ShellStreamChunk(ShellStreamType.STDOUT, packet.payload))
                             ShellV2Packet.ID_STDERR -> emit(ShellStreamChunk(ShellStreamType.STDERR, packet.payload))
-                            ShellV2Packet.ID_EXIT -> {
-                                // 传输结束，推送 Exit 帧
-                                return@flow
-                            }
+                            ShellV2Packet.ID_EXIT -> return@flow
                         }
                     }
                 }
