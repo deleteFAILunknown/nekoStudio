@@ -7,7 +7,9 @@ import libs.libs.libs.adb.shell.ShellV2Packet
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.io.InputStream
+import java.util.zip.ZipFile
 
 public class AdbAbbClient(
     @PublishedApi internal val connection: AdbConnection
@@ -79,7 +81,7 @@ public class AdbAbbClient(
     }
 
     /**
-     * 通过 ABB 极速流式安装单个 APK (支持从本地文件或网络 Inputstream 直接 Pipe 输入)
+     * 通过 ABB 极速流式安装单个 APK (支持从本地文件或网络 InputStream 直接 Pipe 输入)
      */
     public suspend fun installApk(
         apkStream: InputStream,
@@ -139,7 +141,92 @@ public class AdbAbbClient(
     }
 
     /**
-     * 流式安装 Split APKs / APKS 套件
+     * 直接传入 .apks 文件进行【随机流读取 + 零磁盘解压】极速安装
+     * 
+     * @param apksFile 本地 .apks 文件
+     * @param options 安装选项 (如 -r, -d, -t 等)
+     * @param onProgress 全局传输进度回调 (当前已传输字节数, 所有 split 解压后总字节数)
+     */
+    public suspend fun installApks(
+        apksFile: File,
+        options: AbbInstallOptions = AbbInstallOptions(),
+        onProgress: ((bytesWritten: Long, totalBytes: Long) -> Unit)? = null
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            require(apksFile.exists()) { "APKS file non-existent: ${apksFile.absolutePath}" }
+
+            // 使用 ZipFile 随机读取索引表，不产生任何临时解压文件
+            ZipFile(apksFile).use { zip ->
+                val apkEntries = zip.entries().asSequence()
+                    .filter { !it.isDirectory && it.name.endsWith(".apk", ignoreCase = true) }
+                    .toList()
+
+                check(apkEntries.isNotEmpty()) { "No .apk files found in ${apksFile.name}" }
+
+                // 1. 汇总所有 split apk 解压后的实际总大小
+                val totalBytes = apkEntries.sumOf { it.size }
+
+                // 2. 创建 Session
+                val createArgs = mutableListOf("package", "install-create", "-S", totalBytes.toString())
+                createArgs.addAll(options.toArgs())
+
+                val createResult = execAbb(createArgs)
+                check(createResult.isSuccess) { "Failed to create install session: ${createResult.stderr}" }
+
+                val sessionId = extractSessionId(createResult.stdout)
+                    ?: throw IllegalStateException("Failed to parse session ID from: ${createResult.stdout}")
+
+                var globalBytesWritten = 0L
+
+                try {
+                    // 3. 遍历每个 entry，根据中央目录 Offset 随机跳转并 Pipe 给 Target 设备
+                    apkEntries.forEachIndexed { index, entry ->
+                        val splitName = entry.name.substringAfterLast('/')
+                        val entrySize = entry.size
+
+                        val writeDestination = buildDestination(
+                            "abb_exec:",
+                            listOf("package", "install-write", "-S", entrySize.toString(), sessionId, splitName, "-")
+                        )
+
+                        val writeStream = connection.openStream(writeDestination)
+                            ?: throw IllegalStateException("Failed to open install-write stream for $splitName")
+
+                        try {
+                            zip.getInputStream(entry).use { apkStream ->
+                                val buffer = ByteArray(64 * 1024)
+                                var read: Int
+
+                                while (apkStream.read(buffer).also { read = it } != -1) {
+                                    if (read > 0) {
+                                        val chunk = if (read == buffer.size) buffer else buffer.copyOf(read)
+                                        writeStream.write(chunk)
+                                        globalBytesWritten += read
+                                        onProgress?.invoke(globalBytesWritten, totalBytes)
+                                    }
+                                }
+                            }
+                        } finally {
+                            writeStream.close()
+                        }
+                    }
+
+                    // 4. 提交 Session
+                    val commitResult = execAbb(listOf("package", "install-commit", sessionId))
+                    check(commitResult.isSuccess && commitResult.stdout.contains("Success")) {
+                        "Failed to commit install session $sessionId: ${commitResult.stdout}${commitResult.stderr}"
+                    }
+                } catch (e: Exception) {
+                    // 异常时回滚放弃 Session
+                    execAbb(listOf("package", "install-abandon", sessionId))
+                    throw e
+                }
+            }
+        }
+    }
+
+    /**
+     * 流式安装 Split APKs / APKS 套件 (适用于内存/网络 Stream Map)
      */
     public suspend fun installSplitApks(
         apks: Map<String, Pair<InputStream, Long>>, // splitName -> (InputStream, Size)
