@@ -21,6 +21,8 @@ coreKtx = "1.19.0"
 collection = "1.6.0"
 window = "1.5.1"
 
+bc = "1.84"
+
 jdklibs = "2.1.5"
 libsuVersion = "6.0.0"
 
@@ -71,6 +73,9 @@ android-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", ver
 
 okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+
+bcprov-jdk18on = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bc" }
+bcpkix-jdk18on = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bc" }
 
 # Compose
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "compose-bom" }

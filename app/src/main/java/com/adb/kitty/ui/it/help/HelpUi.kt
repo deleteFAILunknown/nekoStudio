@@ -86,8 +86,12 @@ fun CommandHelpBottomSheet(
                         description = "重启设备"
                     ),
                     CommandOption(
-                        flag = "adb disconnect",
-                        description = "断开 adb 会话"
+                        flag = "adb start",
+                        description = "重置连接状态"
+                    ),
+                    CommandOption(
+                        flag = "adb stop",
+                        description = "断开连接"
                     )
                 )
             ),

@@ -1,6 +1,8 @@
 package libs.libs.libs.adb
 
 /*  Android adb Library (minSdk 24)
+* alias(libs.plugins.android.library)
+* alias(libs.plugins.kotlinx.serialization)
 *
 * Android 11+ TLS认证
 * adb tls
@@ -41,13 +43,7 @@ package libs.libs.libs.adb
 * 设备发现
 * adb device
 *
-* 将守护进程绑定到 adbd
-* adb bind
-*
-* 将守护进程从 adbd 解绑
-* adb unbind
-*
-* 系统版本信息或 adb 版本
+* adb 版本
 * adb version
 *
 * abb 命令支持
@@ -56,15 +52,12 @@ package libs.libs.libs.adb
 * 挂载文件系统
 * adb remount
 *
-* 主动重连或重置连接
+* 重置连接
 * adb start
 *
-* 主动断开 adbd 连接
+* 断开连接
 * adb stop
 *
 * 已连接的设备列表
 * adb list
-*
-* 将 adbd 连接切换到 mount 模式
-* adb mount
 */
