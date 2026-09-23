@@ -180,8 +180,8 @@ public class AdbClient(
         localFile: File,
         remotePath: String,
         onProgress: ((written: Long, total: Long) -> Unit)? = null
-    ): Result<Unit> {
-        return localFile.inputStream().use { inputStream ->
+    ): Result<Unit> = runCatching {
+        localFile.inputStream().use { inputStream ->
             sync.push(inputStream, remotePath, localFile.length(), onProgress)
         }
     }
@@ -190,8 +190,8 @@ public class AdbClient(
         remotePath: String,
         localFile: File,
         onProgress: ((read: Long, total: Long) -> Unit)? = null
-    ): Result<Unit> {
-        return localFile.outputStream().use { outputStream ->
+    ): Result<Unit> = runCatching {
+        localFile.outputStream().use { outputStream ->
             sync.pull(remotePath, outputStream, onProgress)
         }
     }
