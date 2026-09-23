@@ -106,12 +106,35 @@ public class AdbClient(
         return shell.execV2("getprop $property").stdout.trim()
     }
 
+    /**
+     * 请求 adbd 以 root 身份重启
+     */
     public suspend fun root(): ShellCommandResult {
-        return rootClient.root()
+        val output = rootClient.requestRoot()
+        val isSuccess = output.contains("restarting adbd as root", ignoreCase = true) ||
+                        output.contains("already running as root", ignoreCase = true)
+        
+        return ShellCommandResult(
+            exitCode = if (isSuccess) 0 else 1,
+            stdout = output,
+            stderr = if (isSuccess) "" else output
+        )
     }
 
+    /**
+     * 请求 adbd 恢复为普通权限重启
+     */
     public suspend fun unroot(): ShellCommandResult {
-        return rootClient.unroot()
+        val output = rootClient.requestUnroot()
+        val isSuccess = output.contains("restarting adbd as native", ignoreCase = true) ||
+                        output.contains("restarting adbd as non-root", ignoreCase = true) ||
+                        output.contains("restarting adbd as shell", ignoreCase = true)
+        
+        return ShellCommandResult(
+            exitCode = if (isSuccess) 0 else 1,
+            stdout = output,
+            stderr = if (isSuccess) "" else output
+        )
     }
 
     public suspend fun reboot(target: String = ""): Boolean {
