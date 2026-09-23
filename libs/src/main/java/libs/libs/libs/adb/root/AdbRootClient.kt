@@ -1,6 +1,6 @@
 package libs.libs.libs.adb.root
 
-import libs.libs.libs.adb.connection.AdbConnection
+import libs.libs.libs.adb.connect.AdbConnection
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
