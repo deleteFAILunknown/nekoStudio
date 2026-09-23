@@ -20,6 +20,19 @@ public class AdbConnection(private val keyManager: AdbKeyManager) {
 
     private var negotiatedVersion: Int = AdbCommand.A_VERSION
 
+    /**
+     * 设备支持的 ADB 特性集合 (如 stat_v2, ls_v2, send_v2, recv_v2, abb, abb_exec 等)
+     */
+    private var _features: Set<String> = emptySet()
+    public val features: Set<String> get() = _features
+
+    /**
+     * 检查设备是否支持特定的 ADB Feature
+     */
+    public fun hasFeature(feature: String): Boolean {
+        return _features.contains(feature)
+    }
+
     public val isSkipChecksum: Boolean 
         get() = negotiatedVersion >= AdbCommand.A_VERSION_SKIP_CHECKSUM
 
@@ -52,6 +65,7 @@ public class AdbConnection(private val keyManager: AdbKeyManager) {
                     AdbCommand.CMD_CNXN -> {
                         negotiatedVersion = response.arg0
                         val banner = String(response.payload, Charsets.UTF_8).trimEnd('\u0000')
+                        _features = parseFeatures(banner)
                         _state.value = AdbConnectionState.Connected(banner)
                         isHandshakeDone = true
                     }
@@ -92,9 +106,24 @@ public class AdbConnection(private val keyManager: AdbKeyManager) {
             }
         } catch (e: Exception) {
             socket.close()
+            _state.value = AdbConnectionState.Disconnected
             _state.value = AdbConnectionState.Error(e)
             throw e
         }
+    }
+
+    /**
+     * 解析握手返回的 Banner 中的 features= 字段
+     * Banner 示例: "device::ro.product.name=marlin;features=stat_v2,ls_v2,send_v2,recv_v2,abb,abb_exec"
+     */
+    private fun parseFeatures(banner: String): Set<String> {
+        val featuresSegment = banner.split(';')
+            .firstOrNull { it.startsWith("features=") } ?: return emptySet()
+
+        return featuresSegment.removePrefix("features=")
+            .split(',')
+            .filter { it.isNotBlank() }
+            .toSet()
     }
 
     /**
