@@ -1,0 +1,158 @@
+package libs.libs.libs.adb
+
+import android.content.Context
+import libs.libs.libs.adb.abb.AdbAbbClient
+import libs.libs.libs.adb.abb.AbbInstallOptions
+import libs.libs.libs.adb.connect.AdbConnection
+import libs.libs.libs.adb.connect.AdbConnectionState
+import libs.libs.libs.adb.key.AdbKeyManager
+import libs.libs.libs.adb.mdns.AdbMdnsManager
+import libs.libs.libs.adb.pair.AdbPairingManager
+import libs.libs.libs.adb.root.AdbRootClient
+import libs.libs.libs.adb.shell.AdbShellClient
+import libs.libs.libs.adb.shell.ShellCommandResult
+import libs.libs.libs.adb.shell.ShellStreamChunk
+import libs.libs.libs.adb.sync.AdbSyncClientV2
+import libs.libs.libs.adb.sync.FileStatV2
+import libs.libs.libs.adb.usb.accessory.AdbUsbAccessoryManager
+import libs.libs.libs.adb.usb.host.AdbUsbHostConnection
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
+import java.io.File
+
+/**
+ * 统一 ADB 客户端门面 (Facade)
+ * 直接整合项目中已存在的 12 个子系统模块
+ */
+public class AdbClient(
+    public val keyManager: AdbKeyManager,
+    public val connection: AdbConnection = AdbConnection(keyManager)
+) {
+    // 1. 核心交互子模块 (持有当前 connection)
+    public val shell: AdbShellClient by lazy { AdbShellClient(connection) }
+    public val abb: AdbAbbClient by lazy { AdbAbbClient(connection) }
+    public val sync: AdbSyncClientV2 by lazy { AdbSyncClientV2(connection) }
+    public val rootClient: AdbRootClient by lazy { AdbRootClient(connection) }
+
+    // 2. 连接与发现/配对子模块
+    public val pairingManager: AdbPairingManager by lazy { AdbPairingManager(keyManager) }
+    public val usbHost: AdbUsbHostConnection by lazy { AdbUsbHostConnection(keyManager) }
+    public val usbAccessory: AdbUsbAccessoryManager by lazy { AdbUsbAccessoryManager() }
+
+    public fun createMdnsManager(context: Context): AdbMdnsManager = AdbMdnsManager(context)
+
+    // 连接状态与 Feature 观察
+    public val state: StateFlow<AdbConnectionState> get() = connection.state
+    public val features: Set<String> get() = connection.features
+    public fun hasFeature(feature: String): Boolean = connection.hasFeature(feature)
+
+    // 连接与配对 API (直接对接 mdns & pair 模块)
+
+    /**
+     * 无线配对 (调用 pair/AdbPairingManager)
+     */
+    public suspend fun pair(
+        host: String,
+        port: Int,
+        pairingCode: String
+    ): Result<Boolean> {
+        return pairingManager.pair(host, port, pairingCode)
+    }
+
+    /**
+     * 连接 TCP 无线/网络设备 (调用 connect/AdbConnection)
+     */
+    public suspend fun connect(
+        host: String,
+        port: Int = 5555,
+        systemIdentity: String = "host::host_model=NekoStudio;mobile_model=Android;",
+        timeoutMs: Int = 10000
+    ) {
+        connection.connect(host, port, systemIdentity, timeoutMs)
+    }
+
+    public fun disconnect() {
+        connection.disconnect()
+    }
+
+    // 提权与重启 API (直接对接 root 模块)
+
+    public suspend fun getProp(property: String): String {
+        return shell.execV2("getprop $property").stdout.trim()
+    }
+
+    public suspend fun root(): ShellCommandResult {
+        return rootClient.root()
+    }
+
+    public suspend fun unroot(): ShellCommandResult {
+        return rootClient.unroot()
+    }
+
+    public suspend fun reboot(target: String = ""): Boolean {
+        val dest = if (target.isBlank()) "reboot:" else "reboot:$target"
+        val stream = connection.openStream(dest)
+        val success = stream != null
+        stream?.close()
+        return success
+    }
+
+    // 应用安装与传输 API (对接 abb & sync 模块)
+
+    /**
+     * 安装 APK（优先走 ABB，不支持则降级走 Sync + Shell pm install）
+     */
+    public suspend fun installApk(
+        apkFile: File,
+        options: AbbInstallOptions = AbbInstallOptions(),
+        onProgress: ((written: Long, total: Long) -> Unit)? = null
+    ): Result<Unit> {
+        require(apkFile.exists()) { "APK file non-existent: ${apkFile.absolutePath}" }
+
+        return if (hasFeature("abb_exec") || hasFeature("abb")) {
+            apkFile.inputStream().use { stream ->
+                abb.installApk(stream, apkFile.length(), options, onProgress)
+            }
+        } else {
+            runCatching {
+                val tempPath = "/data/local/tmp/temp_${System.currentTimeMillis()}.apk"
+                apkFile.inputStream().use { sync.push(it, tempPath, apkFile.length(), onProgress) }
+                val result = shell.execV2("pm install ${options.toArgs().joinToString(" ")} $tempPath")
+                shell.execV2("rm -f $tempPath")
+                check(result.isSuccess && result.stdout.contains("Success")) {
+                    "Install failed: ${result.stdout} ${result.stderr}"
+                }
+            }
+        }
+    }
+
+    public suspend fun pushFile(
+        localFile: File,
+        remotePath: String,
+        onProgress: ((written: Long, total: Long) -> Unit)? = null
+    ): Result<Unit> {
+        return localFile.inputStream().use { inputStream ->
+            sync.push(inputStream, remotePath, localFile.length(), onProgress)
+        }
+    }
+
+    public suspend fun pullFile(
+        remotePath: String,
+        localFile: File,
+        onProgress: ((read: Long, total: Long) -> Unit)? = null
+    ): Result<Unit> {
+        return localFile.outputStream().use { outputStream ->
+            sync.pull(remotePath, outputStream, onProgress)
+        }
+    }
+
+    public suspend fun stat(remotePath: String): FileStatV2 = sync.stat(remotePath)
+
+    public suspend fun listFiles(remotePath: String): List<FileStatV2> = sync.listV2(remotePath)
+
+    // Shell 与日志流 API (对接 shell 模块)
+
+    public fun streamLogcat(args: String = "-v time"): Flow<ShellStreamChunk> {
+        return shell.execV2Stream("logcat $args")
+    }
+}
