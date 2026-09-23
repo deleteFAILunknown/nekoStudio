@@ -75,6 +75,6 @@ public data class AdbPacket(
         val dataCheck: Int,
         val magic: Int
     ) {
-        val isValid: Boolean get() = (command inv magic) == 0
+        val isValid: Boolean get() = command.inv() == magic
     }
 }
