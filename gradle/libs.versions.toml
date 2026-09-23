@@ -21,7 +21,7 @@ coreKtx = "1.19.0"
 collection = "1.6.0"
 window = "1.5.1"
 
-bc = "1.84"
+bc = "1.86"
 
 jdklibs = "2.1.5"
 libsuVersion = "6.0.0"
