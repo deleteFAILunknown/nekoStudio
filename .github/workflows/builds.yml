@@ -31,7 +31,7 @@ jobs:
       - name: Cache ndk
         uses: nttld/setup-ndk@v1
         with:
-          ndk-version: r30
+          ndk-version: r30a
           local-cache: true
 
       - name: Setup CMake
