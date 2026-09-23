@@ -66,7 +66,7 @@ public class AdbSyncClient(
             val buf = ByteBuffer.wrap(statBytes).order(ByteOrder.LITTLE_ENDIAN)
 
             val mode = buf.int
-            val size = buf.int.toLong() and 0xFFFFFFFFL
+            val size = buf.int
             val mtime = buf.int.toLong() and 0xFFFFFFFFL
 
             FileStat(remotePath, mode, size, mtime)
@@ -95,9 +95,8 @@ public class AdbSyncClient(
                         // DENT 结构: [4 bytes mode][4 bytes size][4 bytes mtime][4 bytes name_len] + [name_len bytes name]
                         val dentBytes = readExactBytes(stream, 16)
                         val buf = ByteBuffer.wrap(dentBytes).order(ByteOrder.LITTLE_ENDIAN)
-
                         val mode = buf.int
-                        val size = buf.int.toLong() and 0xFFFFFFFFL
+                        val size = buf.int
                         val mtime = buf.int.toLong() and 0xFFFFFFFFL
                         val nameLen = buf.int
 
@@ -216,7 +215,7 @@ public class AdbSyncClient(
                             val chunk = readExactBytes(stream, len)
                             outputStream.write(chunk)
                             bytesRead += len
-                            onProgress?.invoke(bytesRead, fileStat.size)
+                            onProgress?.invoke(bytesRead, fileStat.size.toLong())
                         }
                         SyncCommand.ID_DONE -> break
                         SyncCommand.ID_FAIL -> {
