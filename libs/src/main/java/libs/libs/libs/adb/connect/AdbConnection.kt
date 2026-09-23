@@ -8,24 +8,21 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicInteger
 
 public class AdbConnection(private val keyManager: AdbKeyManager) {
 
     private val socket = AdbSocket()
+    private val localIdGenerator = AtomicInteger(1)
 
     private val _state = MutableStateFlow<AdbConnectionState>(AdbConnectionState.Disconnected)
     public val state: StateFlow<AdbConnectionState> = _state.asStateFlow()
 
-    // 记录握手协商后的实际协议版本，默认最小版本
     private var negotiatedVersion: Int = AdbCommand.A_VERSION
 
-    // 是否需要跳过 Checksum 计算
     public val isSkipChecksum: Boolean 
         get() = negotiatedVersion >= AdbCommand.A_VERSION_SKIP_CHECKSUM
 
-    /**
-     * 发起连接并完成 CNXN / AUTH 握手
-     */
     public suspend fun connect(
         host: String,
         port: Int = 5555,
@@ -36,7 +33,6 @@ public class AdbConnection(private val keyManager: AdbKeyManager) {
             _state.value = AdbConnectionState.Connecting
             socket.connect(host, port, timeoutMs)
 
-            // 1. 发送 CNXN 请求，宣称支持 A_VERSION_SKIP_CHECKSUM
             val systemBanner = "$systemIdentity\u0000".toByteArray(Charsets.UTF_8)
             val cnxnPacket = AdbPacket(
                 command = AdbCommand.CMD_CNXN,
@@ -44,7 +40,6 @@ public class AdbConnection(private val keyManager: AdbKeyManager) {
                 arg1 = AdbCommand.MAX_PAYLOAD,
                 payload = systemBanner
             )
-            // 握手包 CNXN 本身发送时也遵循 skipChecksum
             socket.writePacket(cnxnPacket, skipChecksum = true)
 
             var isHandshakeDone = false
@@ -55,9 +50,7 @@ public class AdbConnection(private val keyManager: AdbKeyManager) {
 
                 when (response.command) {
                     AdbCommand.CMD_CNXN -> {
-                        // 设备端确认 CNXN，response.arg0 即为设备端同意的协议版本
                         negotiatedVersion = response.arg0
-
                         val banner = String(response.payload, Charsets.UTF_8).trimEnd('\u0000')
                         _state.value = AdbConnectionState.Connected(banner)
                         isHandshakeDone = true
@@ -105,22 +98,52 @@ public class AdbConnection(private val keyManager: AdbKeyManager) {
     }
 
     /**
-     * 发送 ADB 数据包（自动根据协商版本决定是否跳过 Checksum）
+     * 打开指定 ADB 服务流 (如 "root:", "unroot:", "shell:ls -l", "exec:getprop")
      */
+    public suspend fun openStream(destination: String): AdbStream? = withContext(Dispatchers.IO) {
+        val localId = localIdGenerator.getAndIncrement()
+
+        val destBytes = if (destination.endsWith("\u0000")) {
+            destination.toByteArray(Charsets.UTF_8)
+        } else {
+            "$destination\u0000".toByteArray(Charsets.UTF_8)
+        }
+
+        val openPacket = AdbPacket(
+            command = AdbCommand.CMD_OPEN,
+            arg0 = localId,
+            arg1 = 0,
+            payload = destBytes
+        )
+
+        sendPacket(openPacket)
+
+        while (true) {
+            val response = receivePacket()
+            if (response.arg1 == localId) {
+                when (response.command) {
+                    AdbCommand.CMD_OKAY -> {
+                        val remoteId = response.arg0
+                        return@withContext AdbStream(this@AdbConnection, localId, remoteId)
+                    }
+                    AdbCommand.CMD_CLSE -> {
+                        return@withContext null
+                    }
+                }
+            }
+        }
+        @Suppress("UNREACHABLE_CODE")
+        null
+    }
+
     public suspend fun sendPacket(packet: AdbPacket) {
         socket.writePacket(packet, skipChecksum = isSkipChecksum)
     }
 
-    /**
-     * 接收 ADB 数据包
-     */
     public suspend fun receivePacket(): AdbPacket {
         return socket.readPacket()
     }
 
-    /**
-     * 断开连接
-     */
     public fun disconnect() {
         socket.close()
         _state.value = AdbConnectionState.Disconnected
