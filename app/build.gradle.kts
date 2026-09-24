@@ -1,8 +1,6 @@
 @file:Suppress("UnstableApiUsage")
 
-import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.io.File
@@ -159,8 +157,6 @@ android {
 
 kotlin {
     compilerOptions {
-        languageVersion = KotlinVersion.KOTLIN_2_4
-        apiVersion = KotlinVersion.KOTLIN_2_4
         jvmTarget = JvmTarget.JVM_25
     }
 }
