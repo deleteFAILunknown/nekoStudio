@@ -1,10 +1,10 @@
 {
   "buildSystem": "Gradle",
-  "buildSystemVersion": "9.7.1", 
+  "buildSystemVersion": "9.8.0", 
   "buildPlugin": "org.jetbrains.kotlin.gradle.plugin.KotlinAndroidPluginWrapper",
   "buildPluginVersion": "2.4.20",
   "projectSettings": {
-    "androidGradlePlugin": "9.5.0-alpha06",
+    "androidGradlePlugin": "9.5.0-alpha07",
     "kotlinxCoroutines": "1.11.0",
     "OpenSSL": "4.0.2",
     "composeBom": "2026.09.00",
