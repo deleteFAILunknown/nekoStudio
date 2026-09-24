@@ -42,7 +42,7 @@ public object AdbKeyUtils {
 
         // 4. Base64 编码并拼接 comment (注意 Base64 与 Comment 之间必须有空格)
         val base64Key = Base64.getEncoder().encodeToString(buffer.array())
-        return if (comment.isBlank()) base64Key else "$base64Key$comment"
+        return if (comment.isBlank()) base64Key else "$base64Key $comment"
     }
 
     /**

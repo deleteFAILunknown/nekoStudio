@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
+import java.net.Inet4Address
 import java.net.InetAddress
 import java.nio.charset.StandardCharsets
 import kotlin.coroutines.resume
@@ -29,19 +31,24 @@ public class AdbMdnsManager(context: Context) {
      */
     public fun discoverServices(mdnsType: AdbMdnsType): Flow<AdbMdnsServiceInfo> =
         discoverRawServices(mdnsType).mapNotNull { rawService ->
-            resolveServiceSafely(rawService, mdnsType)
+            // 为解析过程增加 5 秒超时保护，防止某些 ROM 静默悬挂导致 Mutex 死锁
+            withTimeoutOrNull(RESOLVE_TIMEOUT_MS) {
+                resolveServiceSafely(rawService, mdnsType)
+            }
         }
 
     /**
      * 发现指定 mDNS 类型的原始 NSD 服务流
      */
     private fun discoverRawServices(mdnsType: AdbMdnsType): Flow<NsdServiceInfo> =
-        callbackFlow<NsdServiceInfo> {
+        callbackFlow {
             val discoveryListener = object : NsdManager.DiscoveryListener {
                 override fun onDiscoveryStarted(regType: String) {}
 
                 override fun onServiceFound(serviceInfo: NsdServiceInfo) {
-                    if (serviceInfo.serviceType.contains(mdnsType.rawType.trimEnd('.'))) {
+                    val targetType = mdnsType.rawType.trim('.').lowercase()
+                    val foundType = serviceInfo.serviceType.trim('.').lowercase()
+                    if (foundType.contains(targetType)) {
                         trySendBlocking(serviceInfo)
                     }
                 }
@@ -55,7 +62,10 @@ public class AdbMdnsManager(context: Context) {
                 }
 
                 override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {
-                    nsdManager.stopServiceDiscovery(this)
+                    try {
+                        nsdManager.stopServiceDiscovery(this)
+                    } catch (_: Exception) {
+                    }
                 }
             }
 
@@ -88,7 +98,9 @@ public class AdbMdnsManager(context: Context) {
         suspendCoroutine { continuation ->
             val resolveListener = object : NsdManager.ResolveListener {
                 override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
-                    continuation.resume(null)
+                    if (continuation.context.isContextActive) {
+                        continuation.resume(null)
+                    }
                 }
 
                 override fun onServiceResolved(resolvedInfo: NsdServiceInfo) {
@@ -101,20 +113,26 @@ public class AdbMdnsManager(context: Context) {
                         }
                     }
 
-                    // API 34+ 使用 hostAddresses 列表，旧版本降级使用 host
-                    val hostAddress: InetAddress? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                        resolvedInfo.hostAddresses.firstOrNull()
+                    // 提取所有候选 IP 地址 (API 34+ 使用 hostAddresses 列表，旧版本使用 host)
+                    val addresses: List<InetAddress> = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                        resolvedInfo.hostAddresses
                     } else {
-                        resolvedInfo.host
+                        listOfNotNull(resolvedInfo.host)
                     }
+
+                    // 优先选择非回环的 IPv4 地址，保障 Socket 连接稳定性
+                    val preferredHost: InetAddress? = addresses.firstOrNull { it is Inet4Address && !it.isLoopbackAddress }
+                        ?: addresses.firstOrNull { !it.isLoopbackAddress }
+                        ?: addresses.firstOrNull()
 
                     val result = AdbMdnsServiceInfo(
                         name = resolvedInfo.serviceName,
                         type = type,
-                        host = hostAddress,
+                        host = preferredHost,
                         port = resolvedInfo.port,
                         attributes = attributesMap
                     )
+
                     continuation.resume(result)
                 }
             }
@@ -125,5 +143,12 @@ public class AdbMdnsManager(context: Context) {
                 continuation.resume(null)
             }
         }
+    }
+
+    private val kotlin.coroutines.CoroutineContext.isContextActive: Boolean
+        get() = this[kotlinx.coroutines.Job]?.isActive ?: true
+
+    companion object {
+        private const val RESOLVE_TIMEOUT_MS = 5000L
     }
 }
