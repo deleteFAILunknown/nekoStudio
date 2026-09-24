@@ -331,9 +331,8 @@ class AdbSpake2Engine(
             return this
         }
 
-        fun conditionalCopyFrom(whenTrue: MutableScalar, whenFalse: MutableScalar, mask: Long) {
-            val nonZero = (mask or -mask) ushr 63
-            val m = (-nonZero).toInt()
+        fun conditionalCopyFrom(whenTrue: MutableScalar, whenFalse: MutableScalar, mask: Int) {
+            val m = -mask
             for (i in 0 until 32) {
                 val a = whenTrue.bytes[i].toInt() and 0xFF
                 val b = whenFalse.bytes[i].toInt() and 0xFF
