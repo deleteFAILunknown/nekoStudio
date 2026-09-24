@@ -142,14 +142,11 @@ public class AdbClient(
      * 请求 adbd 以 root 身份重启
      */
     public suspend fun root(): ShellCommandResult {
-        val output = rootClient.requestRoot()
-        val isSuccess = output.contains("restarting adbd as root", ignoreCase = true) ||
-                        output.contains("already running as root", ignoreCase = true)
-
+        val result = rootClient.requestRoot()
         return ShellCommandResult(
-            exitCode = if (isSuccess) 0 else 1,
-            stdout = output,
-            stderr = if (isSuccess) "" else output
+            exitCode = if (result.isSuccessful) 0 else 1,
+            stdout = result.rawMessage,
+            stderr = if (result.isSuccessful) "" else result.rawMessage
         )
     }
 
@@ -157,15 +154,11 @@ public class AdbClient(
      * 请求 adbd 恢复为普通权限重启
      */
     public suspend fun unroot(): ShellCommandResult {
-        val output = rootClient.requestUnroot()
-        val isSuccess = output.contains("restarting adbd as native", ignoreCase = true) ||
-                        output.contains("restarting adbd as non-root", ignoreCase = true) ||
-                        output.contains("restarting adbd as shell", ignoreCase = true)
-
+        val result = rootClient.requestUnroot()
         return ShellCommandResult(
-            exitCode = if (isSuccess) 0 else 1,
-            stdout = output,
-            stderr = if (isSuccess) "" else output
+            exitCode = if (result.isSuccessful) 0 else 1,
+            stdout = result.rawMessage,
+            stderr = if (result.isSuccessful) "" else result.rawMessage
         )
     }
 
