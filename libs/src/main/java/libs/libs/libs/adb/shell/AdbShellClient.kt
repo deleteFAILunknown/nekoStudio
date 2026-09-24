@@ -18,13 +18,82 @@ public class AdbShellClient(
     @PublishedApi internal val protoBuf: ProtoBuf = ProtoBuf
 ) {
 
-    // 场景一：标准 Shell 命令 (无序列化开销，极致轻量)
-    // 适用于: getprop, pm list, cat, rm 等常规 CLI 指令
+    /**
+     * 检查当前连接设备是否原生支持 Shell V2 协议
+     */
+    public val supportsShellV2: Boolean get() = connection.hasFeature("shell_v2")
+
+    // 场景一：通用 Shell 执行 (智能选择 V2，不支持则优雅降级为 V1)
 
     /**
-     * 执行标准 Shell V2 命令，精准分离 stdout、stderr 并获取 exitCode
+     * 执行 Shell 命令（自动判断 V2/V1）
+     * - 支持 Shell V2: 使用 `shell,v2,raw:` 精准分离 stdout/stderr 并获取真实 exitCode
+     * - 不支持 Shell V2: 退回 `exec:` + 哨兵 Marker 提取 exitCode
+     */
+    public suspend fun exec(command: String): ShellCommandResult = withContext(Dispatchers.IO) {
+        if (supportsShellV2) {
+            execV2(command)
+        } else {
+            execV1(command)
+        }
+    }
+
+    /**
+     * 强制使用 Shell V1 协议执行命令 (`exec:`)
+     * 通过追加 exit code 哨兵标记精准解析 exitCode，stdout 与 stderr 混合输出
+     */
+    public suspend fun execV1(command: String): ShellCommandResult = withContext(Dispatchers.IO) {
+        val startTime = System.currentTimeMillis()
+        val sentinel = "__ADB_EXIT_CODE_${System.currentTimeMillis()}__:"
+        // 在 V1 命令后追加哨兵标记输出返回值
+        val wrappedCommand = "($command); echo -n \"\n$sentinel$?\""
+
+        val stream = connection.openStream("exec:$wrappedCommand")
+            ?: return@withContext ShellCommandResult(
+                exitCode = -1,
+                stdout = "",
+                stderr = "Failed to open exec (V1) stream",
+                durationMs = 0L
+            )
+
+        val outputStream = ByteArrayOutputStream()
+        try {
+            while (true) {
+                val data = stream.read() ?: break
+                if (data.isNotEmpty()) {
+                    outputStream.write(data)
+                }
+            }
+        } finally {
+            stream.close()
+        }
+
+        val rawOutput = outputStream.toString(Charsets.UTF_8.name())
+        val sentinelIndex = rawOutput.lastIndexOf(sentinel)
+
+        val (stdout, exitCode) = if (sentinelIndex != -1) {
+            val cleanStdout = rawOutput.substring(0, sentinelIndex).trimEnd('\r', '\n')
+            val exitCodeStr = rawOutput.substring(sentinelIndex + sentinel.length).trim()
+            val code = exitCodeStr.toIntOrNull() ?: 0
+            cleanStdout to code
+        } else {
+            rawOutput to 0
+        }
+
+        ShellCommandResult(
+            exitCode = exitCode,
+            stdout = stdout,
+            stderr = "",
+            durationMs = System.currentTimeMillis() - startTime
+        )
+    }
+
+    /**
+     * 显式执行 Shell V2 命令（若设备不支持则自动退回 V1）
      */
     public suspend fun execV2(command: String): ShellCommandResult = withContext(Dispatchers.IO) {
+        if (!supportsShellV2) return@withContext execV1(command)
+
         val startTime = System.currentTimeMillis()
         val stream = connection.openStream("shell,v2,raw:$command")
             ?: return@withContext ShellCommandResult(
@@ -71,7 +140,7 @@ public class AdbShellClient(
     }
 
     /**
-     * 读取命令返回的原始字节数组（用于文件传输、截图等二进制数据）
+     * 读取命令返回的纯原始字节数组（基于 V1 `exec:`，无协议拆包开销，适合下载/截图等二进制流）
      */
     public suspend fun execRawBytes(command: String): ByteArray = withContext(Dispatchers.IO) {
         val stream = connection.openStream("exec:$command")
@@ -89,51 +158,29 @@ public class AdbShellClient(
         output.toByteArray()
     }
 
-    // 场景二：系统 Proto Dump / 自定义 Native 进程输出 (单向 Protobuf 解码)
-    // 适用于: dumpsys window --proto, dumpsys activity --proto 或自定义 C++/Rust Daemon
+    // 场景二：系统 Proto Dump / 反序列化
 
     /**
      * 直接读取 STDOUT 二进制 Payload 并反序列化为 Kotlin 对象 [T]
-     * 跳过 String 中转，解析速度快、内存占用极低
+     * 自动兼容 V1 与 V2
      */
-    public suspend inline fun <reified T> execV2Proto(command: String): Result<T> = withContext(Dispatchers.IO) {
+    public suspend inline fun <reified T> execProto(command: String): Result<T> = withContext(Dispatchers.IO) {
         runCatching {
-            val stream = connection.openStream("shell,v2,raw:$command")
-                ?: throw IllegalStateException("Failed to open shell_v2 stream")
-
-            val stdoutStream = ByteArrayOutputStream()
-            val v2Buffer = ShellV2Buffer()
-            var exitCode = 0
-
-            try {
-                while (true) {
-                    val data = stream.read() ?: break
-                    if (data.isNotEmpty()) {
-                        v2Buffer.append(data)
-                        while (true) {
-                            val packet = v2Buffer.pollPacket() ?: break
-                            when (packet.id) {
-                                ShellV2Packet.ID_STDOUT -> stdoutStream.write(packet.payload)
-                                ShellV2Packet.ID_EXIT -> {
-                                    if (packet.payload.isNotEmpty()) {
-                                        exitCode = packet.payload[0].toInt() and 0xFF
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            } finally {
-                stream.close()
+            val bytes = if (supportsShellV2) {
+                val res = execV2(command)
+                check(res.isSuccess) { "Shell V2 command failed: ${res.stderr}" }
+                res.stdout.toByteArray(Charsets.UTF_8)
+            } else {
+                execRawBytes(command)
             }
-
-            check(exitCode == 0) { "Shell V2 command failed with exit code: $exitCode" }
-            protoBuf.decodeFromByteArray<T>(stdoutStream.toByteArray())
+            protoBuf.decodeFromByteArray<T>(bytes)
         }
     }
 
-    // 场景三：双向 IPC 交互 (向 STDIN 写入 Proto，从 STDOUT 接收 Proto)
-    // 适用于: 运行设备端 Helper 进程（如 App 注入/内存监控 Daemon）
+    @Deprecated("Renamed to execProto for standard naming", ReplaceWith("execProto<T>(command)"))
+    public suspend inline fun <reified T> execV2Proto(command: String): Result<T> = execProto(command)
+
+    // 场景三：双向 Proto IPC 交互
 
     /**
      * 将 [requestPayload] 序列化为字节写入 Shell STDIN，并将返回结果解码为 [R]
@@ -143,23 +190,84 @@ public class AdbShellClient(
         requestPayload: Req
     ): Result<Resp> = withContext(Dispatchers.IO) {
         runCatching {
-            val stream = connection.openStream("shell,v2,raw:$command")
-                ?: throw IllegalStateException("Failed to open shell_v2 stream")
-
             val inputBytes = protoBuf.encodeToByteArray(requestPayload)
-            val stdinFrame = ShellV2Packet.createFrame(ShellV2Packet.ID_STDIN, inputBytes)
-            val closeStdinFrame = ShellV2Packet.createFrame(ShellV2Packet.ID_CLOSE_STDIN)
 
-            val stdoutStream = ByteArrayOutputStream()
+            val outputBytes = if (supportsShellV2) {
+                val stream = connection.openStream("shell,v2,raw:$command")
+                    ?: throw IllegalStateException("Failed to open shell_v2 stream")
+
+                val stdinFrame = ShellV2Packet.createFrame(ShellV2Packet.ID_STDIN, inputBytes)
+                val closeStdinFrame = ShellV2Packet.createFrame(ShellV2Packet.ID_CLOSE_STDIN)
+
+                val stdoutStream = ByteArrayOutputStream()
+                val v2Buffer = ShellV2Buffer()
+                var exitCode = 0
+
+                try {
+                    stream.write(stdinFrame)
+                    stream.write(closeStdinFrame)
+
+                    while (true) {
+                        val data = stream.read() ?: break
+                        if (data.isNotEmpty()) {
+                            v2Buffer.append(data)
+                            while (true) {
+                                val packet = v2Buffer.pollPacket() ?: break
+                                when (packet.id) {
+                                    ShellV2Packet.ID_STDOUT -> stdoutStream.write(packet.payload)
+                                    ShellV2Packet.ID_EXIT -> {
+                                        if (packet.payload.isNotEmpty()) {
+                                            exitCode = packet.payload[0].toInt() and 0xFF
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } finally {
+                    stream.close()
+                }
+
+                check(exitCode == 0) { "Command execution failed with exit code $exitCode" }
+                stdoutStream.toByteArray()
+            } else {
+                // V1 降级传输
+                val stream = connection.openStream("exec:$command")
+                    ?: throw IllegalStateException("Failed to open exec stream")
+
+                val stdoutStream = ByteArrayOutputStream()
+                try {
+                    stream.write(inputBytes)
+                    while (true) {
+                        val data = stream.read() ?: break
+                        if (data.isNotEmpty()) stdoutStream.write(data)
+                    }
+                } finally {
+                    stream.close()
+                }
+                stdoutStream.toByteArray()
+            }
+
+            protoBuf.decodeFromByteArray<Resp>(outputBytes)
+        }
+    }
+
+    // 场景四：结构化流式传输 (Flow)
+
+    /**
+     * 流式监听 Shell 输出，按 [ShellStreamChunk] 结构打包发出
+     * 自动支持 V1 与 V2：V2 下可区分 STDOUT/STDERR，V1 下按 STDOUT 发送 Raw Stream
+     */
+    public fun execStream(command: String): Flow<ShellStreamChunk> = flow {
+        if (supportsShellV2) {
+            val stream = connection.openStream("shell,v2,raw:$command")
+            if (stream == null) {
+                emit(ShellStreamChunk(ShellStreamType.ERROR, "Failed to open shell_v2 stream".toByteArray()))
+                return@flow
+            }
+
             val v2Buffer = ShellV2Buffer()
-            var exitCode = 0
-
             try {
-                // 1. 发送输入数据包并关闭 stdin
-                stream.write(stdinFrame)
-                stream.write(closeStdinFrame)
-
-                // 2. 读取响应
                 while (true) {
                     val data = stream.read() ?: break
                     if (data.isNotEmpty()) {
@@ -167,12 +275,9 @@ public class AdbShellClient(
                         while (true) {
                             val packet = v2Buffer.pollPacket() ?: break
                             when (packet.id) {
-                                ShellV2Packet.ID_STDOUT -> stdoutStream.write(packet.payload)
-                                ShellV2Packet.ID_EXIT -> {
-                                    if (packet.payload.isNotEmpty()) {
-                                        exitCode = packet.payload[0].toInt() and 0xFF
-                                    }
-                                }
+                                ShellV2Packet.ID_STDOUT -> emit(ShellStreamChunk(ShellStreamType.STDOUT, packet.payload))
+                                ShellV2Packet.ID_STDERR -> emit(ShellStreamChunk(ShellStreamType.STDERR, packet.payload))
+                                ShellV2Packet.ID_EXIT -> return@flow
                             }
                         }
                     }
@@ -180,43 +285,26 @@ public class AdbShellClient(
             } finally {
                 stream.close()
             }
+        } else {
+            // V1 流降级
+            val stream = connection.openStream("exec:$command")
+            if (stream == null) {
+                emit(ShellStreamChunk(ShellStreamType.ERROR, "Failed to open exec stream".toByteArray()))
+                return@flow
+            }
 
-            check(exitCode == 0) { "Command execution failed with exit code $exitCode" }
-            protoBuf.decodeFromByteArray<Resp>(stdoutStream.toByteArray())
-        }
-    }
-
-    // 场景四：结构化流式传输 (将流块封装为 Proto 消息发往上层 UI/服务)
-    // 适用于: 实时日志、硬件采样流、多模块通讯
-
-    /**
-     * 流式监听 Shell 输出，并将数据按 [ShellStreamChunk] 结构打包（含类型标签与时间戳）
-     */
-    public fun execV2Stream(command: String): Flow<ShellStreamChunk> = flow {
-        val stream = connection.openStream("shell,v2,raw:$command")
-        if (stream == null) {
-            emit(ShellStreamChunk(ShellStreamType.ERROR, "Failed to open shell_v2 stream".toByteArray()))
-            return@flow
-        }
-
-        val v2Buffer = ShellV2Buffer()
-        try {
-            while (true) {
-                val data = stream.read() ?: break
-                if (data.isNotEmpty()) {
-                    v2Buffer.append(data)
-                    while (true) {
-                        val packet = v2Buffer.pollPacket() ?: break
-                        when (packet.id) {
-                            ShellV2Packet.ID_STDOUT -> emit(ShellStreamChunk(ShellStreamType.STDOUT, packet.payload))
-                            ShellV2Packet.ID_STDERR -> emit(ShellStreamChunk(ShellStreamType.STDERR, packet.payload))
-                            ShellV2Packet.ID_EXIT -> return@flow
-                        }
+            try {
+                while (true) {
+                    val data = stream.read() ?: break
+                    if (data.isNotEmpty()) {
+                        emit(ShellStreamChunk(ShellStreamType.STDOUT, data))
                     }
                 }
+            } finally {
+                stream.close()
             }
-        } finally {
-            stream.close()
         }
     }.flowOn(Dispatchers.IO)
+
+    public fun execV2Stream(command: String): Flow<ShellStreamChunk> = execStream(command)
 }

@@ -9,6 +9,7 @@ import libs.libs.libs.adb.connect.AdbConnection
 import libs.libs.libs.adb.connect.AdbConnectionState
 import libs.libs.libs.adb.key.AdbKeyManager
 import libs.libs.libs.adb.mdns.AdbMdnsManager
+import libs.libs.libs.adb.pair.AdbPairingListener
 import libs.libs.libs.adb.pair.AdbPairingManager
 import libs.libs.libs.adb.root.AdbRootClient
 import libs.libs.libs.adb.shell.AdbShellClient
@@ -29,7 +30,7 @@ import java.util.zip.ZipFile
 
 /**
  * 统一 ADB 客户端门面 (Facade)
- * 整合 Connection、Pair、Shell、ABB、Sync(V2)、Root 以及 USB Host/Accessory 模块
+ * 整合 Connection、Pair (SPAKE2)、Shell、ABB、Sync(V2)、Root 以及 USB Host/Accessory 模块
  */
 @OptIn(ExperimentalSerializationApi::class)
 public class AdbClient(
@@ -71,17 +72,38 @@ public class AdbClient(
     public val features: Set<String> get() = connection.features
     public fun hasFeature(feature: String): Boolean = connection.hasFeature(feature)
 
-    // 连接与配对 API (直接对接 mdns & pair 模块)
+    // 连接与配对 API (对接 mdns & pair SPAKE2 模块)
 
     /**
-     * 无线配对 (调用 pair/AdbPairingManager)
+     * 无线配对 (基于 Android 11+ SPAKE2 / SPAKE2+ 握手协议)
+     *
+     * @param host 目标设备 IP 地址
+     * @param port 设置页面展示的配对端口
+     * @param pairingCode 设置页面展示的 6 位数字配对码
+     * @param listener 配对回调监听器（可选）
+     * @return 返回配对成功的 Result<String>，包含公钥文本
      */
     public suspend fun pair(
         host: String,
         port: Int,
-        pairingCode: String
+        pairingCode: String,
+        listener: AdbPairingListener? = null
+    ): Result<String> {
+        ensureKeyLoaded()
+        return pairingManager.pairWithResult(host, port, pairingCode)
+    }
+
+    /**
+     * 便捷方法：仅返回配对成功/失败状态的配对方法
+     */
+    public suspend fun pairSimple(
+        host: String,
+        port: Int,
+        pairingCode: String,
+        listener: AdbPairingListener? = null
     ): Result<Boolean> = runCatching {
-        pairingManager.pair(host, port, pairingCode)
+        ensureKeyLoaded()
+        pairingManager.pair(host, port, pairingCode, listener)
     }
 
     /**
@@ -93,11 +115,21 @@ public class AdbClient(
         systemIdentity: String = "host::host_model=NekoStudio;mobile_model=Android;",
         timeoutMs: Int = 10000
     ) {
+        ensureKeyLoaded()
         connection.connect(host, port, systemIdentity, timeoutMs)
     }
 
     public fun disconnect() {
         connection.disconnect()
+    }
+
+    /**
+     * 检查并确保 RSA 密钥已被加载或自动生成
+     */
+    private fun ensureKeyLoaded() {
+        if (!keyManager.isLoaded) {
+            keyManager.generateKeyPair()
+        }
     }
 
     // 提权与重启 API (直接对接 root 模块)
@@ -113,7 +145,7 @@ public class AdbClient(
         val output = rootClient.requestRoot()
         val isSuccess = output.contains("restarting adbd as root", ignoreCase = true) ||
                         output.contains("already running as root", ignoreCase = true)
-        
+
         return ShellCommandResult(
             exitCode = if (isSuccess) 0 else 1,
             stdout = output,
@@ -129,7 +161,7 @@ public class AdbClient(
         val isSuccess = output.contains("restarting adbd as native", ignoreCase = true) ||
                         output.contains("restarting adbd as non-root", ignoreCase = true) ||
                         output.contains("restarting adbd as shell", ignoreCase = true)
-        
+
         return ShellCommandResult(
             exitCode = if (isSuccess) 0 else 1,
             stdout = output,

@@ -7,4 +7,6 @@ public data class AdbKeyPair(
     val privateKey: AsymmetricKeyParameter,
     val publicKeyParams: RSAKeyParameters,
     val adbPublicKeyString: String
-)
+) {
+    public fun toPem(): String = AdbKeySerializer.privateKeyToPem(privateKey)
+}
