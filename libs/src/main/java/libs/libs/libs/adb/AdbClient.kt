@@ -16,6 +16,7 @@ import libs.libs.libs.adb.shell.ShellCommandResult
 import libs.libs.libs.adb.shell.ShellStreamChunk
 import libs.libs.libs.adb.sync.AdbSyncClientV2
 import libs.libs.libs.adb.sync.FileStatV2
+import libs.libs.libs.adb.sync.SyncFlags
 import libs.libs.libs.adb.usb.accessory.AdbUsbAccessoryManager
 import libs.libs.libs.adb.usb.host.AdbUsbHostConnection
 import kotlinx.coroutines.flow.Flow
@@ -28,7 +29,7 @@ import java.util.zip.ZipFile
 
 /**
  * 统一 ADB 客户端门面 (Facade)
- * 整合 Connection、Pair、Shell、ABB、Sync、Root 以及 USB Host/Accessory 模块
+ * 整合 Connection、Pair、Shell、ABB、Sync(V2)、Root 以及 USB Host/Accessory 模块
  */
 @OptIn(ExperimentalSerializationApi::class)
 public class AdbClient(
@@ -147,7 +148,7 @@ public class AdbClient(
     // 应用安装与传输 API (对接 abb & sync 模块)
 
     /**
-     * 安装单体 APK（优先走 ABB 极速流，不支持则降级走 Sync + Shell pm install）
+     * 安装单体 APK（优先走 ABB 极速流，不支持则降级走 Sync V2 + Shell pm install）
      */
     public suspend fun installApk(
         apkFile: File,
@@ -163,7 +164,7 @@ public class AdbClient(
         } else {
             runCatching {
                 val tempPath = "/data/local/tmp/temp_${System.currentTimeMillis()}.apk"
-                apkFile.inputStream().use { sync.push(it, tempPath, apkFile.length(), onProgress) }
+                apkFile.inputStream().use { sync.pushV2(it, tempPath, apkFile.length(), onProgress = onProgress) }
                 val result = shell.execV2("pm install ${options.toArgs().joinToString(" ")} $tempPath")
                 shell.execV2("rm -f $tempPath")
                 check(result.isSuccess && result.stdout.contains("Success")) {
@@ -174,7 +175,7 @@ public class AdbClient(
     }
 
     /**
-     * 安装 APKS 应用套件（优先走 ABB 零磁盘极速流，不支持则降级走 Sync + pm install-create/write/commit 会话）
+     * 安装 APKS 应用套件（优先走 ABB 零磁盘极速流，不支持则降级走 Sync V2 + pm install-create/write/commit 会话）
      */
     public suspend fun installApks(
         apksFile: File,
@@ -209,7 +210,7 @@ public class AdbClient(
                             val tempPath = "/data/local/tmp/temp_split_${index}_${System.currentTimeMillis()}.apk"
 
                             zip.getInputStream(entry).use { inputStream ->
-                                sync.push(
+                                sync.pushV2(
                                     inputStream = inputStream,
                                     remotePath = tempPath,
                                     totalSize = entry.size,
@@ -248,28 +249,53 @@ public class AdbClient(
         return abb.installSplitApks(apks, options)
     }
 
+    /**
+     * 推送文件到远程设备 (优先使用 Sync V2 SND2，不支持时自动退回 Sync V1 SEND)
+     */
     public suspend fun pushFile(
         localFile: File,
         remotePath: String,
+        flags: Int = SyncFlags.FLAG_NONE,
         onProgress: ((written: Long, total: Long) -> Unit)? = null
     ): Result<Unit> = runCatching {
         localFile.inputStream().use { inputStream ->
-            sync.push(inputStream, remotePath, localFile.length(), onProgress)
+            sync.pushV2(
+                inputStream = inputStream,
+                remotePath = remotePath,
+                totalSize = localFile.length(),
+                flags = flags,
+                onProgress = onProgress
+            )
         }
     }
 
+    /**
+     * 从远程设备拉取文件 (优先使用 Sync V2 RCV2，不支持时自动退回 Sync V1 RECV)
+     */
     public suspend fun pullFile(
         remotePath: String,
         localFile: File,
+        flags: Int = SyncFlags.FLAG_NONE,
         onProgress: ((read: Long, total: Long) -> Unit)? = null
     ): Result<Unit> = runCatching {
         localFile.outputStream().use { outputStream ->
-            sync.pull(remotePath, outputStream, onProgress)
+            sync.pullV2(
+                remotePath = remotePath,
+                outputStream = outputStream,
+                flags = flags,
+                onProgress = onProgress
+            )
         }
     }
 
-    public suspend fun stat(remotePath: String): FileStatV2 = sync.stat(remotePath)
+    /**
+     * 获取文件完整属性 (优先使用 Sync V2 STA2，不支持时自动由 V1 STAT 转换补全)
+     */
+    public suspend fun stat(remotePath: String): FileStatV2 = sync.statV2(remotePath)
 
+    /**
+     * 列出目录文件列表 (优先使用 Sync V2 LST2，不支持时自动由 V1 LIST 转换补全)
+     */
     public suspend fun listFiles(remotePath: String): List<FileStatV2> = sync.listV2(remotePath)
 
     // Shell 与日志流 API (对接 shell 模块)
