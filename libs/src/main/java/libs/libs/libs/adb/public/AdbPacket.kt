@@ -74,7 +74,7 @@ public data class AdbPacket(
         public fun createCnxn(
             version: Int = AdbCommand.A_VERSION_SKIP_CHECKSUM,
             maxPayload: Int = AdbCommand.MAX_PAYLOAD,
-            systemIdentity: String = "host::\0"
+            systemIdentity: String = "host::\u0000"
         ): AdbPacket = AdbPacket(
             command = AdbCommand.CMD_CNXN,
             arg0 = version,
