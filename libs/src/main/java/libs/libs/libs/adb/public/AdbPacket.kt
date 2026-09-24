@@ -36,7 +36,10 @@ public data class AdbPacket(
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is AdbPacket) return false
-        return command == other.command && arg0 == other.arg0 && arg1 == other.arg1 && payload.contentEquals(other.payload)
+        return command == other.command &&
+                arg0 == other.arg0 &&
+                arg1 == other.arg1 &&
+                payload.contentEquals(other.payload)
     }
 
     override fun hashCode(): Int {
@@ -65,6 +68,50 @@ public data class AdbPacket(
                 magic = buffer.int
             )
         }
+
+        // --- 常用建包便捷工厂方法 ---
+
+        public fun createCnxn(
+            version: Int = AdbCommand.A_VERSION_SKIP_CHECKSUM,
+            maxPayload: Int = AdbCommand.MAX_PAYLOAD,
+            systemIdentity: String = "host::\0"
+        ): AdbPacket = AdbPacket(
+            command = AdbCommand.CMD_CNXN,
+            arg0 = version,
+            arg1 = maxPayload,
+            payload = systemIdentity.toByteArray(Charsets.UTF_8)
+        )
+
+        public fun createAuth(authType: Int, keyOrSignature: ByteArray): AdbPacket = AdbPacket(
+            command = AdbCommand.CMD_AUTH,
+            arg0 = authType,
+            arg1 = 0,
+            payload = keyOrSignature
+        )
+
+        public fun createOpen(localId: Int, destination: String): AdbPacket {
+            val destBytes = destination.toByteArray(Charsets.UTF_8)
+            // ADB OPEN 指令的 destination payload 必须以 \0 结尾
+            val payload = if (destBytes.lastOrNull() == 0.toByte()) destBytes else destBytes + 0.toByte()
+            return AdbPacket(
+                command = AdbCommand.CMD_OPEN,
+                arg0 = localId,
+                arg1 = 0,
+                payload = payload
+            )
+        }
+
+        public fun createOkay(localId: Int, remoteId: Int): AdbPacket = AdbPacket(
+            command = AdbCommand.CMD_OKAY,
+            arg0 = localId,
+            arg1 = remoteId
+        )
+
+        public fun createClose(localId: Int, remoteId: Int): AdbPacket = AdbPacket(
+            command = AdbCommand.CMD_CLSE,
+            arg0 = localId,
+            arg1 = remoteId
+        )
     }
 
     public data class Header(
@@ -75,6 +122,17 @@ public data class AdbPacket(
         val dataCheck: Int,
         val magic: Int
     ) {
-        val isValid: Boolean get() = command.inv() == magic
+        /**
+         * 校验 Header 合法性（必须满足 magic 匹配且 payload 长度在安全范围内）
+         */
+        val isValid: Boolean get() = (command.inv() == magic) && (dataLength in 0..AdbCommand.MAX_PAYLOAD)
+
+        /**
+         * 校验接收到的 Payload Checksum 是否正确
+         */
+        public fun isChecksumValid(payload: ByteArray, skipChecksum: Boolean = false): Boolean {
+            if (skipChecksum) return true
+            return dataCheck == AdbCommand.calculateChecksum(payload)
+        }
     }
 }
