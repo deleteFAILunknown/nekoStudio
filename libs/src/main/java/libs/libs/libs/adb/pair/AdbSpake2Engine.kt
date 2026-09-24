@@ -2,18 +2,17 @@ package libs.libs.libs.adb.pair
 
 import org.bouncycastle.asn1.x9.ECNamedCurveTable
 import org.bouncycastle.crypto.digests.SHA256Digest
-import org.bouncycastle.crypto.engines.AESEngine
 import org.bouncycastle.crypto.generators.HKDFBytesGenerator
-import org.bouncycastle.crypto.modes.GCMBlockCipher
-import org.bouncycastle.crypto.params.AEADParameters
 import org.bouncycastle.crypto.params.HKDFParameters
-import org.bouncycastle.crypto.params.KeyParameter
 import org.bouncycastle.math.ec.ECPoint
 import java.math.BigInteger
 import java.security.SecureRandom
+import javax.crypto.Cipher
+import javax.crypto.spec.GCMParameterSpec
+import javax.crypto.spec.SecretKeySpec
 
 /**
- * 基于 Bouncy Castle 基础椭圆曲线 API 手动实现的 ADB SPAKE2 (P-256) 引擎
+ * 基于 Bouncy Castle 基础椭圆曲线 API 与 JDK JCE 实现的 ADB SPAKE2 (P-256) 引擎
  */
 public class AdbSpake2Engine(
     private val pairingCode: String
@@ -103,7 +102,7 @@ public class AdbSpake2Engine(
     }
 
     /**
-     * 使用 SPAKE2 协商出的会话密钥对公钥数据进行 AES-GCM 加密
+     * 使用 SPAKE2 协商出的会话密钥对公钥数据进行 AES-GCM 加密 (使用 Java JCE 标准 API)
      */
     public fun encryptPayload(plainData: ByteArray): ByteArray {
         val key = derivedSessionKey ?: throw IllegalStateException("SPAKE2 session key not established")
@@ -111,19 +110,18 @@ public class AdbSpake2Engine(
         val iv = ByteArray(12) // 96-bit GCM IV
         random.nextBytes(iv)
 
-        val cipher = GCMBlockCipher(AESEngine())
-        val aeadParams = AEADParameters(KeyParameter(key), 128, iv)
-        cipher.init(true, aeadParams)
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        val keySpec = SecretKeySpec(key, "AES")
+        val gcmSpec = GCMParameterSpec(128, iv)
+        cipher.init(Cipher.ENCRYPT_MODE, keySpec, gcmSpec)
 
-        val cipherText = ByteArray(cipher.getOutputSize(plainData.size))
-        val len = cipher.processBytes(plainData, 0, plainData.size, cipherText, 0)
-        cipher.doFinal(cipherText, len)
+        val cipherText = cipher.doFinal(plainData)
 
         return iv + cipherText
     }
 
     /**
-     * 解密服务端返回的响应
+     * 解密服务端返回的响应 (使用 Java JCE 标准 API)
      */
     public fun decryptPayload(encryptedData: ByteArray): ByteArray {
         val key = derivedSessionKey ?: throw IllegalStateException("SPAKE2 session key not established")
@@ -132,15 +130,12 @@ public class AdbSpake2Engine(
         val iv = encryptedData.copyOfRange(0, 12)
         val cipherText = encryptedData.copyOfRange(12, encryptedData.size)
 
-        val cipher = GCMBlockCipher(AESEngine())
-        val aeadParams = AEADParameters(KeyParameter(key), 128, iv)
-        cipher.init(false, aeadParams)
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        val keySpec = SecretKeySpec(key, "AES")
+        val gcmSpec = GCMParameterSpec(128, iv)
+        cipher.init(Cipher.DECRYPT_MODE, keySpec, gcmSpec)
 
-        val plainText = ByteArray(cipher.getOutputSize(cipherText.size))
-        val len = cipher.processBytes(cipherText, 0, cipherText.size, plainText, 0)
-        val finalLen = cipher.doFinal(plainText, len)
-
-        return plainText.copyOfRange(0, len + finalLen)
+        return cipher.doFinal(cipherText)
     }
 
     /**
