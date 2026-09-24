@@ -16,8 +16,8 @@ android-buildTools-version = "37.0.0"
 cmake-version = "4.4.2"
 
 kotlinxCoroutines = "1.11.0"
-annotation = "1.10.0"
-coreKtx = "1.19.0"
+annotation = "1.11.0"
+coreKtx = "1.19.1"
 collection = "1.6.0"
 window = "1.5.1"
 
@@ -30,7 +30,7 @@ hiddenapibypassVersion = "6.1"
 nayukiQR = "1.8.0"
 lifecycle = "2.11.0"
 
-material3 = "1.5.0-alpha28"
+material3 = "1.5.0-alpha29"
 
 okio = "3.18.2"
 okhttp = "5.5.0"
