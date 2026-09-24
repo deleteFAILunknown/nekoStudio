@@ -14,7 +14,7 @@ val libsBuildTools = libs.versions.android.buildTools.version.get()
 android {
     namespace = "libs.libs.libs"
     compileSdk = libsCompileSdk
-    buildToolsVersion = "$libsBuildTools"
+    buildToolsVersion = libsBuildTools
 
     packaging {
         dex {

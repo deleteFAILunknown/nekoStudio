@@ -32,8 +32,8 @@ val envNewKeyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: ""
 android {
     namespace = "com.adb.kitty"
     compileSdk = libsCompileSdk
-    buildToolsVersion = "$libsBuildTools"
-    ndkVersion = "$libsNdk"
+    buildToolsVersion = libsBuildTools
+    ndkVersion = libsNdk
 
     packaging {
         dex {
@@ -84,7 +84,7 @@ android {
     externalNativeBuild {
         cmake {
             path("src/main/cpp/CMakeLists.txt")
-            version = "$libsCmake"
+            version = libsCmake
         }
     }
 
