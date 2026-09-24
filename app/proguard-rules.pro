@@ -10,6 +10,12 @@
 -keep class com.android.tools.build.** { *; }
 -dontwarn com.android.tools.build.**
 
+-keep class org.bouncycastle.** { *; }
+-dontwarn org.bouncycastle.**
+
+-keep class cafe.cryptography.** { *; }
+-dontwarn cafe.cryptography.**
+
 -keep class okio.** { *; }
 -dontwarn okio.**
 
