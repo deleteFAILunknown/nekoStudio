@@ -2,6 +2,10 @@ package libs.libs.libs.adb.pair
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.decodeFromByteArray
+import kotlinx.serialization.encodeToByteArray
+import kotlinx.serialization.protobuf.ProtoBuf
 import libs.libs.libs.adb.key.AdbKeyManager
 import java.io.DataInputStream
 import java.io.DataOutputStream
@@ -11,6 +15,7 @@ import java.security.SecureRandom
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
 
+@OptIn(ExperimentalSerializationApi::class)
 public class AdbPairingClient(
     private val keyManager: AdbKeyManager
 ) : AdbPairing {
@@ -24,7 +29,6 @@ public class AdbPairingClient(
         try {
             listener?.onPairingStarted()
 
-            // 1. 校验配对码格式与 KeyManager 状态
             require(pairingCode.length == 6 && pairingCode.all { it.isDigit() }) {
                 "Pairing code must be a 6-digit number."
             }
@@ -32,15 +36,12 @@ public class AdbPairingClient(
                 "AdbKeyManager must load or generate key pair before pairing."
             }
 
-            // 2. 初始化 SPAKE2 密码学引擎
             val spake2Engine = AdbSpake2Engine(pairingCode)
 
-            // 3. 建立底层 Socket 连接
             Socket().use { rawSocket ->
                 rawSocket.soTimeout = READ_TIMEOUT_MS
                 rawSocket.connect(InetSocketAddress(host, port), CONNECT_TIMEOUT_MS)
 
-                // 4. 创建配对 TLS 1.3 通道
                 val sslContext = SSLContext.getInstance("TLSv1.3").apply {
                     init(null, arrayOf(AdbPairingTrustManager()), SecureRandom())
                 }
@@ -58,37 +59,43 @@ public class AdbPairingClient(
                     val inputStream = DataInputStream(tlsSocket.inputStream)
                     val outputStream = DataOutputStream(tlsSocket.outputStream)
 
-                    // 5. 【SPAKE2 握手阶段 1】发送 Client Hello
-                    val clientHello = spake2Engine.generateClientHello()
-                    outputStream.writeInt(clientHello.size)
-                    outputStream.write(clientHello)
-                    outputStream.flush()
+                    // 1. 【SPAKE2 阶段 1】发送 Client Hello (包裹 PairingPacket: SPAKE2_MSG)
+                    val rawClientHello = spake2Engine.generateClientHello()
+                    val clientPacket = PairingPacket(
+                        type = PairingPacket.Type.SPAKE2_MSG,
+                        payload = rawClientHello
+                    )
+                    sendPacket(outputStream, clientPacket)
 
-                    // 6. 【SPAKE2 握手阶段 2】读取 Server Hello 并计算共享会话密钥
-                    val serverHelloLen = inputStream.readInt()
-                    require(serverHelloLen in 1..4096) { "Invalid SPAKE2 server hello length: $serverHelloLen" }
-                    
-                    val serverHello = ByteArray(serverHelloLen)
-                    inputStream.readFully(serverHello)
-                    
-                    spake2Engine.processServerHelloAndDeriveKey(serverHello)
+                    // 2. 【SPAKE2 阶段 2】接收 Server Hello 并派生密钥
+                    val serverPacket = receivePacket(inputStream)
+                    require(serverPacket.type == PairingPacket.Type.SPAKE2_MSG) {
+                        "Expected SPAKE2_MSG packet type, got: ${serverPacket.type}"
+                    }
+                    spake2Engine.processServerHelloAndDeriveKey(serverPacket.payload)
 
-                    // 7. 【密文传输阶段】使用 SPAKE2 派生的 Key 加密发送 adbkey.pub
-                    val pubKeyBytes = keyManager.getAdbPublicKeyBytes()
+                    // 3. 【密文传输阶段】加密发送 RSA ADB 公钥 (包裹 PairingPacket: PEER_INFO)
+                    // 注: AOSP 格式要求为包含完整字符串的 ByteArray (如 "ssh-rsa AAAAB3... user@host\0")
+                    val pubKeyBytes = keyManager.getAdbPublicKeyString().toByteArray(Charsets.UTF_8)
                     val encryptedPubKey = spake2Engine.encryptPayload(pubKeyBytes)
 
-                    outputStream.writeInt(encryptedPubKey.size)
-                    outputStream.write(encryptedPubKey)
-                    outputStream.flush()
+                    val infoPacket = PairingPacket(
+                        type = PairingPacket.Type.PEER_INFO,
+                        payload = encryptedPubKey
+                    )
+                    sendPacket(outputStream, infoPacket)
 
-                    // 8. 读取配对结果状态码（0x00 代表配对成功）
-                    val responseCode = inputStream.readByte().toInt()
-                    if (responseCode == 0x00) {
+                    // 4. 【结果校验】读取并解密对端响应
+                    val responsePacket = receivePacket(inputStream)
+                    val decryptedResponse = spake2Engine.decryptPayload(responsePacket.payload)
+
+                    // 对端响应不为空即表示配对验证通过并建立了互信
+                    if (decryptedResponse.isNotEmpty()) {
                         val peerPubKey = keyManager.getAdbPublicKeyString()
                         listener?.onPairingSuccess(peerPubKey)
                         true
                     } else {
-                        val error = IllegalStateException("Pairing rejected by peer device (SPAKE2 auth failed), code: $responseCode")
+                        val error = IllegalStateException("Pairing rejected by peer device (empty auth response)")
                         listener?.onPairingFailed(error)
                         throw error
                     }
@@ -98,6 +105,27 @@ public class AdbPairingClient(
             listener?.onPairingFailed(e)
             false
         }
+    }
+
+    /**
+     * 写入带 4 字节 Big-Endian 长度前缀的 Protobuf 报文
+     */
+    private fun sendPacket(out: DataOutputStream, packet: PairingPacket) {
+        val bytes = ProtoBuf.encodeToByteArray(packet)
+        out.writeInt(bytes.size)
+        out.write(bytes)
+        out.flush()
+    }
+
+    /**
+     * 读取带 4 字节 Big-Endian 长度前缀的 Protobuf 报文
+     */
+    private fun receivePacket(input: DataInputStream): PairingPacket {
+        val len = input.readInt()
+        require(len in 1..65536) { "Invalid packet length received: $len" }
+        val buf = ByteArray(len)
+        input.readFully(buf)
+        return ProtoBuf.decodeFromByteArray(buf)
     }
 
     companion object {
