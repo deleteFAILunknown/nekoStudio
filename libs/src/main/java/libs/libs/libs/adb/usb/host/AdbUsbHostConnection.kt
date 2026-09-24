@@ -21,7 +21,7 @@ public class AdbUsbHostConnection(
     private var outEndpoint: UsbEndpoint? = null
 
     /**
-     * 打开并初始化 USB Host 通道
+     * 打开并初始化 USB Host (OTG) 通道
      */
     public suspend fun open(timeoutMs: Int = 5000): Boolean = withContext(Dispatchers.IO) {
         close()
@@ -53,7 +53,7 @@ public class AdbUsbHostConnection(
             return@withContext false
         }
 
-        // 2. 打开设备连接
+        // 2. 打开设备连接并占用接口
         val conn = usbManager.openDevice(device) ?: return@withContext false
         if (!conn.claimInterface(targetInterface, true)) {
             conn.close()
@@ -69,7 +69,7 @@ public class AdbUsbHostConnection(
     }
 
     /**
-     * 读取 ADB 报文
+     * 从 USB 接口读取完整的 ADB 报文
      */
     public suspend fun readPacket(timeoutMs: Int = 10000): AdbPacket = withContext(Dispatchers.IO) {
         val conn = connection ?: throw IllegalStateException("USB Connection not opened")
@@ -102,17 +102,43 @@ public class AdbUsbHostConnection(
     }
 
     /**
-     * 写入 ADB 报文
+     * 向 USB 接口写入 ADB 报文（附带 ZLP 零长包防挂起处理）
      */
-    public suspend fun writePacket(packet: AdbPacket, skipChecksum: Boolean = true, timeoutMs: Int = 5000) = withContext(Dispatchers.IO) {
+    public suspend fun writePacket(
+        packet: AdbPacket,
+        skipChecksum: Boolean = true,
+        timeoutMs: Int = 5000
+    ) = withContext(Dispatchers.IO) {
         val conn = connection ?: throw IllegalStateException("USB Connection not opened")
         val epOut = outEndpoint ?: throw IllegalStateException("USB OUT endpoint is null")
 
         val bytes = packet.toByteArray(skipChecksum = skipChecksum)
-        val written = conn.bulkTransfer(epOut, bytes, bytes.size, timeoutMs)
-        check(written == bytes.size) { "Failed to write complete ADB packet over USB Host ($written/${bytes.size})" }
+
+        // 分块写入完整字节数组
+        var bytesWritten = 0
+        while (bytesWritten < bytes.size) {
+            val count = conn.bulkTransfer(
+                epOut,
+                bytes,
+                bytesWritten,
+                bytes.size - bytesWritten,
+                timeoutMs
+            )
+            check(count >= 0) { "USB Bulk write error at offset $bytesWritten" }
+            bytesWritten += count
+        }
+
+        // --- 关键硬件特性修复：发送 ZLP (Zero-Length Packet) ---
+        // 如果发送的数据长度刚好是 端点 MaxPacketSize 的整数倍，必须发送一个长度为 0 的包打破端点接收等待
+        val maxPacketSize = epOut.maxPacketSize
+        if (maxPacketSize > 0 && bytes.size % maxPacketSize == 0) {
+            conn.bulkTransfer(epOut, ByteArray(0), 0, 0, timeoutMs)
+        }
     }
 
+    /**
+     * 0 内存分配的批量读取辅助方法，直接填入目标 offset
+     */
     private fun bulkTransferExactly(
         conn: UsbDeviceConnection,
         ep: UsbEndpoint,
@@ -122,10 +148,14 @@ public class AdbUsbHostConnection(
     ): Int {
         var bytesRead = 0
         while (bytesRead < length) {
-            val tempBuf = ByteArray(length - bytesRead)
-            val count = conn.bulkTransfer(ep, tempBuf, tempBuf.size, timeoutMs)
+            val count = conn.bulkTransfer(
+                ep,
+                buffer,
+                bytesRead,
+                length - bytesRead,
+                timeoutMs
+            )
             if (count < 0) break
-            System.arraycopy(tempBuf, 0, buffer, bytesRead, count)
             bytesRead += count
         }
         return bytesRead
@@ -147,6 +177,9 @@ public class AdbUsbHostConnection(
     public val isOpen: Boolean get() = connection != null
 
     companion object {
+        /**
+         * 校验接口是否为标准的 ADB Vendor 接口 (Class 255, Subclass 66, Protocol 1)
+         */
         public fun isAdbInterface(iface: UsbInterface): Boolean {
             return iface.interfaceClass == UsbConstants.USB_CLASS_VENDOR_SPEC &&
                     iface.interfaceSubclass == 66 &&

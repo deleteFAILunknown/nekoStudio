@@ -18,7 +18,7 @@ public class AdbUsbAccessoryManager(private val usbManager: UsbManager) {
     private var outputStream: FileOutputStream? = null
 
     /**
-     * 发送 AOA 握手控制命令，指示物理设备切换到 USB Accessory 模式
+     * 发送 AOA 握手控制命令，指示目标 USB 设备切换到 USB Accessory 模式
      */
     public suspend fun initAccessoryMode(
         device: UsbDevice,
@@ -32,20 +32,24 @@ public class AdbUsbAccessoryManager(private val usbManager: UsbManager) {
         val connection: UsbDeviceConnection = usbManager.openDevice(device) ?: return@withContext false
 
         try {
-            // 1. 查询设备支持的 AOA 协议版本
+            // 1. 查询设备支持的 AOA 协议版本 (Request 51)
             val versionBuffer = ByteArray(2)
-            val protocolVersion = connection.controlTransfer(
+            val len = connection.controlTransfer(
                 0xC0, // USB_DIR_IN | USB_TYPE_VENDOR
                 51,   // ACCESSORY_GET_PROTOCOL
                 0, 0, versionBuffer, 2, 2000
             )
 
-            if (protocolVersion < 0) {
-                connection.close()
+            if (len < 2) {
                 return@withContext false
             }
 
-            // 2. 发送 AOA 标识字符串信息
+            val protocolVersion = (versionBuffer[1].toInt() shl 8) or (versionBuffer[0].toInt() and 0xFF)
+            if (protocolVersion < 1) { // 必须支持 AOA 1.0 或 2.0
+                return@withContext false
+            }
+
+            // 2. 发送 AOA 标识字符串信息 (Request 52)
             sendAccessoryString(connection, 0, manufacturer)
             sendAccessoryString(connection, 1, model)
             sendAccessoryString(connection, 2, description)
@@ -53,14 +57,14 @@ public class AdbUsbAccessoryManager(private val usbManager: UsbManager) {
             sendAccessoryString(connection, 4, uri)
             sendAccessoryString(connection, 5, serial)
 
-            // 3. 触发设备重启进入 Accessory 模式
-            connection.controlTransfer(
+            // 3. 触发设备重连并进入 Accessory 模式 (Request 53)
+            val result = connection.controlTransfer(
                 0x40, // USB_DIR_OUT | USB_TYPE_VENDOR
                 53,   // ACCESSORY_START
                 0, 0, null, 0, 2000
             )
 
-            true
+            result >= 0
         } catch (e: Exception) {
             e.printStackTrace()
             false
