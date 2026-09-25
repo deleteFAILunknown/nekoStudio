@@ -8,11 +8,14 @@ import libs.libs.libs.adb.shell.ShellV2Packet
 import libs.libs.libs.adb.sync.AdbSyncClientV2
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlin.OptIn
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStream
 import java.util.zip.ZipFile
 
+@OptIn(ExperimentalSerializationApi::class)
 public class AdbAbbClient(
     @PublishedApi internal val connection: AdbConnection
 ) {
