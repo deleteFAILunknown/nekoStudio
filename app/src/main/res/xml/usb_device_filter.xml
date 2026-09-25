@@ -10,14 +10,14 @@
    <usb-device  class="255"  subclass="66"  protocol="2" />
 
    <!-- 9008 -->
-   <usb-device vendor-id="05c6" product-id="9008" />
+   <usb-device vendor-id="0x05C6" product-id="0x9008" />
 
    <!-- 900e -->
-   <usb-device vendor-id="05c6" product-id="900e" />
+   <usb-device vendor-id="0x05C6" product-id="0x900E" />
 
    <!-- MediaTek Preloader -->
-   <usb-device vendor-id="0e8d" product-id="0003" />
+   <usb-device vendor-id="0x0E8D" product-id="0x0003" />
 
    <!-- MediaTek MTK USB Port (BROM) -->
-   <usb-device vendor-id="0e8d" product-id="2000" />
+   <usb-device vendor-id="0x0E8D" product-id="0x2000" />
 </resources>
