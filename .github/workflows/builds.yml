@@ -30,16 +30,10 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
 
-      - name: Setup Android NDK
-        uses: nttld/setup-ndk@v1
-        with:
-          ndk-version: 30.0.16248370
-          local-cache: true
-
       - name: Setup CMake
         uses: lukka/get-cmake@v4.4.2
         with:
-          useLocalCache: true
+          useLocalCache: false
           useCloudCache: true
 
       - name: Check CMake Version
