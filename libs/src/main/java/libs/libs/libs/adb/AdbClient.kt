@@ -26,7 +26,6 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlin.OptIn
 import java.io.File
 import java.io.InputStream
-import java.util.zip.ZipFile
 
 /**
  * 统一 ADB 客户端门面 (Facade)
@@ -76,12 +75,6 @@ public class AdbClient(
 
     /**
      * 无线配对 (基于 Android 11+ SPAKE2 / SPAKE2+ 握手协议)
-     *
-     * @param host 目标设备 IP 地址
-     * @param port 设置页面展示的配对端口
-     * @param pairingCode 设置页面展示的 6 位数字配对码
-     * @param listener 配对回调监听器（可选）
-     * @return 返回配对成功的 Result<String>，包含公钥文本
      */
     public suspend fun pair(
         host: String,
@@ -107,7 +100,7 @@ public class AdbClient(
     }
 
     /**
-     * 连接 TCP 无线/网络设备 (调用 connect/AdbConnection)
+     * 连接 TCP 无线/网络设备
      */
     public suspend fun connect(
         host: String,
@@ -170,109 +163,46 @@ public class AdbClient(
         return success
     }
 
-    // 应用安装与传输 API (对接 abb & sync 模块)
+    // 应用安装与传输 API (全面由 AdbAbbClient 模块托管)
 
     /**
-     * 安装单体 APK（优先走 ABB 极速流，不支持则降级走 Sync V2 + Shell pm install）
+     * 安装单体 APK 文件 (底层由 AdbAbbClient 自动选择 ABB 极速流或 pm install 兼容模式)
      */
     public suspend fun installApk(
         apkFile: File,
         options: AbbInstallOptions = AbbInstallOptions(),
         onProgress: ((written: Long, total: Long) -> Unit)? = null
-    ): Result<Unit> {
-        require(apkFile.exists()) { "APK file non-existent: ${apkFile.absolutePath}" }
-
-        return if (hasFeature("abb_exec") || hasFeature("abb")) {
-            apkFile.inputStream().use { stream ->
-                abb.installApk(stream, apkFile.length(), options, onProgress)
-            }
-        } else {
-            runCatching {
-                val tempPath = "/data/local/tmp/temp_${System.currentTimeMillis()}.apk"
-                apkFile.inputStream().use { sync.pushV2(it, tempPath, apkFile.length(), onProgress = onProgress) }
-                val result = shell.execV2("pm install ${options.toArgs().joinToString(" ")} $tempPath")
-                shell.execV2("rm -f $tempPath")
-                check(result.isSuccess && result.stdout.contains("Success")) {
-                    "Install failed: ${result.stdout} ${result.stderr}"
-                }
-            }
-        }
-    }
+    ): Result<Unit> = abb.installApk(apkFile, options, onProgress)
 
     /**
-     * 安装 APKS 应用套件（优先走 ABB 零磁盘极速流，不支持则降级走 Sync V2 + pm install-create/write/commit 会话）
+     * 流式安装单体 APK Stream
+     */
+    public suspend fun installApk(
+        apkStream: InputStream,
+        apkSize: Long,
+        options: AbbInstallOptions = AbbInstallOptions(),
+        onProgress: ((written: Long, total: Long) -> Unit)? = null
+    ): Result<Unit> = abb.installApk(apkStream, apkSize, options, onProgress)
+
+    /**
+     * 安装 APKS 应用套件 (底层由 AdbAbbClient 自动选择 ABB 零磁盘解压流或 pm install 兼容模式)
      */
     public suspend fun installApks(
         apksFile: File,
         options: AbbInstallOptions = AbbInstallOptions(),
         onProgress: ((written: Long, total: Long) -> Unit)? = null
-    ): Result<Unit> {
-        require(apksFile.exists()) { "APKS file non-existent: ${apksFile.absolutePath}" }
-
-        return if (hasFeature("abb_exec") || hasFeature("abb")) {
-            abb.installApks(apksFile, options, onProgress)
-        } else {
-            runCatching {
-                ZipFile(apksFile).use { zip ->
-                    val apkEntries = zip.entries().asSequence()
-                        .filter { !it.isDirectory && it.name.endsWith(".apk", ignoreCase = true) }
-                        .toList()
-
-                    check(apkEntries.isNotEmpty()) { "No .apk files found in ${apksFile.name}" }
-
-                    val totalBytes = apkEntries.sumOf { it.size }
-                    val createResult = shell.execV2("pm install-create -S $totalBytes ${options.toArgs().joinToString(" ")}")
-                    check(createResult.isSuccess) { "Failed to create install session: ${createResult.stderr}" }
-
-                    val sessionId = Regex("""\[(\d+)]""").find(createResult.stdout)?.groupValues?.get(1)
-                        ?: throw IllegalStateException("Failed to parse session ID from: ${createResult.stdout}")
-
-                    var globalWritten = 0L
-
-                    try {
-                        apkEntries.forEachIndexed { index, entry ->
-                            val splitName = entry.name.substringAfterLast('/')
-                            val tempPath = "/data/local/tmp/temp_split_${index}_${System.currentTimeMillis()}.apk"
-
-                            zip.getInputStream(entry).use { inputStream ->
-                                sync.pushV2(
-                                    inputStream = inputStream,
-                                    remotePath = tempPath,
-                                    totalSize = entry.size,
-                                    onProgress = { read, _ ->
-                                        onProgress?.invoke(globalWritten + read, totalBytes)
-                                    }
-                                )
-                            }
-                            globalWritten += entry.size
-
-                            val writeResult = shell.execV2("pm install-write -S ${entry.size} $sessionId $splitName $tempPath")
-                            shell.execV2("rm -f $tempPath")
-                            check(writeResult.isSuccess) { "Failed to write split $splitName: ${writeResult.stderr}" }
-                        }
-
-                        val commitResult = shell.execV2("pm install-commit $sessionId")
-                        check(commitResult.isSuccess && commitResult.stdout.contains("Success")) {
-                            "Failed to commit session $sessionId: ${commitResult.stdout}${commitResult.stderr}"
-                        }
-                    } catch (e: Exception) {
-                        shell.execV2("pm install-abandon $sessionId")
-                        throw e
-                    }
-                }
-            }
-        }
-    }
+    ): Result<Unit> = abb.installApks(apksFile, options, onProgress)
 
     /**
-     * 流式安装 Split APKs 套件（底层透传给 AdbAbbClient）
+     * 流式安装 Split APKs 套件
      */
     public suspend fun installSplitApks(
         apks: Map<String, Pair<InputStream, Long>>,
-        options: AbbInstallOptions = AbbInstallOptions()
-    ): Result<Unit> {
-        return abb.installSplitApks(apks, options)
-    }
+        options: AbbInstallOptions = AbbInstallOptions(),
+        onProgress: ((written: Long, total: Long) -> Unit)? = null
+    ): Result<Unit> = abb.installSplitApks(apks, options, onProgress)
+
+    // 文件传输 API (对接 sync 模块)
 
     /**
      * 推送文件到远程设备 (优先使用 Sync V2 SND2，不支持时自动退回 Sync V1 SEND)
