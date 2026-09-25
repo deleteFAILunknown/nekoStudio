@@ -35,9 +35,9 @@ jobs:
         id: setup-ndk
         with:
           ndk-version: r30
-          add-to-path: true
+          add-to-path: false
           local-cache: true
-          link-to-sdk: true
+          link-to-sdk: false
 
       - name: Setup CMake
         uses: lukka/get-cmake@v4.4.2
