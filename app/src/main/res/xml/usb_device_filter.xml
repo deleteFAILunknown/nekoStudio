@@ -1,5 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+   <!-- adb -->
    <usb-device  class="255"  subclass="66"  protocol="1" />
+
+   <!-- fastboot & adb sideload -->
    <usb-device  class="255"  subclass="66"  protocol="3" />
+
+   <!-- The fastbootd interface that some new devices may use -->
+   <usb-device  class="255"  subclass="66"  protocol="2" />
+
+   <!-- 9008 -->
+   <usb-device vendor-id="05c6" product-id="9008" />
+
+   <!-- 900e -->
+   <usb-device vendor-id="05c6" product-id="900e" />
+
+   <!-- MediaTek Preloader -->
+   <usb-device vendor-id="0e8d" product-id="0003" />
+
+   <!-- MediaTek MTK USB Port (BROM) -->
+   <usb-device vendor-id="0e8d" product-id="2000" />
 </resources>
