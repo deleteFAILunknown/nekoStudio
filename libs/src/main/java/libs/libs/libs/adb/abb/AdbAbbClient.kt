@@ -94,10 +94,18 @@ public class AdbAbbClient(
             val createArgs = mutableListOf("package", "install-create", "-S", apkSize.toString())
             createArgs.addAll(options.toArgs())
 
-            val createResult = execAbb(createArgs)
+            var createResult = execAbb(createArgs)
+            
+            // 兼容性降级处理：若因 Android 13- 不识别 --bypass-low-target-sdk-block 报错，自动剔除该 Flag 重试
+            if (!createResult.isSuccess && options.bypassLowTargetSdkBlock && createResult.stderr.contains("Unknown option")) {
+                val fallbackArgs = mutableListOf("package", "install-create", "-S", apkSize.toString())
+                fallbackArgs.addAll(options.toArgs(includeBypassLowSdk = false))
+                createResult = execAbb(fallbackArgs)
+            }
+
             check(createResult.isSuccess) { "Failed to create install session: ${createResult.stderr}" }
 
-            // 解析 Session ID，例如响应为: "Success: created install session [12345678]"
+            // 解析 Session ID
             val sessionId = extractSessionId(createResult.stdout)
                 ?: throw IllegalStateException("Failed to parse session ID from: ${createResult.stdout}")
 
@@ -111,16 +119,18 @@ public class AdbAbbClient(
                     ?: throw IllegalStateException("Failed to open install-write stream")
 
                 try {
-                    val buffer = ByteArray(64 * 1024) // 64KB 传输缓冲区
-                    var bytesWritten = 0L
-                    var read: Int
+                    apkStream.use { input ->
+                        val buffer = ByteArray(64 * 1024) // 64KB 传输缓冲区
+                        var bytesWritten = 0L
+                        var read: Int
 
-                    while (apkStream.read(buffer).also { read = it } != -1) {
-                        if (read > 0) {
-                            val chunk = if (read == buffer.size) buffer else buffer.copyOf(read)
-                            writeStream.write(chunk)
-                            bytesWritten += read
-                            onProgress?.invoke(bytesWritten, apkSize)
+                        while (input.read(buffer).also { read = it } != -1) {
+                            if (read > 0) {
+                                val chunk = if (read == buffer.size) buffer else buffer.copyOf(read)
+                                writeStream.write(chunk)
+                                bytesWritten += read
+                                onProgress?.invoke(bytesWritten, apkSize)
+                            }
                         }
                     }
                 } finally {
@@ -142,10 +152,6 @@ public class AdbAbbClient(
 
     /**
      * 直接传入 .apks 文件进行【随机流读取 + 零磁盘解压】极速安装
-     * 
-     * @param apksFile 本地 .apks 文件
-     * @param options 安装选项 (如 -r, -d, -t 等)
-     * @param onProgress 全局传输进度回调 (当前已传输字节数, 所有 split 解压后总字节数)
      */
     public suspend fun installApks(
         apksFile: File,
@@ -163,14 +169,21 @@ public class AdbAbbClient(
 
                 check(apkEntries.isNotEmpty()) { "No .apk files found in ${apksFile.name}" }
 
-                // 1. 汇总所有 split apk 解压后的实际总大小
                 val totalBytes = apkEntries.sumOf { it.size }
 
-                // 2. 创建 Session
+                // 1. 创建 Session
                 val createArgs = mutableListOf("package", "install-create", "-S", totalBytes.toString())
                 createArgs.addAll(options.toArgs())
 
-                val createResult = execAbb(createArgs)
+                var createResult = execAbb(createArgs)
+                
+                // 兼容性降级处理
+                if (!createResult.isSuccess && options.bypassLowTargetSdkBlock && createResult.stderr.contains("Unknown option")) {
+                    val fallbackArgs = mutableListOf("package", "install-create", "-S", totalBytes.toString())
+                    fallbackArgs.addAll(options.toArgs(includeBypassLowSdk = false))
+                    createResult = execAbb(fallbackArgs)
+                }
+
                 check(createResult.isSuccess) { "Failed to create install session: ${createResult.stderr}" }
 
                 val sessionId = extractSessionId(createResult.stdout)
@@ -179,8 +192,8 @@ public class AdbAbbClient(
                 var globalBytesWritten = 0L
 
                 try {
-                    // 3. 遍历每个 entry，根据中央目录 Offset 随机跳转并 Pipe 给 Target 设备
-                    apkEntries.forEachIndexed { index, entry ->
+                    // 2. 遍历每个 split entry，Pipe 给 Target 设备
+                    apkEntries.forEach { entry ->
                         val splitName = entry.name.substringAfterLast('/')
                         val entrySize = entry.size
 
@@ -211,13 +224,12 @@ public class AdbAbbClient(
                         }
                     }
 
-                    // 4. 提交 Session
+                    // 3. 提交 Session
                     val commitResult = execAbb(listOf("package", "install-commit", sessionId))
                     check(commitResult.isSuccess && commitResult.stdout.contains("Success")) {
                         "Failed to commit install session $sessionId: ${commitResult.stdout}${commitResult.stderr}"
                     }
                 } catch (e: Exception) {
-                    // 异常时回滚放弃 Session
                     execAbb(listOf("package", "install-abandon", sessionId))
                     throw e
                 }
@@ -237,7 +249,13 @@ public class AdbAbbClient(
             val createArgs = mutableListOf("package", "install-create", "-S", totalSize.toString())
             createArgs.addAll(options.toArgs())
 
-            val createResult = execAbb(createArgs)
+            var createResult = execAbb(createArgs)
+            if (!createResult.isSuccess && options.bypassLowTargetSdkBlock && createResult.stderr.contains("Unknown option")) {
+                val fallbackArgs = mutableListOf("package", "install-create", "-S", totalSize.toString())
+                fallbackArgs.addAll(options.toArgs(includeBypassLowSdk = false))
+                createResult = execAbb(fallbackArgs)
+            }
+
             val sessionId = extractSessionId(createResult.stdout)
                 ?: throw IllegalStateException("Failed to parse session ID")
 
@@ -252,12 +270,14 @@ public class AdbAbbClient(
                         ?: throw IllegalStateException("Failed to open stream for $splitName")
 
                     try {
-                        val buffer = ByteArray(64 * 1024)
-                        var read: Int
-                        while (stream.read(buffer).also { read = it } != -1) {
-                            if (read > 0) {
-                                val chunk = if (read == buffer.size) buffer else buffer.copyOf(read)
-                                writeStream.write(chunk)
+                        stream.use { input ->
+                            val buffer = ByteArray(64 * 1024)
+                            var read: Int
+                            while (input.read(buffer).also { read = it } != -1) {
+                                if (read > 0) {
+                                    val chunk = if (read == buffer.size) buffer else buffer.copyOf(read)
+                                    writeStream.write(chunk)
+                                }
                             }
                         }
                     } finally {
