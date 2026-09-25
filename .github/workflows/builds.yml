@@ -60,7 +60,7 @@ jobs:
           echo "${{ secrets.LINEAGE_C_BASE64 }}" | base64 --decode > app/bash/app_lineage_3.bin
 
       - name: Build Debug, Release and Bundle
-        run: ./gradlew :app:lint :app:assembleDebug :app:assembleRelease :app:bundleDebug :app:bundleRelease -i -w --info --build-cache --offline --warning-mode all 2>&1 | tee build.log
+        run: ./gradlew :app:lint :app:assembleDebug :app:assembleRelease :app:bundleDebug :app:bundleRelease -i -w --info --build-cache --warning-mode all 2>&1 | tee build.log
         env:
           RELEASE_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
