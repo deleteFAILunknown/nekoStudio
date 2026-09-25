@@ -50,10 +50,6 @@ fun CommandHelpBottomSheet(
                         description = "adb connect 198.0.0.1 13056"
                     ),
                     CommandOption(
-                        flag = "adb tls IP地址 无线调试端口",
-                        description = "adb tls 198.0.0.1 13056"
-                    ),
-                    CommandOption(
                         flag = "adb push",
                         description = "推送文件"
                     ),
@@ -86,12 +82,12 @@ fun CommandHelpBottomSheet(
                         description = "重启设备"
                     ),
                     CommandOption(
-                        flag = "adb start",
-                        description = "重置连接状态"
+                        flag = "adb usb-host",
+                        description = "建立 USB 主机通信"
                     ),
                     CommandOption(
-                        flag = "adb stop",
-                        description = "断开连接"
+                        flag = "adb usb-accessory",
+                        description = "建立 USB 配件通信"
                     )
                 )
             ),

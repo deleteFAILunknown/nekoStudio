@@ -318,7 +318,6 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
 
     private val _adbCommands = listOf(
         AdbCommand("无线调试配对", "adb pair "),
-        AdbCommand("无线调试TLS配对", "adb tls "),
         AdbCommand("连接无线调试", "adb connect "),
         AdbCommand("adbd Shell", "adb shell "),
         AdbCommand("adb 主机模式", "adb usb-host"),
@@ -329,10 +328,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         AdbCommand("卸载软件", "adb uninstall "),
         AdbCommand("登录超级用户", "adb root"),
         AdbCommand("退出超级用户", "adb unroot"),
-        AdbCommand("重连 adbd", "adb start"),
-        AdbCommand("断开 adbd", "adb stop"),
         AdbCommand("设备重启", "adb reboot "),
-        AdbCommand("查看连接列表", "adb list"),
         AdbCommand("挂载文件系统", "adb remount "),
         AdbCommand("abb 特征", "adb abb "),
         AdbCommand("查看应用自身域", "id"),

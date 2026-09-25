@@ -4,9 +4,6 @@ package libs.libs.libs.adb
 * alias(libs.plugins.android.library)
 * alias(libs.plugins.kotlinx.serialization)
 *
-* Android 11+ TLS认证
-* adb tls
-*
 * Android 11+ 无线调试配对
 * adb pair
 *
@@ -40,24 +37,12 @@ package libs.libs.libs.adb
 * 卸载应用程序
 * adb uninstall
 *
-* 设备发现
-* adb device
-*
-* adb 版本
-* adb version
-*
 * abb 命令支持
 * adb abb
 *
 * 挂载文件系统
 * adb remount
 *
-* 重置连接
-* adb start
-*
-* 断开连接
-* adb stop
-*
-* 已连接的设备列表
-* adb list
+* 重启设备
+* adb reboot
 */
