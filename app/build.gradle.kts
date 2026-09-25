@@ -23,9 +23,9 @@ val libsNdk = libs.versions.android.ndk.version.get()
 val libsCmake = libs.versions.cmake.version.get()
 val libsBuildTools = libs.versions.android.buildTools.version.get()
 
-val envNewStorePassword = System.getenv("RELEASE_STORE_PASSWORD") ?: ""
-val envNewKeyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: ""
-val envNewKeyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: ""
+val envNewStorePassword = providers.environmentVariable("RELEASE_STORE_PASSWORD").orElse("").get()
+val envNewKeyAlias = providers.environmentVariable("RELEASE_KEY_ALIAS").orElse("").get()
+val envNewKeyPassword = providers.environmentVariable("RELEASE_KEY_PASSWORD").orElse("").get()
 
 android {
     namespace = "com.adb.kitty"
