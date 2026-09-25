@@ -1,23 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-   <!-- adb -->
-   <usb-device  class="255"  subclass="66"  protocol="1" />
+    <!-- adb -->
+    <usb-device  class="255"  subclass="66"  protocol="1" />
 
-   <!-- fastboot & adb sideload -->
-   <usb-device  class="255"  subclass="66"  protocol="3" />
+    <!-- fastboot & adb sideload -->
+    <usb-device  class="255"  subclass="66"  protocol="3" />
 
-   <!-- The fastbootd interface that some new devices may use -->
-   <usb-device  class="255"  subclass="66"  protocol="2" />
+    <!-- The fastbootd interface that some new devices may use -->
+    <usb-device  class="255"  subclass="66"  protocol="2" />
 
-   <!-- 9008 -->
-   <usb-device vendor-id="0x05C6" product-id="0x9008" />
+    <!-- Qualcomm 9008 (0x9008 -> 36872) -->
+    <usb-device vendor-id="1478" product-id="36872" />
 
-   <!-- 900e -->
-   <usb-device vendor-id="0x05C6" product-id="0x900E" />
+    <!-- Qualcomm 900E (0x900E -> 36878) -->
+    <usb-device vendor-id="1478" product-id="36878" />
 
-   <!-- MediaTek Preloader -->
-   <usb-device vendor-id="0x0E8D" product-id="0x0003" />
+    <!-- MTK Preloader (0x0E8D -> 3725 | 0x0003 -> 3) -->
+    <usb-device vendor-id="3725" product-id="3" />
 
-   <!-- MediaTek MTK USB Port (BROM) -->
-   <usb-device vendor-id="0x0E8D" product-id="0x2000" />
+    <!-- MTK BROM (0x0E8D -> 3725 | 0x2000 -> 8192) -->
+    <usb-device vendor-id="3725" product-id="8192" />
 </resources>
