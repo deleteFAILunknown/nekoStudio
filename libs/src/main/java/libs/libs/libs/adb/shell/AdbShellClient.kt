@@ -140,7 +140,7 @@ public class AdbShellClient(
     }
 
     /**
-     * 读取命令返回的纯原始字节数组（基于 V1 `exec:`，无协议拆包开销，适合下载/截图等二进制流）
+     * 读取 Shell V1 命令返回的纯原始字节数组（无协议拆包开销，适合下载/截图等二进制流）
      */
     public suspend fun execRawBytes(command: String): ByteArray = withContext(Dispatchers.IO) {
         val stream = connection.openStream("exec:$command")
@@ -199,14 +199,14 @@ public class AdbShellClient(
 
     /**
      * 直接读取 STDOUT 二进制 Payload 并反序列化为 Kotlin 对象 [T]
-     * 修正：V2 模式下使用纯字节流读取，防止 UTF-8 转码破坏Protobuf结构
+     * 自动兼容 V1 与 V2，使用纯字节流读取，防止 UTF-8 转码破坏 Protobuf 结构
      */
     public suspend inline fun <reified T> execProto(command: String): Result<T> = withContext(Dispatchers.IO) {
         runCatching {
-            val bytes = if (supportsShellV2) {
-                execV2RawBytes(command)
+            val bytes = if (this@AdbShellClient.supportsShellV2) {
+                this@AdbShellClient.execV2RawBytes(command)
             } else {
-                execRawBytes(command)
+                this@AdbShellClient.execRawBytes(command)
             }
             protoBuf.decodeFromByteArray<T>(bytes)
         }
@@ -227,7 +227,7 @@ public class AdbShellClient(
         runCatching {
             val inputBytes = protoBuf.encodeToByteArray(requestPayload)
 
-            val outputBytes = if (supportsShellV2) {
+            val outputBytes = if (this@AdbShellClient.supportsShellV2) {
                 val stream = connection.openStream("shell,v2,raw:$command")
                     ?: throw IllegalStateException("Failed to open shell_v2 stream")
 
