@@ -9,10 +9,10 @@
     <!-- The fastbootd interface that some new devices may use -->
     <usb-device  class="255"  subclass="66"  protocol="2" />
 
-    <!-- Qualcomm 9008 (0x9008 -> 36872) -->
+    <!-- Qualcomm 9008 (0x05C6 -> 1478 | 0x9008 -> 36872) -->
     <usb-device vendor-id="1478" product-id="36872" />
 
-    <!-- Qualcomm 900E (0x900E -> 36878) -->
+    <!-- Qualcomm 900E (0x05C6 -> 1478 | 0x900E -> 36878) -->
     <usb-device vendor-id="1478" product-id="36878" />
 
     <!-- MTK Preloader (0x0E8D -> 3725 | 0x0003 -> 3) -->
