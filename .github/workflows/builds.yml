@@ -30,7 +30,8 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
 
-      - uses: nttld/setup-ndk@v1
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
         id: setup-ndk
         with:
           ndk-version: r30
@@ -43,6 +44,8 @@ jobs:
         with:
           useLocalCache: true
           useCloudCache: true
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
 
       - name: Check CMake Version
         run: cmake --version

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 4.4.2)
 
-project(NekoProject)
+project(nekoStudio)
 
 # 设置 C 标准（可选：90, 99, 11, 17, 23)
 set(CMAKE_C_STANDARD 17)
