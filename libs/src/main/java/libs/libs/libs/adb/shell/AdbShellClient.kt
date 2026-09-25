@@ -140,36 +140,52 @@ public class AdbShellClient(
     }
 
     /**
-     * 读取命令返回的纯原始字节数组（基于 V1 `exec:`，无协议拆包开销，适合下载/截图等二进制流）
+     * 执行 Shell V2 并直接返回纯二进制 STDOUT (避免 UTF-8 编码转换损坏 Protobuf/图片等原始数据)
      */
-    public suspend fun execRawBytes(command: String): ByteArray = withContext(Dispatchers.IO) {
-        val stream = connection.openStream("exec:$command")
-            ?: throw IllegalStateException("Failed to open stream for $command")
+    public suspend fun execV2RawBytes(command: String): ByteArray = withContext(Dispatchers.IO) {
+        val stream = connection.openStream("shell,v2,raw:$command")
+            ?: throw IllegalStateException("Failed to open shell_v2 stream")
 
-        val output = ByteArrayOutputStream()
+        val stdoutStream = ByteArrayOutputStream()
+        var exitCode = -1
+        val v2Buffer = ShellV2Buffer()
+
         try {
             while (true) {
                 val data = stream.read() ?: break
-                if (data.isNotEmpty()) output.write(data)
+                if (data.isNotEmpty()) {
+                    v2Buffer.append(data)
+                    while (true) {
+                        val packet = v2Buffer.pollPacket() ?: break
+                        when (packet.id) {
+                            ShellV2Packet.ID_STDOUT -> stdoutStream.write(packet.payload)
+                            ShellV2Packet.ID_EXIT -> {
+                                if (packet.payload.isNotEmpty()) {
+                                    exitCode = packet.payload[0].toInt() and 0xFF
+                                }
+                            }
+                        }
+                    }
+                }
             }
         } finally {
             stream.close()
         }
-        output.toByteArray()
+
+        check(exitCode == 0) { "Shell V2 execution failed with exit code $exitCode" }
+        stdoutStream.toByteArray()
     }
 
     // 场景二：系统 Proto Dump / 反序列化
 
     /**
      * 直接读取 STDOUT 二进制 Payload 并反序列化为 Kotlin 对象 [T]
-     * 自动兼容 V1 与 V2
+     * 修正：V2 模式下使用纯字节流读取，防止 UTF-8 转码破坏Protobuf结构
      */
     public suspend inline fun <reified T> execProto(command: String): Result<T> = withContext(Dispatchers.IO) {
         runCatching {
             val bytes = if (supportsShellV2) {
-                val res = execV2(command)
-                check(res.isSuccess) { "Shell V2 command failed: ${res.stderr}" }
-                res.stdout.toByteArray(Charsets.UTF_8)
+                execV2RawBytes(command)
             } else {
                 execRawBytes(command)
             }
