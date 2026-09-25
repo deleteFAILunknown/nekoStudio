@@ -140,6 +140,25 @@ public class AdbShellClient(
     }
 
     /**
+     * 读取命令返回的纯原始字节数组（基于 V1 `exec:`，无协议拆包开销，适合下载/截图等二进制流）
+     */
+    public suspend fun execRawBytes(command: String): ByteArray = withContext(Dispatchers.IO) {
+        val stream = connection.openStream("exec:$command")
+            ?: throw IllegalStateException("Failed to open stream for $command")
+
+        val output = ByteArrayOutputStream()
+        try {
+            while (true) {
+                val data = stream.read() ?: break
+                if (data.isNotEmpty()) output.write(data)
+            }
+        } finally {
+            stream.close()
+        }
+        output.toByteArray()
+    }
+
+    /**
      * 执行 Shell V2 并直接返回纯二进制 STDOUT (避免 UTF-8 编码转换损坏 Protobuf/图片等原始数据)
      */
     public suspend fun execV2RawBytes(command: String): ByteArray = withContext(Dispatchers.IO) {
