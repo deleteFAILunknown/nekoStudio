@@ -32,10 +32,9 @@ jobs:
 
       - name: Setup Android NDK
         uses: nttld/setup-ndk@v1
-        id: setup-ndk
         with:
           ndk-version: r30
-          add-to-path: false
+          add-to-path: true
           local-cache: true
           link-to-sdk: false
 
@@ -71,7 +70,6 @@ jobs:
       - name: Build Debug, Release and Bundle
         run: ./gradlew :app:lint :app:assembleDebug :app:assembleRelease :app:bundleDebug :app:bundleRelease -i -w --warning-mode all 2>&1 | tee build.log
         env:
-          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           RELEASE_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
