@@ -451,6 +451,12 @@ class AdbSessionService : Service() {
             .build()
 
         ShortcutManagerCompat.pushDynamicShortcut(this, shortcut)
+
+        ShortcutManagerCompat.disableShortcuts(
+            this,
+            listOf("adb_conversation_shortcut_id"),
+            "delete"
+        )
     }
 
     /**
