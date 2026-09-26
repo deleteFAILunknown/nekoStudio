@@ -521,7 +521,7 @@ class MainActivity : ComponentActivity() {
             IntentFilter(ACTION_USB_PERMISSION),
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
-        // 除非 Activity 销毁，否则不允许注册，这是预期行为，如果被注册则破坏整体逻辑，破坏等于重写整个应用的所有逻辑
+        // 除非 Activity 销毁，否则不允许注销，这是预期行为，如果被注销则破坏整体逻辑，破坏等于重写整个应用的所有逻辑
         // 其余系统广播合一注册（RECEIVER_EXPORTED）
         val systemIntentFilter = IntentFilter().apply {
             addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
@@ -566,6 +566,7 @@ class MainActivity : ComponentActivity() {
     private val systemReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
+                // 单一处理，逻辑清晰不冲突，互不影响
                 UsbManager.ACTION_USB_DEVICE_ATTACHED -> {
                     isUsbAttached = true
                     findHostDevice()
