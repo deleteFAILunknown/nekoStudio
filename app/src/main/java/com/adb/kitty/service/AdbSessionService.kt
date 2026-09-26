@@ -8,6 +8,8 @@ import com.adb.kitty.R
 import com.adb.kitty.*
 
 import android.util.Log
+import android.util.DisplayMetrics
+import android.view.WindowManager
 import android.graphics.*
 import android.app.Notification
 import android.app.NotificationChannel
@@ -373,10 +375,27 @@ class AdbSessionService : Service() {
                 putExtra("com.mbridge.msdk.intent.extra.open_in_freeform", true)
             }
 
-            // 1. 使用 androidx.window 精准获取物理屏幕分辨率（自动避开刘海与切边）
-            val windowMetrics = WindowMetricsCalculator.getOrCreate().computeCurrentWindowMetrics(this)
-            val screenWidth = windowMetrics.bounds.width()
-            val screenHeight = windowMetrics.bounds.height()
+            // --- 动态获取真实物理分辨率（彻底杜绝固定宽高） ---
+            val wm = getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager
+        
+            val screenWidth: Int
+            val screenHeight: Int
+
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                // Android 11+ (API 30+) 最纯粹的系统 API，不依赖 WindowMetricsCalculator，直接从系统的 WindowManager 读取
+                // 即使传入的是 Service Context 也不会闪退
+                val bounds = wm.currentWindowMetrics.bounds
+                screenWidth = bounds.width()
+                screenHeight = bounds.height()
+            } else {
+                // Android 10 及以下 (包含你的 minSdk 24) 的完美兜底
+                // 使用 getRealMetrics 可以绕过所有应用窗口限制，直接读取屏幕物理硬件的像素点
+                val metrics = android.util.DisplayMetrics()
+                @Suppress("DEPRECATION")
+                wm.defaultDisplay.getRealMetrics(metrics)
+                screenWidth = metrics.widthPixels
+                screenHeight = metrics.heightPixels
+            }
 
             // 2. 计算居中小窗的初始弹出尺寸 (宽度 85%，高度 60%)
             val windowWidth = (screenWidth * 0.85).toInt()
