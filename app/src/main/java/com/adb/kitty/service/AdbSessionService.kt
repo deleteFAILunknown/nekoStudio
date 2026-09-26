@@ -28,6 +28,7 @@ import android.net.wifi.WifiManager
 import android.net.wifi.p2p.*
 import android.os.Binder
 import android.os.Build
+import android.os.Bundle
 import android.os.Environment
 import android.os.IBinder
 import android.os.Process
@@ -377,7 +378,7 @@ class AdbSessionService : Service() {
                 }
             }
 
-            var optionsBundle: android.os.Bundle? = null
+            var optionsBundle: Bundle? = null
 
             // 只有 Android 10 (API 29) 及以上才去计算小窗尺寸并反射参数
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
