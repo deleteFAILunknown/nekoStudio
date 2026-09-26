@@ -78,7 +78,7 @@ class AdbSessionService : Service() {
         private const val ACTION_REPLY_COMMAND = "com.adb.kitty.ACTION_REPLY_COMMAND"
         const val ACTION_START_RECORDING = "com.adb.kitty.ACTION_START_RECORDING"
         const val ACTION_STOP_RECORDING = "com.adb.kitty.ACTION_STOP_RECORDING"
-        private const val KEY_REPLY_INPUT = "key_reply_input"
+        private const val KEY_REPLY_INPUT = "com.adb.kitty.service_key_reply_input"
     }
 
     private var lastCommand: String? = null
@@ -311,8 +311,8 @@ class AdbSessionService : Service() {
         manager.notify(NOTIFICATION_ID, buildNotification(contentText))
     }
 
-    private val SHORTCUT_ID = "adb_conversation_shortcut_id"
-    private val PERSON_KEY = "adb_person_key_001"
+    private val SHORTCUT_ID = "com.adb.kitty.service_shortcut_id"
+    private val PERSON_KEY = "com.adb.kitty.service_person_key_001"
 
     private var cachedReplyAction: NotificationCompat.Action? = null
     private var cachedOpenAppAction: NotificationCompat.Action? = null
