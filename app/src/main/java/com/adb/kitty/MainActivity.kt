@@ -105,6 +105,25 @@ import com.adb.kitty.data.help.*
 import com.adb.kitty.service.*
 import com.adb.kitty.R
 
+/**
+ * 扩展函数：将 BroadcastReceiver 包装为响应式 Flow，实现生命周期安全管理
+ */
+@Keep
+fun Context.registerReceiverFlow(
+    filter: IntentFilter,
+    flags: Int = ContextCompat.RECEIVER_EXPORTED
+): Flow<Intent> = callbackFlow {
+    val receiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            trySend(intent)
+        }
+    }
+    ContextCompat.registerReceiver(this@registerReceiverFlow, receiver, filter, flags)
+    awaitClose {
+        unregisterReceiver(receiver)
+    }
+}
+
 @Keep
 class MainActivity : ComponentActivity() {
     companion object {
@@ -150,7 +169,7 @@ class MainActivity : ComponentActivity() {
     
     private var pendingCsvContent: String? = null
 
-    // 注册系统 SAF 存储选择器，用于导出 CSV
+    // 1. SAF 导出 CSV
     private val createCsvLauncher = registerForActivityResult(
         ActivityResultContracts.CreateDocument("text/csv")
     ) { uri ->
@@ -169,7 +188,107 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    
+
+    // 2. 通知权限申请
+    private val requestNotificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            appendLog("[INFO] Android 13+ 通知权限校验")
+            startAndBindAdbService()
+        } else {
+            handlePermissionDeniedSituation()
+            startAndBindAdbService()
+        }
+    }
+
+    // 3. 网络扫描权限申请
+    private val requestNetworkPermissionsLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val isWifiScanGranted = permissions[getWifiScanPermission()] ?: true
+        val isLocalNetworkGranted = if (Build.VERSION.SDK_INT >= 37) {
+            permissions["android.permission.ACCESS_LOCAL_NETWORK"] ?: false
+        } else {
+            true
+        }
+        if (isWifiScanGranted && isLocalNetworkGranted) {
+            appendLog("[INFO] Wi-Fi 所需权限已授予，已具备激活无线链路条件")
+        } else {
+            appendLog("[Warn] 权限被拒绝，无法自动扫描 Wi-Fi SSID")
+        }
+    }
+
+    // 4. Android 11+ 所有文件管理权限
+    private val allFilesPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { _ ->
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && Environment.isExternalStorageManager()) {
+            appendLog("[INFO] Android 11+ 所有文件访问权限已授权")
+        } else {
+            appendLog("[Warn] Android 11+ 所有文件访问权限未授权")
+        }
+    }
+
+    // 5. Android 10- 传统读写权限
+    private val legacyStorageLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissionsMap ->
+        val isAllGranted = permissionsMap.values.all { it }
+        if (isAllGranted) {
+            appendLog("[INFO] Android 10 文件读写权限已授权")
+        } else {
+            appendLog("[Warn] Android 10 文件读写权限未授权")
+        }
+    }
+
+    // 6. 视频选择与音频提取
+    private var pendingAudioBaseName: String = ""
+    private val pickVideoLauncher = registerForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            appendLog("[INFO] 已成功选取视频，正在分析轨道并提取音频…")
+
+            lifecycleScope.launch {
+                val resultUri = extractAudioToMusicDirectory(
+                    context = this@MainActivity,
+                    videoUri = uri,
+                    baseFileName = pendingAudioBaseName,
+                    onProgress = { progress ->
+                        val percent = (progress * 100).toInt()
+                    }
+                )
+
+                if (resultUri != null) {
+                    appendLog("[OKAY] 音频提取完成！已安全保存至系统的【音乐(Music)/NekoExtractor】目录")
+                } else {
+                    appendLog("[error] 音频提取失败！可能视频中不包含有效的音频流，或多媒体架构初始化异常。")
+                }
+            }
+        } else {
+            appendLog("[Warn] 用户取消了视频选取。")
+        }
+    }
+
+    // 7. 二维码图片选择
+    private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if (uri != null) {
+            appendLog("[INFO] 已选择图片，开始解码...")
+
+            val result = QrCodeUtils.decodeQrCodes(this, uri)
+
+            if (result != null) {
+                appendLog("[INFO] 二维码解码成功！")
+                qrDecodeResult = result
+            } else {
+                appendLog("[error] 二维码解析失败，请确保图片清晰且确实包含二维码")
+            }
+        } else {
+            appendLog("[Warn] 取消了系统图片选择。")
+        }
+    }
+
     val turbo by lazy { PerformanceTurbo(this) }
 
     var qrCodeDialogContent by mutableStateOf<String?>(null)
@@ -215,159 +334,7 @@ class MainActivity : ComponentActivity() {
             viewModel.appendLog(msg)
         }
     }
-    
-    private val requestNotificationPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted: Boolean ->
-        if (isGranted) {
-            appendLog("[INFO] Android 13+ 通知权限校验")
-            startAndBindAdbService()
-        } else {
-            handlePermissionDeniedSituation()
-            startAndBindAdbService()
-        }
-    }
-    
-    private val requestNetworkPermissionsLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        val isWifiScanGranted = permissions[getWifiScanPermission()] ?: true
-        val isLocalNetworkGranted = if (Build.VERSION.SDK_INT >= 37) {
-            permissions["android.permission.ACCESS_LOCAL_NETWORK"] ?: false
-        } else {
-            true
-        }
-        if (isWifiScanGranted && isLocalNetworkGranted) {
-            appendLog("[INFO] Wi-Fi 所需权限已授予，已具备激活无线链路条件")
-        } else {
-            appendLog("[Warn] 权限被拒绝，无法自动扫描 Wi-Fi SSID")
-        }
-    }
-    
-    private val allFilesPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { _ ->
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && Environment.isExternalStorageManager()) {
-            appendLog("[INFO] Android 11+ 所有文件访问权限已授权")
-        } else {
-            appendLog("[Warn] Android 11+ 所有文件访问权限未授权")
-        }
-    }
 
-    private val legacyStorageLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissionsMap ->
-        val isAllGranted = permissionsMap.values.all { it }
-        if (isAllGranted) {
-            appendLog("[INFO] Android 10 文件读写权限已授权")
-        } else {
-            appendLog("[Warn] Android 10 文件读写权限未授权")
-        }
-    }
-    
-    private var pendingAudioBaseName: String = ""
-
-    private val pickVideoLauncher = registerForActivityResult(
-        ActivityResultContracts.PickVisualMedia()
-    ) { uri ->
-        if (uri != null) {
-            appendLog("[INFO] 已成功选取视频，正在分析轨道并提取音频…")
-        
-            lifecycleScope.launch {
-                val resultUri = extractAudioToMusicDirectory(
-                    context = this@MainActivity,
-                    videoUri = uri,
-                    baseFileName = pendingAudioBaseName,
-                    onProgress = { progress ->
-                        val percent = (progress * 100).toInt()
-                    }
-                )
-
-                if (resultUri != null) {
-                    appendLog("[OKAY] 音频提取完成！已安全保存至系统的【音乐(Music)/NekoExtractor】目录")
-                } else {
-                    appendLog("[error] 音频提取失败！可能视频中不包含有效的音频流，或多媒体架构初始化异常。")
-                }
-            }
-        } else {
-            appendLog("[Warn] 用户取消了视频选取。")
-        }
-    }
-
-    private val usbPermissionReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            if (ACTION_USB_PERMISSION == intent.action) {
-                val granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
-                if (granted) {
-                    val device = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
-                    } else {
-                        @Suppress("DEPRECATION") intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
-                    }
-                    if (device != null) {
-                        appendLog("[INFO] USB 调试设备权限获取成功")
-                        connectToInterface(device)
-                    }
-                } else {
-                    appendLog("[Warn] 用户拒绝了 USB 权限申请")
-                }
-            }
-        }
-    }
-
-    private val usbStateReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            when (intent.action) {
-                UsbManager.ACTION_USB_DEVICE_ATTACHED,
-                UsbManager.ACTION_USB_ACCESSORY_ATTACHED -> {
-                    isUsbAttached = true
-                    findHostDevice()
-                }
-                UsbManager.ACTION_USB_DEVICE_DETACHED,
-                UsbManager.ACTION_USB_ACCESSORY_DETACHED -> {
-                    isUsbAttached = false
-                    isAdbAuthorized = false
-                    isFastbootMode = false
-                    readerJob?.cancel()
-                    usbConn?.close()
-                    appendLog("[Warn] USB 设备已断开")
-                }
-            }
-        }
-    }
-
-    private val wifiReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == WifiManager.WIFI_STATE_CHANGED_ACTION) {
-                val wifiState = intent.getIntExtra(WifiManager.EXTRA_WIFI_STATE, WifiManager.WIFI_STATE_UNKNOWN)
-                val oldState = isWifiEnabled
-                when (wifiState) {
-                    WifiManager.WIFI_STATE_ENABLED -> {
-                        isWifiEnabled = true
-                        appendLog("[INFO] ⏳ WLAN 已开启")
-                    }
-                    WifiManager.WIFI_STATE_DISABLED -> {
-                        isWifiEnabled = false
-                        appendLog("[Warn] ⏳ WLAN 已关闭")
-                    }
-                }
-            }
-        }
-    }
-    
-    private val powerReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            when (intent?.action) {
-                Intent.ACTION_POWER_CONNECTED -> {
-                    appendLog("[INFO] 🔌 充电器已插入")
-                }
-                Intent.ACTION_POWER_DISCONNECTED -> {
-                    appendLog("[Warn] 🔋 充电器已拔出")
-                }
-            }
-        }
-    }
-    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(
@@ -566,26 +533,110 @@ class MainActivity : ComponentActivity() {
         ensureFlashDirExists()
         tryToStartService()
 
-        ContextCompat.registerReceiver(this, usbPermissionReceiver, IntentFilter(ACTION_USB_PERMISSION), ContextCompat.RECEIVER_NOT_EXPORTED)
-        ContextCompat.registerReceiver(this, usbStateReceiver, IntentFilter().apply {
-            addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
-            addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
-            addAction(UsbManager.ACTION_USB_ACCESSORY_ATTACHED)
-            addAction(UsbManager.ACTION_USB_ACCESSORY_DETACHED)
-        }, ContextCompat.RECEIVER_EXPORTED)
+        setupSystemBroadcastFlows()
+    }
 
-        ContextCompat.registerReceiver(this, wifiReceiver, IntentFilter(WifiManager.WIFI_STATE_CHANGED_ACTION), ContextCompat.RECEIVER_EXPORTED)
+    /**
+     * 响应式监听系统事件，利用 Lifecycle 绑定实现自动解绑与监听
+     */
+    private fun setupSystemBroadcastFlows() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
 
-        val powerFilter = IntentFilter().apply {
-            addAction(Intent.ACTION_POWER_CONNECTED)
-            addAction(Intent.ACTION_POWER_DISCONNECTED)
+                // 1. USB 权限授权广播 (RECEIVER_NOT_EXPORTED)
+                launch {
+                    registerReceiverFlow(
+                        filter = IntentFilter(ACTION_USB_PERMISSION),
+                        flags = ContextCompat.RECEIVER_NOT_EXPORTED
+                    ).collect { intent ->
+                        if (ACTION_USB_PERMISSION == intent.action) {
+                            val granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
+                            if (granted) {
+                                val device = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                    intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
+                                } else {
+                                    @Suppress("DEPRECATION") intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
+                                }
+                                if (device != null) {
+                                    appendLog("[INFO] USB 调试设备权限获取成功")
+                                    connectToInterface(device)
+                                }
+                            } else {
+                                appendLog("[Warn] 用户拒绝了 USB 权限申请")
+                            }
+                        }
+                    }
+                }
+
+                // 2. USB 设备拔插广播
+                launch {
+                    val filter = IntentFilter().apply {
+                        addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
+                        addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
+                        addAction(UsbManager.ACTION_USB_ACCESSORY_ATTACHED)
+                        addAction(UsbManager.ACTION_USB_ACCESSORY_DETACHED)
+                    }
+                    registerReceiverFlow(
+                        filter,
+                        ContextCompat.RECEIVER_EXPORTED
+                    ).collect { intent ->
+                        when (intent.action) {
+                            UsbManager.ACTION_USB_DEVICE_ATTACHED,
+                            UsbManager.ACTION_USB_ACCESSORY_ATTACHED -> {
+                                isUsbAttached = true
+                                findHostDevice()
+                            }
+                            UsbManager.ACTION_USB_DEVICE_DETACHED,
+                            UsbManager.ACTION_USB_ACCESSORY_DETACHED -> {
+                                isUsbAttached = false
+                                isAdbAuthorized = false
+                                isFastbootMode = false
+                                readerJob?.cancel()
+                                usbConn?.close()
+                                appendLog("[Warn] USB 设备已断开")
+                            }
+                        }
+                    }
+                }
+
+                // 3. Wi-Fi 状态广播
+                launch {
+                    registerReceiverFlow(
+                        filter = IntentFilter(WifiManager.WIFI_STATE_CHANGED_ACTION),
+                        flags = ContextCompat.RECEIVER_EXPORTED
+                    ).collect { intent ->
+                        val wifiState = intent.getIntExtra(WifiManager.EXTRA_WIFI_STATE, WifiManager.WIFI_STATE_UNKNOWN)
+                        when (wifiState) {
+                            WifiManager.WIFI_STATE_ENABLED -> {
+                                isWifiEnabled = true
+                                appendLog("[INFO] ⏳ WLAN 已开启")
+                            }
+                            WifiManager.WIFI_STATE_DISABLED -> {
+                                isWifiEnabled = false
+                                appendLog("[Warn] ⏳ WLAN 已关闭")
+                            }
+                        }
+                    }
+                }
+
+                // 4. 电源连接状态广播
+                launch {
+                    val filter = IntentFilter().apply {
+                        addAction(Intent.ACTION_POWER_CONNECTED)
+                        addAction(Intent.ACTION_POWER_DISCONNECTED)
+                    }
+                    registerReceiverFlow(
+                        filter,
+                        ContextCompat.RECEIVER_EXPORTED
+                    ).collect { intent ->
+                        when (intent.action) {
+                            Intent.ACTION_POWER_CONNECTED -> appendLog("[INFO] 🔌 充电器已插入")
+                            Intent.ACTION_POWER_DISCONNECTED -> appendLog("[Warn] 🔋 充电器已拔出")
+                        }
+                    }
+                }
+            }
         }
-        ContextCompat.registerReceiver(
-            this,
-            powerReceiver,
-            powerFilter,
-            ContextCompat.RECEIVER_EXPORTED
-        )
     }
 
     fun startWakeLock() {
@@ -1043,23 +1094,6 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    
-    private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        if (uri != null) {
-            appendLog("[INFO] 已选择图片，开始解码...")
-        
-            val result = QrCodeUtils.decodeQrCodes(this, uri) 
-        
-            if (result != null) {
-                appendLog("[INFO] 二维码解码成功！")
-                qrDecodeResult = result
-            } else {
-                appendLog("[error] 二维码解析失败，请确保图片清晰且确实包含二维码")
-            }
-        } else {
-            appendLog("[Warn] 取消了系统图片选择。")
-        }
-    }
 
     private fun openSystemImagePicker() {
         try {
@@ -1420,12 +1454,9 @@ class MainActivity : ComponentActivity() {
         }
         stopAdbService()
         currentShellJob?.cancel()
-        super.onDestroy()
         readerJob?.cancel()
         usbConn?.close()
-        unregisterReceiver(usbPermissionReceiver)
-        unregisterReceiver(usbStateReceiver)
-        unregisterReceiver(wifiReceiver)
-        unregisterReceiver(powerReceiver)
+        // 动态广播的注销由 setupSystemBroadcastFlows() 中的 callbackFlow awaitClose 自动安全完成，无需手动 unregisterReceiver
+        super.onDestroy()
     }
 }
