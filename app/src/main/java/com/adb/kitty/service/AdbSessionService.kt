@@ -440,11 +440,20 @@ class AdbSessionService : Service() {
     /**
      * 动态 Shortcut 独立更新（仅在 onCreate 或更换头像时调用）
      */
-     private fun updateShortcutIfNeeded() {
+    private fun updateShortcutIfNeeded() {
+        val newIntent = Intent().apply {
+            action = Intent.ACTION_VIEW
+            setClassName("com.android.settings", "com.android.settings.SubSettings")
+            putExtra(":settings:show_fragment", "com.android.settings.development.WirelessDebuggingFragment")
+        
+            // 跨应用/从 Service 启动必须带上 NEW_TASK 标志
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+
         val shortcut = ShortcutInfoCompat.Builder(this, SHORTCUT_ID)
-            .setShortLabel(getString(R.string.action_service_aaa))
+            .setShortLabel(getString(R.string.action_service_adb))
             .setIcon(getCircularIcon())
-            .setIntent(Intent(this, AdbSessionService::class.java).apply { action = "LAUNCH_FROM_NOTIF" })
+            .setIntent(newIntent)
             .setPerson(getConsoleUser())
             .setLongLived(true)
             .setIsConversation()

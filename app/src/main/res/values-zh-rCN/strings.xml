@@ -31,7 +31,8 @@
     <string name="action_qr_osa">输出到文件</string>
     <string name="action_qr_osb">复制全部</string>
     <string name="action_qr_osc">🔍 二维码解析结果</string>
-    <string name="action_service_aaa">控制台</string>
+    <string name="action_service_aaa">调试</string>
+    <string name="action_service_adb">无线调试</string>
     <string name="action_service_aab">发送指令</string>
     <string name="action_service_aac">自由窗口</string>
     <string name="action_service_aad">输入需要发送的快捷指令</string>
