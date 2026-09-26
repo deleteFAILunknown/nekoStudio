@@ -507,7 +507,8 @@ class AdbSessionService : Service() {
             .setShortcutId(SHORTCUT_ID)
             .setBubbleMetadata(null)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setDefaults(NotificationCompat.DEFAULT_VIBRATE)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true) 
             .setOnlyAlertOnce(true) 
@@ -537,12 +538,13 @@ class AdbSessionService : Service() {
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 getString(R.string.action_service_aag),
-                NotificationManager.IMPORTANCE_DEFAULT
+                NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = getString(R.string.action_service_aah)
-                setShowBadge(false)
-                enableLights(false)
-                enableVibration(false)
+                setShowBadge(true)
+                enableLights(true)
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 250)
                 setSound(null, null)
             }
 
