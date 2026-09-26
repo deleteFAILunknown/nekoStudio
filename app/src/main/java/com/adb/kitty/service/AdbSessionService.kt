@@ -369,55 +369,52 @@ class AdbSessionService : Service() {
             val openIntent = Intent(this, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
 
-                // 国产厂商（小米/HyperOS、OPPO、vivo 等）自由窗口 Intent Extra 兼容
-                putExtra("miui.intent.extra.open_in_freeform", true)
-                putExtra("intent_flag_miui_freeform", true)
-                putExtra("com.mbridge.msdk.intent.extra.open_in_freeform", true)
-            }
-
-            // --- 动态获取真实物理分辨率（彻底杜绝固定宽高） ---
-            val wm = getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager
-        
-            val screenWidth: Int
-            val screenHeight: Int
-
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                // Android 11+ (API 30+) 最纯粹的系统 API，不依赖 WindowMetricsCalculator，直接从系统的 WindowManager 读取
-                // 即使传入的是 Service Context 也不会闪退
-                val bounds = wm.currentWindowMetrics.bounds
-                screenWidth = bounds.width()
-                screenHeight = bounds.height()
-            } else {
-                // Android 10 及以下 (包含你的 minSdk 24) 的完美兜底
-                // 使用 getRealMetrics 可以绕过所有应用窗口限制，直接读取屏幕物理硬件的像素点
-                val metrics = android.util.DisplayMetrics()
-                @Suppress("DEPRECATION")
-                wm.defaultDisplay.getRealMetrics(metrics)
-                screenWidth = metrics.widthPixels
-                screenHeight = metrics.heightPixels
-            }
-
-            // 2. 计算居中小窗的初始弹出尺寸 (宽度 85%，高度 60%)
-            val windowWidth = (screenWidth * 0.85).toInt()
-            val windowHeight = (screenHeight * 0.60).toInt()
-            val left = (screenWidth - windowWidth) / 2
-            val top = (screenHeight - windowHeight) / 2
-
-            // 3. 构建原生 Freeform 窗口参数
-            val options = ActivityOptions.makeBasic().apply {
-                // 设置弹出初始坐标与宽高
-                launchBounds = Rect(left, top, left + windowWidth, top + windowHeight)
-
-                // 反射设置原生 WINDOWING_MODE_FREEFORM (常量值 5)
-                try {
-                    val method = ActivityOptions::class.java.getMethod(
-                        "setLaunchWindowingMode",
-                        Int::class.javaPrimitiveType
-                    )
-                    method.invoke(this, 5)
-                } catch (e: Exception) {
-                    e.printStackTrace()
+                // 仅在 Android 10+ 上附带厂商私有小窗 Extra
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    putExtra("miui.intent.extra.open_in_freeform", true)
+                    putExtra("intent_flag_miui_freeform", true)
+                    putExtra("com.mbridge.msdk.intent.extra.open_in_freeform", true)
                 }
+            }
+
+            var optionsBundle: android.os.Bundle? = null
+
+            // 只有 Android 10 (API 29) 及以上才去计算小窗尺寸并反射参数
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+                val screenWidth: Int
+                val screenHeight: Int
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    val bounds = wm.currentWindowMetrics.bounds
+                    screenWidth = bounds.width()
+                    screenHeight = bounds.height()
+                } else {
+                    val metrics = DisplayMetrics()
+                    @Suppress("DEPRECATION")
+                    wm.defaultDisplay.getRealMetrics(metrics)
+                    screenWidth = metrics.widthPixels
+                    screenHeight = metrics.heightPixels
+                }
+
+                val windowWidth = (screenWidth * 0.85).toInt()
+                val windowHeight = (screenHeight * 0.60).toInt()
+                val left = (screenWidth - windowWidth) / 2
+                val top = (screenHeight - windowHeight) / 2
+
+                val options = ActivityOptions.makeBasic().apply {
+                    launchBounds = Rect(left, top, left + windowWidth, top + windowHeight)
+                    try {
+                        val method = ActivityOptions::class.java.getMethod(
+                            "setLaunchWindowingMode",
+                            Int::class.javaPrimitiveType
+                        )
+                        method.invoke(this, 5) // WINDOWING_MODE_FREEFORM
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+                optionsBundle = options.toBundle()
             }
 
             val openPendingIntent = PendingIntent.getActivity(
@@ -425,7 +422,7 @@ class AdbSessionService : Service() {
                 1,
                 openIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-                options.toBundle()
+                optionsBundle
             )
 
             openAction = NotificationCompat.Action.Builder(
