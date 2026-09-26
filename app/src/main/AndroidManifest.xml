@@ -871,10 +871,15 @@
         <receiver
             android:name=".receiver.BootReceiver"
             android:exported="true"
-            android:directBootAware="true">
+            android:directBootAware="true"
+            android:permission="android.permission.RECEIVE_BOOT_COMPLETED" >
             <intent-filter>
+                <!-- 设备启动完成且用户已解锁 (凭据加密存储已被解锁) -->
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <!-- 设备已启动但用户尚未解锁 (Direct Boot 模式) -->
                 <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                <!-- 本应用自身升级/覆盖安装完成 (无需特殊权限) -->
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
         <provider
