@@ -34,7 +34,6 @@
     <string name="action_qr_osb">copy all</string>
     <string name="action_qr_osc">🔍 QR code analysis results</string>
     <string name="action_service_aaa">debug</string>
-    <string name="action_service_adb">wlan debug</string>
     <string name="action_service_aab">cmds</string>
     <string name="action_service_aac">window</string>
     <string name="action_service_aad">Enter the shortcut command to be sent</string>

@@ -451,7 +451,7 @@ class AdbSessionService : Service() {
         }
 
         val shortcut = ShortcutInfoCompat.Builder(this, SHORTCUT_ID)
-            .setShortLabel(getString(R.string.action_service_adb))
+            .setShortLabel(getString(R.string.action_service_aaa))
             .setIcon(getCircularIcon())
             .setIntent(newIntent)
             .setPerson(getConsoleUser())
