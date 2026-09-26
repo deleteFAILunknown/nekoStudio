@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <shortcut
+        android:shortcutId="running_services"
+        android:enabled="true"
+        android:icon="@drawable/ic_running_services"
+        android:shortcutShortLabel="@string/shortlabel_string_running">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.android.settings"
+            android:targetClass="com.android.settings.SubSettings">
+            <extra
+                android:name=":settings:show_fragment"
+                android:value="com.android.settings.applications.RunningServices" />
+        </intent>
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="memory_settings"
+        android:enabled="true"
+        android:icon="@drawable/ic_memory"
+        android:shortcutShortLabel="@string/shortlabel_string_memory">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.android.settings"
+            android:targetClass="com.android.settings.Settings$MemorySettingsActivity" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="magnification_settings"
+        android:enabled="true"
+        android:icon="@drawable/ic_magnification"
+        android:shortcutShortLabel="@string/shortlabel_string_magnification">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.android.settings"
+            android:targetClass="com.android.settings.Settings$MagnificationActivity" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="reduce_bright_colors"
+        android:enabled="true"
+        android:icon="@drawable/ic_extra_dim"
+        android:shortcutShortLabel="@string/shortlabel_string_dim">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.android.settings"
+            android:targetClass="com.android.settings.Settings$ReduceBrightColorsSettingsActivity" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="wireless_debugging"
+        android:enabled="true"
+        android:icon="@drawable/ic_wireless_adb"
+        android:shortcutShortLabel="@string/shortlabel_string_wifi_adb">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.android.settings"
+            android:targetClass="com.android.settings.SubSettings">
+            <extra
+                android:name=":settings:show_fragment"
+                android:value="com.android.settings.development.WirelessDebuggingFragment" />
+        </intent>
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="developer_options_class"
+        android:enabled="true"
+        android:icon="@drawable/ic_developer_mode"
+        android:shortcutShortLabel="@string/shortlabel_string_developer">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.android.settings"
+            android:targetClass="com.android.settings.Settings$DevelopmentSettingsActivity" />
+    </shortcut>
+
+</shortcuts>

@@ -775,8 +775,8 @@
             android:name="android.software.leanback.supports_touch"
             android:value="true" />
         <meta-data 
-            android:name="APP_SYSTEM_SUPPORT"
-            android:value="HyperOS3、Android 16" />
+            android:name="msg_keys"
+            android:value="OpenSSL_X509" />
         <meta-data 
             android:name="app_logs"
             android:value="@string/app_logs" />
@@ -814,6 +814,9 @@
                 <category
                     android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
+            <meta-data 
+                android:name="android.app.shortcuts"
+                android:resource="@xml/activity_shortcuts" />
         </activity-alias>
         <activity 
             android:name="MainActivity"

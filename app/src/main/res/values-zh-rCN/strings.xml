@@ -43,4 +43,11 @@
     <string name="permission_label">独立私有 API</string>
     <string name="permission_description">这是应用程序自身的私有 API 权限, 个人开发者的同一系列同签名应用可随意访问、随意调用</string>
     <string name="app_logs">在那个夜晚，我梦见了我的初恋女友，她很清纯、很可爱，她在我跌落时选择了主动来给予我爱的怀抱，那一次我真的感受到了温暖与爱，她笑的很甜很开心很可爱，让我第一次想给她一次，只可惜我还没给她一次，我就突然从梦中醒来了，真的好可惜，醒来之后，我回想过去我们在一起的时光，我才发现我至今都没能给过她一次，我真的好后悔、好伤心、好难过，悲伤直达我的内心，而我却什么都做不了、什么都改变不了，如果上天能再给我一次机会，我一定会给她一次、爱她一次、好好珍惜她，岁月夺走了我的时间却没让我忘记这一段回忆，让我一次又一次的记起、一次又一次的悲伤，如果这是一种折磨，那么我希望这种折磨不会在她的身上，而是一直都只在我的身上，我宁愿一人抗下所有，也不愿她受到半分伤痛</string>
+
+    <string name="shortlabel_string_running">正在运行的服务</string>
+    <string name="shortlabel_string_memory">内存分析</string>
+    <string name="shortlabel_string_magnification">放大镜</string>
+    <string name="shortlabel_string_dim">极暗</string>
+    <string name="shortlabel_string_wifi_adb">无线调试</string>
+    <string name="shortlabel_string_developer">开发者选项</string>
 </resources>
