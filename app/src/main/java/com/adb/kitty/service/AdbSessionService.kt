@@ -11,6 +11,13 @@ import android.util.Log
 import android.util.DisplayMetrics
 import android.view.WindowManager
 import android.graphics.*
+
+import android.hardware.usb.UsbConstants
+import android.hardware.usb.UsbDevice
+import android.hardware.usb.UsbDeviceConnection
+import android.hardware.usb.UsbEndpoint
+import android.hardware.usb.UsbManager
+
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationChannelGroup
@@ -19,13 +26,16 @@ import android.app.PendingIntent
 import android.app.Service
 import android.app.ActivityOptions
 import android.app.AppOpsManager
+
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
+
 import android.net.wifi.WifiManager
 import android.net.wifi.p2p.*
+
 import android.os.Binder
 import android.os.Build
 import android.os.Bundle
@@ -35,8 +45,10 @@ import android.os.Process
 import android.os.ParcelFileDescriptor
 import android.os.PowerManager
 import android.os.SystemClock
+
 import android.system.Os
 import android.system.OsConstants
+
 import androidx.core.app.Person
 import androidx.core.app.RemoteInput
 import androidx.core.net.toUri

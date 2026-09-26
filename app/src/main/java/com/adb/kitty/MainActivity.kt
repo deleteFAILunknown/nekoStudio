@@ -105,25 +105,6 @@ import com.adb.kitty.data.help.*
 import com.adb.kitty.service.*
 import com.adb.kitty.R
 
-/**
- * 扩展函数：将 BroadcastReceiver 包装为响应式 Flow，实现生命周期安全管理
- */
-@Keep
-fun Context.registerReceiverFlow(
-    filter: IntentFilter,
-    flags: Int = ContextCompat.RECEIVER_EXPORTED
-): Flow<Intent> = callbackFlow {
-    val receiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            trySend(intent)
-        }
-    }
-    ContextCompat.registerReceiver(this@registerReceiverFlow, receiver, filter, flags)
-    awaitClose {
-        unregisterReceiver(receiver)
-    }
-}
-
 @Keep
 class MainActivity : ComponentActivity() {
     companion object {
@@ -533,107 +514,100 @@ class MainActivity : ComponentActivity() {
         ensureFlashDirExists()
         tryToStartService()
 
-        setupSystemBroadcastFlows()
+        // USB 权限回调广播（单独注册为 NOT_EXPORTED）
+        ContextCompat.registerReceiver(
+            this,
+            usbPermissionReceiver,
+            IntentFilter(ACTION_USB_PERMISSION),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+        // 除非 Activity 销毁，否则不允许注册，这是预期行为，如果被注册则破坏整体逻辑，破坏等于重写整个应用的所有逻辑
+        // 其余系统广播合一注册（RECEIVER_EXPORTED）
+        val systemIntentFilter = IntentFilter().apply {
+            addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
+            addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
+            addAction(UsbManager.ACTION_USB_ACCESSORY_ATTACHED)
+            addAction(UsbManager.ACTION_USB_ACCESSORY_DETACHED)
+            addAction(WifiManager.WIFI_STATE_CHANGED_ACTION)
+            addAction(Intent.ACTION_POWER_CONNECTED)
+            addAction(Intent.ACTION_POWER_DISCONNECTED)
+        }
+
+        ContextCompat.registerReceiver(
+            this,
+            systemReceiver,
+            systemIntentFilter,
+            ContextCompat.RECEIVER_EXPORTED
+        )
     }
 
-    /**
-     * 响应式监听系统事件，利用 Lifecycle 绑定实现自动解绑与监听
-     */
-    private fun setupSystemBroadcastFlows() {
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
+    private val usbPermissionReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == ACTION_USB_PERMISSION) {
+                val granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
+                if (granted) {
+                    val device = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
+                    }
+                    if (device != null) {
+                        appendLog("[INFO] USB 调试设备权限获取成功")
+                        connectToInterface(device)
+                    }
+                } else {
+                    appendLog("[Warn] 用户拒绝了 USB 权限申请")
+                }
+            }
+        }
+    }
 
-                // 1. USB 权限授权广播 (RECEIVER_NOT_EXPORTED)
-                launch {
-                    registerReceiverFlow(
-                        filter = IntentFilter(ACTION_USB_PERMISSION),
-                        flags = ContextCompat.RECEIVER_NOT_EXPORTED
-                    ).collect { intent ->
-                        if (ACTION_USB_PERMISSION == intent.action) {
-                            val granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
-                            if (granted) {
-                                val device = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                    intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
-                                } else {
-                                    @Suppress("DEPRECATION") intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
-                                }
-                                if (device != null) {
-                                    appendLog("[INFO] USB 调试设备权限获取成功")
-                                    connectToInterface(device)
-                                }
-                            } else {
-                                appendLog("[Warn] 用户拒绝了 USB 权限申请")
-                            }
+    private val systemReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                UsbManager.ACTION_USB_DEVICE_ATTACHED -> {
+                    isUsbAttached = true
+                    findHostDevice()
+                }
+
+                UsbManager.ACTION_USB_DEVICE_DETACHED -> {
+                    isUsbAttached = false
+                    isAdbAuthorized = false
+                    isFastbootMode = false
+                    readerJob?.cancel()
+                    usbConn?.close()
+                    appendLog("[Warn] USB 主机设备已断开")
+                }
+
+                UsbManager.ACTION_USB_ACCESSORY_ATTACHED -> {
+                    appendLog("[INFO] USB 配件设备已连接")
+                }
+
+                UsbManager.ACTION_USB_ACCESSORY_DETACHED -> {
+                    appendLog("[Warn] USB 配件设备已断开")
+                }
+
+                WifiManager.WIFI_STATE_CHANGED_ACTION -> {
+                    val wifiState = intent.getIntExtra(WifiManager.EXTRA_WIFI_STATE, WifiManager.WIFI_STATE_UNKNOWN)
+                    when (wifiState) {
+                        WifiManager.WIFI_STATE_ENABLED -> {
+                            isWifiEnabled = true
+                            appendLog("[INFO] ⏳ WLAN 已开启")
+                        }
+                        WifiManager.WIFI_STATE_DISABLED -> {
+                            isWifiEnabled = false
+                            appendLog("[Warn] ⏳ WLAN 已关闭")
                         }
                     }
                 }
 
-                // 2. USB 设备拔插广播
-                launch {
-                    val filter = IntentFilter().apply {
-                        addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
-                        addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
-                        addAction(UsbManager.ACTION_USB_ACCESSORY_ATTACHED)
-                        addAction(UsbManager.ACTION_USB_ACCESSORY_DETACHED)
-                    }
-                    registerReceiverFlow(
-                        filter,
-                        ContextCompat.RECEIVER_EXPORTED
-                    ).collect { intent ->
-                        when (intent.action) {
-                            UsbManager.ACTION_USB_DEVICE_ATTACHED,
-                            UsbManager.ACTION_USB_ACCESSORY_ATTACHED -> {
-                                isUsbAttached = true
-                                findHostDevice()
-                            }
-                            UsbManager.ACTION_USB_DEVICE_DETACHED,
-                            UsbManager.ACTION_USB_ACCESSORY_DETACHED -> {
-                                isUsbAttached = false
-                                isAdbAuthorized = false
-                                isFastbootMode = false
-                                readerJob?.cancel()
-                                usbConn?.close()
-                                appendLog("[Warn] USB 设备已断开")
-                            }
-                        }
-                    }
+                Intent.ACTION_POWER_CONNECTED -> {
+                    appendLog("[INFO] 🔌 充电器已插入")
                 }
 
-                // 3. Wi-Fi 状态广播
-                launch {
-                    registerReceiverFlow(
-                        filter = IntentFilter(WifiManager.WIFI_STATE_CHANGED_ACTION),
-                        flags = ContextCompat.RECEIVER_EXPORTED
-                    ).collect { intent ->
-                        val wifiState = intent.getIntExtra(WifiManager.EXTRA_WIFI_STATE, WifiManager.WIFI_STATE_UNKNOWN)
-                        when (wifiState) {
-                            WifiManager.WIFI_STATE_ENABLED -> {
-                                isWifiEnabled = true
-                                appendLog("[INFO] ⏳ WLAN 已开启")
-                            }
-                            WifiManager.WIFI_STATE_DISABLED -> {
-                                isWifiEnabled = false
-                                appendLog("[Warn] ⏳ WLAN 已关闭")
-                            }
-                        }
-                    }
-                }
-
-                // 4. 电源连接状态广播
-                launch {
-                    val filter = IntentFilter().apply {
-                        addAction(Intent.ACTION_POWER_CONNECTED)
-                        addAction(Intent.ACTION_POWER_DISCONNECTED)
-                    }
-                    registerReceiverFlow(
-                        filter,
-                        ContextCompat.RECEIVER_EXPORTED
-                    ).collect { intent ->
-                        when (intent.action) {
-                            Intent.ACTION_POWER_CONNECTED -> appendLog("[INFO] 🔌 充电器已插入")
-                            Intent.ACTION_POWER_DISCONNECTED -> appendLog("[Warn] 🔋 充电器已拔出")
-                        }
-                    }
+                Intent.ACTION_POWER_DISCONNECTED -> {
+                    appendLog("[Warn] 🔋 充电器已拔出")
                 }
             }
         }
@@ -1454,9 +1428,10 @@ class MainActivity : ComponentActivity() {
         }
         stopAdbService()
         currentShellJob?.cancel()
+        super.onDestroy()
         readerJob?.cancel()
         usbConn?.close()
-        // 动态广播的注销由 setupSystemBroadcastFlows() 中的 callbackFlow awaitClose 自动安全完成，无需手动 unregisterReceiver
-        super.onDestroy()
+        unregisterReceiver(usbPermissionReceiver)
+        unregisterReceiver(systemReceiver)
     }
 }
